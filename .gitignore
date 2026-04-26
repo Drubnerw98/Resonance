@@ -21,6 +21,7 @@ pnpm-debug.log*
 # Editor
 .vscode/
 !.vscode/extensions.json
+.idea/
 .DS_Store
 
 # Vercel

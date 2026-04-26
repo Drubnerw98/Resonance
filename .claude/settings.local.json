@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install *)",
+      "Bash(pnpm -r typecheck)",
+      "Bash(DATABASE_URL='postgres://x:y@localhost/db' timeout 5 pnpm tsx src/index.ts)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(pnpm --filter @resonance/client build)",
+      "Bash(pnpm --filter @resonance/server db:generate)",
+      "Bash(pnpm --filter @resonance/server add @clerk/express)",
+      "Bash(pnpm --filter @resonance/client add @clerk/clerk-react)",
+      "Bash(pnpm --filter @resonance/server typecheck)",
+      "Bash(pnpm --filter @resonance/client typecheck)",
+      "Bash(awk *)"
+    ]
+  }
+}

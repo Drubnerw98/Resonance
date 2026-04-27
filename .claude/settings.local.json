@@ -11,7 +11,12 @@
       "Bash(pnpm --filter @resonance/client add @clerk/clerk-react)",
       "Bash(pnpm --filter @resonance/server typecheck)",
       "Bash(pnpm --filter @resonance/client typecheck)",
-      "Bash(awk *)"
+      "Bash(awk *)",
+      "Bash(git restore *)",
+      "Bash(pnpm --filter @resonance/server add @anthropic-ai/sdk)",
+      "Bash(pnpm tsx *)",
+      "Skill(claude-api)",
+      "Bash(pnpm --filter @resonance/server list zod @anthropic-ai/sdk --depth 0)"
     ]
   }
 }

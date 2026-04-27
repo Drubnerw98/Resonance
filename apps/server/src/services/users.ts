@@ -48,3 +48,10 @@ export async function ensureUser(clerkId: string): Promise<User> {
   if (!row) throw new Error("Failed to upsert user");
   return row;
 }
+
+export async function markOnboardingComplete(userId: string): Promise<void> {
+  await db
+    .update(users)
+    .set({ onboardingStatus: "complete", updatedAt: new Date() })
+    .where(eq(users.id, userId));
+}

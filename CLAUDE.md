@@ -12,7 +12,7 @@ Portfolio project targeting dev jobs at startups/agencies.
 - **Backend:** Node.js with Express, Vercel serverless functions
 - **Database:** PostgreSQL on Neon, Drizzle ORM
 - **Auth:** Clerk (Google + GitHub OAuth)
-- **AI:** Anthropic Claude API (claude-sonnet-4-20250514)
+- **AI:** Anthropic Claude API (claude-sonnet-4-6)
 - **External APIs:** TMDB (movies/TV), IGDB (games), Jikan/MAL (anime/manga), Open Library (books)
 - **Styling:** Tailwind CSS
 
@@ -168,7 +168,7 @@ interface MediaItem {
 
 ## AI integration layer — three modes
 
-All AI calls use `claude-sonnet-4-20250514`. Keep system prompts in `/server/services/ai/prompts/` as template strings with interpolation points.
+All AI calls use `claude-sonnet-4-6`. Keep system prompts in `/server/services/ai/prompts/` as template strings with interpolation points.
 
 ### Mode 1: Onboarding conversation
 

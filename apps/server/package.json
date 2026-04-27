@@ -15,6 +15,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.91.1",
     "@clerk/express": "^2.1.9",
     "@neondatabase/serverless": "^0.10.4",
     "@resonance/shared": "workspace:*",

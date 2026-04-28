@@ -16,7 +16,8 @@
       "Bash(pnpm --filter @resonance/server add @anthropic-ai/sdk)",
       "Bash(pnpm tsx *)",
       "Skill(claude-api)",
-      "Bash(pnpm --filter @resonance/server list zod @anthropic-ai/sdk --depth 0)"
+      "Bash(pnpm --filter @resonance/server list zod @anthropic-ai/sdk --depth 0)",
+      "Bash(pnpm --thread @resonance/server typecheck)"
     ]
   }
 }

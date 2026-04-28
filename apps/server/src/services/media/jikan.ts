@@ -25,7 +25,14 @@ interface JikanItem {
   published?: { from?: string | null };
   genres?: { name: string }[];
   url?: string;
+  /** "TV" | "Movie" | "OVA" | "ONA" | "Special" | "Music" | "PV" | "CM" | etc. */
+  type?: string | null;
 }
+
+// Promotional and ad entries are separate MAL records from the actual show
+// they advertise — same title, same year, sometimes appearing ahead of the
+// real entry in search relevance. Filter them out at the adapter level.
+const PROMO_TYPES = new Set(["PV", "CM"]);
 
 interface JikanResponse<T> {
   data: T;
@@ -70,6 +77,28 @@ function yearFromDate(d: string | null | undefined): number | null {
   if (!d) return null;
   const m = d.match(/\d{4}/);
   return m ? Number(m[0]) : null;
+}
+
+/**
+ * Drop promo/CM entries and collapse duplicate (title, year) pairs to the
+ * highest-rated single record. MAL routinely indexes the same season twice
+ * under slightly different metadata; in our pipeline these are noise.
+ */
+function cleanResults(items: MediaItem[], rawItems: JikanItem[]): MediaItem[] {
+  const promoIds = new Set(
+    rawItems.filter((r) => r.type && PROMO_TYPES.has(r.type)).map((r) => r.mal_id),
+  );
+  const filtered = items.filter((i) => !promoIds.has(Number(i.externalId)));
+
+  const byKey = new Map<string, MediaItem>();
+  for (const item of filtered) {
+    const key = `${item.title.toLowerCase()}|${item.year ?? ""}`;
+    const existing = byKey.get(key);
+    if (!existing || (item.rating ?? 0) > (existing.rating ?? 0)) {
+      byKey.set(key, item);
+    }
+  }
+  return Array.from(byKey.values());
 }
 
 function normalize(item: JikanItem, mediaType: "anime" | "manga"): MediaItem {
@@ -130,10 +159,15 @@ async function searchByTitle(title: string): Promise<MediaItem[]> {
       limit: "5",
     }),
   ]);
-  return [
-    ...anime.data.map((i) => normalize(i, "anime")),
-    ...manga.data.map((i) => normalize(i, "manga")),
-  ];
+  const animeItems = cleanResults(
+    anime.data.map((i) => normalize(i, "anime")),
+    anime.data,
+  );
+  const mangaItems = cleanResults(
+    manga.data.map((i) => normalize(i, "manga")),
+    manga.data,
+  );
+  return [...animeItems, ...mangaItems];
 }
 
 async function searchByQuery(query: MediaSearchQuery): Promise<MediaItem[]> {
@@ -168,7 +202,10 @@ async function searchByQuery(query: MediaSearchQuery): Promise<MediaItem[]> {
   }
 
   const res = await jikanFetch<JikanResponse<JikanItem[]>>(`/${sub}`, params);
-  return res.data.map((i) => normalize(i, sub));
+  return cleanResults(
+    res.data.map((i) => normalize(i, sub)),
+    res.data,
+  );
 }
 
 async function getById(externalId: string): Promise<MediaItem | null> {

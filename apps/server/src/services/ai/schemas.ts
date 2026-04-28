@@ -60,3 +60,54 @@ export const TasteProfileSchema = z.object({
 // If the two ever diverge, this assignment fails to typecheck.
 const _typecheck: TasteProfile = {} as z.infer<typeof TasteProfileSchema>;
 void _typecheck;
+
+// === Mode 3 schemas: recommendation pipeline ===
+//
+// Step 1 of the pipeline — the model proposes candidates given a TasteProfile.
+// Two output channels:
+//   - titleSuggestions: specific titles the model thinks fit. Treated as
+//     fuzzy search hints; may not exist in the relevant API.
+//   - discoveryQueries: genre-based seeds for /discover-style searches.
+//     Keywords were dropped here because the source APIs all use simple
+//     title-substring matching for free-text search, which doesn't play well
+//     with abstract themes like "psychological interiority". Genre filters
+//     are reliable; abstract keywords aren't.
+export const CandidatesOutputSchema = z.object({
+  titleSuggestions: z
+    .array(
+      z.object({
+        title: z.string().min(1),
+        mediaType: MediaTypeEnum,
+        reason: z.string().min(1),
+      }),
+    )
+    .max(20),
+  discoveryQueries: z
+    .array(
+      z.object({
+        mediaType: MediaTypeEnum,
+        genres: z.array(z.string().min(1)).min(1),
+      }),
+    )
+    .max(10),
+});
+
+export type CandidatesOutput = z.infer<typeof CandidatesOutputSchema>;
+
+// Step 3 of the pipeline — the model scores real candidates we've fetched.
+// We give each candidate a sequential string ID ("1", "2", ...) so the model
+// doesn't have to round-trip our cache UUIDs; we map back in the orchestrator.
+export const ScoredCandidatesOutputSchema = z.object({
+  recommendations: z
+    .array(
+      z.object({
+        candidateId: z.string().min(1),
+        matchScore: z.number().min(0).max(1),
+        explanation: z.string().min(1),
+        tasteTags: z.array(z.string().min(1)),
+      }),
+    )
+    .max(40),
+});
+
+export type ScoredCandidatesOutput = z.infer<typeof ScoredCandidatesOutputSchema>;

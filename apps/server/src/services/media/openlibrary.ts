@@ -96,8 +96,13 @@ function normalizeDoc(doc: OpenLibraryDoc): MediaItem {
 }
 
 async function searchByTitle(title: string): Promise<MediaItem[]> {
+  // language=eng pre-filters out non-English editions of the same work
+  // (e.g., a search for "Nausea" otherwise returns "La Nausée" alongside
+  // the English novel — they're different titles, different OL keys, but
+  // the same book).
   const res = await olFetch<OpenLibrarySearchResponse>("/search.json", {
     title,
+    language: "eng",
     limit: "10",
   });
   return res.docs.slice(0, 10).map(normalizeDoc);
@@ -126,6 +131,9 @@ async function searchByQuery(query: MediaSearchQuery): Promise<MediaItem[]> {
     // No criteria → don't blanket-fetch the entire library.
     return [];
   }
+
+  // English-only — see comment in searchByTitle.
+  params.language = "eng";
 
   const res = await olFetch<OpenLibrarySearchResponse>("/search.json", params);
   return res.docs.map(normalizeDoc);

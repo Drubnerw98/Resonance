@@ -69,6 +69,17 @@ interface IgdbGame {
   total_rating?: number | null;
   genres?: { name: string }[];
   url?: string;
+  /** 0=main_game, 1=dlc, 2=expansion, 4=standalone_expansion, 8=remake, 9=remaster, ... */
+  category?: number | null;
+}
+
+const STANDALONE_CATEGORY_SET = new Set([0, 4, 8, 9]);
+
+function isStandaloneCategory(g: IgdbGame): boolean {
+  // Allow null categories through in title searches — legacy IGDB entries
+  // sometimes lack a category but are still real games. The where-clause
+  // filter (used in discovery queries) is stricter.
+  return g.category == null || STANDALONE_CATEGORY_SET.has(g.category);
 }
 
 async function igdbFetch<T>(endpoint: string, body: string): Promise<T> {
@@ -128,12 +139,22 @@ function escapeApicalypse(s: string): string {
 }
 
 const FIELDS =
-  "name, summary, cover.url, first_release_date, total_rating, genres.name, url";
+  "name, summary, cover.url, first_release_date, total_rating, genres.name, url, category";
+
+// IGDB's `category` field — see STANDALONE_CATEGORY_SET above for which
+// values count as "a thing the player would consider playing on its own".
+// We filter on this CLIENT-SIDE in every adapter call, never via IGDB's
+// where-clause tuple match, because that combination has empirically
+// zeroed out otherwise-good queries.
 
 async function searchByTitle(title: string): Promise<MediaItem[]> {
+  // Don't combine `search` with a `where category = (...)` clause — IGDB
+  // applies the where to the top-30 results returned by the search ranker,
+  // and in practice that produces 0 hits even when the main game exists.
+  // Filter category client-side instead.
   const body = `fields ${FIELDS}; search "${escapeApicalypse(title)}"; limit 10;`;
   const games = await igdbFetch<IgdbGame[]>("/games", body);
-  return games.map(normalize);
+  return games.filter(isStandaloneCategory).map(normalize);
 }
 
 async function searchByQuery(query: MediaSearchQuery): Promise<MediaItem[]> {
@@ -142,8 +163,8 @@ async function searchByQuery(query: MediaSearchQuery): Promise<MediaItem[]> {
   }
   const limit = query.limit ?? 20;
 
-  // Keyword path: IGDB's `search` is single-term, so fan out across keywords
-  // and dedupe by id. Same shape TMDB uses for keyword searches.
+  // Keyword path: same caveat as title search — don't combine `search` with
+  // `where`, filter category in code.
   if (query.keywords && query.keywords.length > 0) {
     const seen = new Set<number>();
     const merged: IgdbGame[] = [];
@@ -152,6 +173,7 @@ async function searchByQuery(query: MediaSearchQuery): Promise<MediaItem[]> {
       const games = await igdbFetch<IgdbGame[]>("/games", body);
       for (const g of games) {
         if (seen.has(g.id)) continue;
+        if (!isStandaloneCategory(g)) continue;
         seen.add(g.id);
         merged.push(g);
         if (merged.length >= limit) break;
@@ -183,9 +205,22 @@ async function searchByQuery(query: MediaSearchQuery): Promise<MediaItem[]> {
   }
   if (wheres.length === 0) return [];
 
-  const body = `fields ${FIELDS}; where ${wheres.join(" & ")}; sort total_rating desc; limit ${limit};`;
+  // Require enough ratings to be statistically meaningful — otherwise
+  // `sort total_rating desc` surfaces obscure games with 1-2 perfect votes
+  // ahead of mainstream titles. 10 is a low-but-nonzero floor that keeps
+  // small indies in but cuts the long tail of single-vote outliers.
+  wheres.push(`total_rating_count > 10`);
+
+  // Standalone-categories filter is applied CLIENT-SIDE — IGDB's where-clause
+  // tuple-match `category = (0,4,8,9)` empirically zeroes out otherwise-good
+  // discovery queries when combined with genre + rating filters. Filtering in
+  // code is reliable and uses the same allowlist as title search.
+  const body = `fields ${FIELDS}; where ${wheres.join(" & ")}; sort total_rating desc; limit ${limit * 2};`;
   const games = await igdbFetch<IgdbGame[]>("/games", body);
-  return games.map(normalize);
+  return games
+    .filter(isStandaloneCategory)
+    .slice(0, limit)
+    .map(normalize);
 }
 
 async function getById(externalId: string): Promise<MediaItem | null> {

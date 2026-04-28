@@ -155,6 +155,33 @@ export const mediaCache = pgTable(
   ],
 );
 
+// Persistent batches — every generated rec batch becomes a first-class
+// object with a name, optional prompt, and timestamp. Lays the groundwork
+// for "your lists" UX where users can revisit, rename, and organize batches
+// they've generated. Default (no-prompt) batches are still batches; their
+// prompt column is just null.
+export const recommendationBatches = pgTable(
+  "recommendation_batches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Free-text user prompt that scoped this batch ("a movie that'll make
+     * me cry"). Null for the default profile-only batch. */
+    prompt: text("prompt"),
+    /** Optional user-given name. Falls back to a derived label in the UI. */
+    name: text("name"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("recommendation_batches_user_id_idx").on(t.userId)],
+);
+
 export const recommendations = pgTable(
   "recommendations",
   {
@@ -162,7 +189,9 @@ export const recommendations = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    batchId: uuid("batch_id").notNull(),
+    batchId: uuid("batch_id")
+      .notNull()
+      .references(() => recommendationBatches.id, { onDelete: "cascade" }),
     mediaCacheId: uuid("media_cache_id")
       .notNull()
       .references(() => mediaCache.id, { onDelete: "restrict" }),
@@ -234,7 +263,22 @@ export const recommendationsRelations = relations(recommendations, ({ one }) => 
     fields: [recommendations.mediaCacheId],
     references: [mediaCache.id],
   }),
+  batch: one(recommendationBatches, {
+    fields: [recommendations.batchId],
+    references: [recommendationBatches.id],
+  }),
 }));
+
+export const recommendationBatchesRelations = relations(
+  recommendationBatches,
+  ({ one, many }) => ({
+    user: one(users, {
+      fields: [recommendationBatches.userId],
+      references: [users.id],
+    }),
+    recommendations: many(recommendations),
+  }),
+);
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -248,3 +292,5 @@ export type MediaCacheRow = typeof mediaCache.$inferSelect;
 export type NewMediaCacheRow = typeof mediaCache.$inferInsert;
 export type RecommendationRow = typeof recommendations.$inferSelect;
 export type NewRecommendationRow = typeof recommendations.$inferInsert;
+export type RecommendationBatchRow = typeof recommendationBatches.$inferSelect;
+export type NewRecommendationBatchRow = typeof recommendationBatches.$inferInsert;

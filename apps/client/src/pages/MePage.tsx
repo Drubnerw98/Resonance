@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useApi } from "../hooks/useApi.ts";
 import { ApiError } from "../lib/api.ts";
+import { Skeleton } from "../components/shared/Skeleton.tsx";
 
 interface MeResponse {
   user: {
@@ -56,7 +57,13 @@ export function MePage() {
         </pre>
       )}
 
-      {!data && !error && <p className="text-neutral-500">Loading…</p>}
+      {!data && !error && (
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-32 w-full rounded-md" />
+        </div>
+      )}
 
       {data && (
         <pre className="overflow-x-auto rounded border border-neutral-800 bg-neutral-900 p-4 text-sm">

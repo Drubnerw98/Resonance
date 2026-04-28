@@ -67,11 +67,18 @@ interface IgdbGame {
   cover?: { url?: string } | null;
   first_release_date?: number | null;
   total_rating?: number | null;
+  total_rating_count?: number | null;
   genres?: { name: string }[];
   url?: string;
   /** 0=main_game, 1=dlc, 2=expansion, 4=standalone_expansion, 8=remake, 9=remaster, ... */
   category?: number | null;
 }
+
+/** Minimum aggregated reviews on a title-search hit. Filters obscure
+ * promotional crossover entries (e.g. "AC Valhalla X Vinland Saga") that
+ * IGDB indexes but no one has reviewed, while keeping legit niche games
+ * with at least a small audience. */
+const MIN_RATING_COUNT_FOR_TITLE_HIT = 5;
 
 const STANDALONE_CATEGORY_SET = new Set([0, 4, 8, 9]);
 
@@ -139,7 +146,7 @@ function escapeApicalypse(s: string): string {
 }
 
 const FIELDS =
-  "name, summary, cover.url, first_release_date, total_rating, genres.name, url, category";
+  "name, summary, cover.url, first_release_date, total_rating, total_rating_count, genres.name, url, category";
 
 // IGDB's `category` field — see STANDALONE_CATEGORY_SET above for which
 // values count as "a thing the player would consider playing on its own".
@@ -151,10 +158,18 @@ async function searchByTitle(title: string): Promise<MediaItem[]> {
   // Don't combine `search` with a `where category = (...)` clause — IGDB
   // applies the where to the top-30 results returned by the search ranker,
   // and in practice that produces 0 hits even when the main game exists.
-  // Filter category client-side instead.
-  const body = `fields ${FIELDS}; search "${escapeApicalypse(title)}"; limit 10;`;
+  // Filter category client-side instead. Also drop entries with effectively
+  // no reviews — those are typically promotional crossovers, fan content,
+  // or trivia entries that pollute the recommendation feed.
+  const body = `fields ${FIELDS}; search "${escapeApicalypse(title)}"; limit 15;`;
   const games = await igdbFetch<IgdbGame[]>("/games", body);
-  return games.filter(isStandaloneCategory).map(normalize);
+  return games
+    .filter(isStandaloneCategory)
+    .filter(
+      (g) => (g.total_rating_count ?? 0) >= MIN_RATING_COUNT_FOR_TITLE_HIT,
+    )
+    .slice(0, 10)
+    .map(normalize);
 }
 
 async function searchByQuery(query: MediaSearchQuery): Promise<MediaItem[]> {

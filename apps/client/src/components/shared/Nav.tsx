@@ -19,19 +19,23 @@ const links: NavItem[] = [
 export function Nav() {
   return (
     <nav className="border-b border-neutral-800 bg-neutral-900/60 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
         <span className="text-lg font-semibold tracking-tight">Resonance</span>
-        <ul className="flex items-center gap-6 text-sm">
+        {/* Horizontally scrollable on narrow viewports so the link list
+            never wraps onto two lines. The scrollbar is hidden on touch
+            devices via -webkit-overflow-scrolling. */}
+        <ul className="flex flex-1 items-center gap-4 overflow-x-auto text-sm sm:gap-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {links.map((link) => {
             const item = (
-              <li key={link.to}>
+              <li key={link.to} className="shrink-0">
                 <NavLink
                   to={link.to}
                   {...(link.end ? { end: true } : {})}
                   className={({ isActive }) =>
-                    isActive
+                    "block whitespace-nowrap py-1 " +
+                    (isActive
                       ? "text-white"
-                      : "text-neutral-400 hover:text-neutral-200"
+                      : "text-neutral-400 hover:text-neutral-200")
                   }
                 >
                   {link.label}
@@ -45,21 +49,21 @@ export function Nav() {
             );
           })}
           <SignedOut>
-            <li>
+            <li className="shrink-0">
               <NavLink
                 to="/sign-in"
-                className="text-neutral-400 hover:text-neutral-200"
+                className="block whitespace-nowrap py-1 text-neutral-400 hover:text-neutral-200"
               >
                 Sign in
               </NavLink>
             </li>
           </SignedOut>
-          <SignedIn>
-            <li className="flex items-center">
-              <UserButton afterSignOutUrl="/" />
-            </li>
-          </SignedIn>
         </ul>
+        <SignedIn>
+          <div className="shrink-0">
+            <UserButton afterSignOutUrl="/" />
+          </div>
+        </SignedIn>
       </div>
     </nav>
   );

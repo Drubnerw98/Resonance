@@ -1,12 +1,30 @@
 import { Link } from "react-router-dom";
 import { ProfileView } from "../components/profile/ProfileView.tsx";
+import { Skeleton } from "../components/shared/Skeleton.tsx";
 import { useProfile } from "../hooks/useProfile.ts";
 
 export function ProfilePage() {
-  const state = useProfile();
+  const { state, isRefining, refineError, refine } = useProfile();
 
   if (state.status === "loading") {
-    return <p className="text-neutral-500">Loading your profile…</p>;
+    return (
+      <div className="space-y-8">
+        <div className="space-y-2 border-b border-neutral-800 pb-3">
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <section key={i} className="space-y-3">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-3 w-44" />
+            <div className="space-y-2">
+              <Skeleton className="h-16 w-full rounded-md" />
+              <Skeleton className="h-16 w-full rounded-md" />
+            </div>
+          </section>
+        ))}
+      </div>
+    );
   }
 
   if (state.status === "error") {
@@ -38,10 +56,20 @@ export function ProfilePage() {
   }
 
   return (
-    <ProfileView
-      profile={state.profile}
-      version={state.version}
-      updatedAt={state.updatedAt}
-    />
+    <div className="space-y-6">
+      {refineError && (
+        <pre className="rounded border border-red-900 bg-red-950/40 p-3 text-sm text-red-300">
+          {refineError}
+        </pre>
+      )}
+
+      <ProfileView
+        profile={state.profile}
+        version={state.version}
+        updatedAt={state.updatedAt}
+        onRefine={() => void refine()}
+        isRefining={isRefining}
+      />
+    </div>
   );
 }

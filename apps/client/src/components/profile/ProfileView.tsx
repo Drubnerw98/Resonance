@@ -4,6 +4,8 @@ interface Props {
   profile: TasteProfile;
   version: number;
   updatedAt: string;
+  onRefine?: () => void;
+  isRefining?: boolean;
 }
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -27,10 +29,16 @@ function WeightBar({ value }: { value: number }) {
   );
 }
 
-export function ProfileView({ profile, version, updatedAt }: Props) {
+export function ProfileView({
+  profile,
+  version,
+  updatedAt,
+  onRefine,
+  isRefining,
+}: Props) {
   return (
     <div className="space-y-8">
-      <header className="flex items-baseline justify-between border-b border-neutral-800 pb-3">
+      <header className="flex items-baseline justify-between gap-4 border-b border-neutral-800 pb-3">
         <div>
           <h1 className="text-2xl font-semibold">Your taste DNA</h1>
           <p className="text-sm text-neutral-500">
@@ -38,6 +46,16 @@ export function ProfileView({ profile, version, updatedAt }: Props) {
             {new Date(updatedAt).toLocaleString()}
           </p>
         </div>
+        {onRefine && (
+          <button
+            onClick={onRefine}
+            disabled={isRefining}
+            className="rounded-md border border-neutral-700 px-3 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+            title="Re-run profile extraction using your recent feedback"
+          >
+            {isRefining ? "Refining…" : "Refine from feedback"}
+          </button>
+        )}
       </header>
 
       <Section title="Themes" hint="What stories resonate with you and why">

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useOnboarding } from "../../hooks/useOnboarding.ts";
 import { ChatMessage } from "./ChatMessage.tsx";
 import { ChatInput } from "./ChatInput.tsx";
+import { Skeleton } from "../shared/Skeleton.tsx";
 
 export function Chat() {
   const onboarding = useOnboarding();
@@ -27,7 +28,22 @@ export function Chat() {
   }
 
   if (onboarding.sessionStatus === "loading") {
-    return <p className="text-neutral-500">Loading session…</p>;
+    return (
+      <div className="flex h-[70vh] flex-col gap-4">
+        <div className="flex-1 space-y-3 rounded-md border border-neutral-800 bg-neutral-950 p-4">
+          <div className="flex justify-start">
+            <Skeleton className="h-12 w-3/4 rounded-2xl" />
+          </div>
+          <div className="flex justify-end">
+            <Skeleton className="h-12 w-1/2 rounded-2xl" />
+          </div>
+          <div className="flex justify-start">
+            <Skeleton className="h-12 w-2/3 rounded-2xl" />
+          </div>
+        </div>
+        <Skeleton className="h-16 rounded-md" />
+      </div>
+    );
   }
 
   if (onboarding.sessionStatus === "error") {

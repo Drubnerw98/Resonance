@@ -8,6 +8,13 @@
       "when": 1777179098635,
       "tag": "0000_magenta_bastion",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777406750325,
+      "tag": "0001_useful_kid_colt",
+      "breakpoints": true
     }
   ]
 }

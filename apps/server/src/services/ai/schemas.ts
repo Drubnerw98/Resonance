@@ -73,6 +73,11 @@ void _typecheck;
 //     with abstract themes like "psychological interiority". Genre filters
 //     are reliable; abstract keywords aren't.
 export const CandidatesOutputSchema = z.object({
+  // Schema caps are intentionally larger than the prompt's stated targets
+  // (15-20 titles, 3-8 queries). Sonnet occasionally overshoots — especially
+  // when the avoid-list is long and the model is widening the net to
+  // compensate. The schema cap is a safety net, not a hard contract; an
+  // off-by-one slip shouldn't blow up the pipeline.
   titleSuggestions: z
     .array(
       z.object({
@@ -81,7 +86,7 @@ export const CandidatesOutputSchema = z.object({
         reason: z.string().min(1),
       }),
     )
-    .max(20),
+    .max(30),
   discoveryQueries: z
     .array(
       z.object({
@@ -89,7 +94,7 @@ export const CandidatesOutputSchema = z.object({
         genres: z.array(z.string().min(1)).min(1),
       }),
     )
-    .max(10),
+    .max(15),
 });
 
 export type CandidatesOutput = z.infer<typeof CandidatesOutputSchema>;

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireUser } from "../middleware/auth.js";
 import { getActiveProfile } from "../services/profile.js";
+import { refineProfile } from "../services/ai/refinement.js";
 
 export const profileRouter: Router = Router();
 
@@ -29,4 +30,26 @@ profileRouter.put("/", (_req, res) => {
   // Manual profile editing — wire this up when the profile viewer needs an
   // edit mode. For now extraction is the only write path.
   res.status(501).json({ error: "not implemented" });
+});
+
+/**
+ * POST /api/profile/refine
+ * Manually trigger profile refinement against accumulated feedback. Sync —
+ * the response waits for the model and returns the new profile (versioned
+ * in profile_versions with trigger="feedback_batch").
+ */
+profileRouter.post("/refine", async (req, res, next) => {
+  try {
+    const refined = await refineProfile(req.user!.id);
+    const row = await getActiveProfile(req.user!.id);
+    if (!row) throw new Error("Profile vanished after refinement");
+    res.json({
+      id: row.id,
+      version: row.currentVersion,
+      data: refined,
+      updatedAt: row.updatedAt,
+    });
+  } catch (err) {
+    next(err);
+  }
 });

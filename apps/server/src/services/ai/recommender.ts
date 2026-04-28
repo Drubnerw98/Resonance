@@ -1,12 +1,17 @@
-import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, gt, lt, or } from "drizzle-orm";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import type { TasteProfile, MediaSearchQuery } from "@resonance/shared";
+import type {
+  MediaSearchQuery,
+  MediaType,
+  TasteProfile,
+} from "@resonance/shared";
 import { db } from "../../db/index.js";
 import {
+  recommendationBatches,
   recommendations,
   type MediaCacheRow,
   type NewRecommendationRow,
+  type RecommendationBatchRow,
   type RecommendationRow,
 } from "../../db/schema.js";
 import {
@@ -84,28 +89,43 @@ function looseShape(s: string): string {
   return s.replace(/[:\-_]/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// Two separator regexes for the prefix-match check:
+//   - sepPunct accepts a punctuation separator (": ", " - ", " & ", etc.).
+//     Safe for short prefixes; how subtitles are typically delineated.
+//   - sepWhitespace accepts a plain space separator. Catches subtitle
+//     patterns like "I am a hero in Osaka" against "I am a hero" — these
+//     don't use punctuation. Only applied when the prefix is reasonably
+//     long, to keep "Halo" / "Halo Wars" or "X" / "X Men" type cases from
+//     falsely merging.
+const sepPunct = /^\s*[:\-–—&+,]\s/;
+const sepWhitespace = /^\s+\S/;
+const SPACE_SEPARATOR_MIN_LENGTH = 8;
+
 function matchesKnown(candidate: string, known: Set<string>): boolean {
   const nc = canonicalizeTitle(candidate);
   if (known.has(nc)) return true;
 
-  // Loose-equality check: two canonicals that differ only in internal
-  // colon/dash placement are the same work. Catches "Planescape Torment"
-  // (after suffix strip from "Planescape Torment: Enhanced Edition - Digital
-  // Deluxe") matching "Planescape: Torment".
+  // Loose-equality: two canonicals that differ only in internal punctuation
+  // are the same work. Catches "Planescape Torment" / "Planescape: Torment".
   const ncLoose = looseShape(nc);
   for (const k of known) {
     if (looseShape(k) === ncLoose) return true;
   }
 
-  const sep = /^\s*[:\-–—&+,]\s/;
   for (const k of known) {
     // Candidate is the longer variant: "Foo: Bar" matches known "Foo".
     if (k.length >= 5 && nc.length > k.length && nc.startsWith(k)) {
-      if (sep.test(nc.slice(k.length))) return true;
+      const tail = nc.slice(k.length);
+      if (sepPunct.test(tail)) return true;
+      if (k.length >= SPACE_SEPARATOR_MIN_LENGTH && sepWhitespace.test(tail))
+        return true;
     }
     // Candidate is the shorter base title: "Foo" matches known "Foo: Bar".
     if (nc.length >= 5 && k.length > nc.length && k.startsWith(nc)) {
-      if (sep.test(k.slice(nc.length))) return true;
+      const tail = k.slice(nc.length);
+      if (sepPunct.test(tail)) return true;
+      if (nc.length >= SPACE_SEPARATOR_MIN_LENGTH && sepWhitespace.test(tail))
+        return true;
     }
   }
   return false;
@@ -120,20 +140,125 @@ function collectFavorites(profile: TasteProfile): Set<string> {
 }
 
 /**
+ * Titles the user has actively rejected via feedback — explicitly skipped or
+ * rated 1-2 stars. Used to filter spinoffs and sequels of disliked works
+ * out of future recommendation batches. Saved and 4-5 rated titles are NOT
+ * included: positive signal shouldn't block related variants.
+ */
+async function collectAvoidTitles(userId: string): Promise<Set<string>> {
+  const rows = await db.query.recommendations.findMany({
+    where: and(
+      eq(recommendations.userId, userId),
+      or(
+        eq(recommendations.status, "skipped"),
+        and(
+          eq(recommendations.status, "rated"),
+          lt(recommendations.rating, 3),
+        ),
+      ),
+    ),
+    with: { media: true },
+  });
+  return new Set(rows.map((r) => canonicalizeTitle(r.media.title)));
+}
+
+/** A user's "library" — works they've signaled positive on, either by
+ * mentioning in onboarding (their profile favorites) or by saving/rating
+ * highly on a recommendation. Fed into the scoring prompt so explanations
+ * can reference specific works by name ("because you mentioned Mad Men,
+ * ..."). The cross-reference is the single biggest differentiator from a
+ * one-off chat. */
+export interface LibraryItem {
+  title: string;
+  mediaType: MediaType;
+  source: "profile" | "saved" | "rated";
+  rating: number | null;
+}
+
+/**
+ * Build the user's library from two sources, deduped by canonical title:
+ *   - profile.mediaAffinities[].favorites — titles they named in onboarding
+ *   - recommendations with status=saved or status=rated rating>=4
+ *
+ * Bias toward feedback (it's stronger signal than onboarding mentions), so
+ * those come first in iteration order.
+ */
+async function getUserLibrary(
+  userId: string,
+  profile: TasteProfile,
+): Promise<LibraryItem[]> {
+  const fromFeedback: LibraryItem[] = (
+    await db.query.recommendations.findMany({
+      where: and(
+        eq(recommendations.userId, userId),
+        or(
+          eq(recommendations.status, "saved"),
+          and(
+            eq(recommendations.status, "rated"),
+            gt(recommendations.rating, 3),
+          ),
+        ),
+      ),
+      with: { media: true },
+      orderBy: [desc(recommendations.actedAt)],
+      limit: 25,
+    })
+  ).map((r) => ({
+    title: r.media.title,
+    mediaType: r.media.mediaType,
+    source: r.status === "saved" ? ("saved" as const) : ("rated" as const),
+    rating: r.rating,
+  }));
+
+  const fromProfile: LibraryItem[] = profile.mediaAffinities.flatMap((aff) =>
+    aff.favorites.map((title) => ({
+      title,
+      mediaType: aff.format,
+      source: "profile" as const,
+      rating: null,
+    })),
+  );
+
+  // Dedupe by canonical title — feedback wins over profile mention if both.
+  const seen = new Set<string>();
+  const merged: LibraryItem[] = [];
+  for (const item of [...fromFeedback, ...fromProfile]) {
+    const key = canonicalizeTitle(item.title);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+  return merged;
+}
+
+export interface GenerateOptions {
+  /** Free-text prompt scoping this batch ("a movie that'll make me cry"). */
+  prompt?: string;
+}
+
+export interface GenerateResult {
+  batch: RecommendationBatchRow;
+  recs: RecommendationRow[];
+}
+
+/**
  * Mode 3 orchestrator: 4-step recommendation pipeline.
  *
- *   1. Load the user's profile.
- *   2. Ask the model for ~15 title suggestions + ~5 discovery queries.
+ *   1. Create a recommendation_batches row (with optional user prompt).
+ *   2. Ask the model for title suggestions + discovery queries, scoped to
+ *      the prompt and grounded in the user's library.
  *   3. For each, search the relevant adapter and persist hits to media_cache.
- *      Drop anything we've already recommended to this user.
- *   4. Send the surviving candidates' real metadata back to the model and
- *      have it score them.
- *   5. Persist a recommendations row per scored result, all sharing one
- *      batch_id so the frontend can group "this run".
+ *      Drop anything we've already recommended, profile-favorite-matching, or
+ *      avoid-list-matching.
+ *   4. Send the surviving candidates back to the model with the user's
+ *      library so explanations can cross-reference saved items.
+ *   5. Persist a recommendations row per scored result, all linked to the
+ *      batch.
  */
 export async function generateRecommendations(
   userId: string,
-): Promise<RecommendationRow[]> {
+  options: GenerateOptions = {},
+): Promise<GenerateResult> {
   const profileRow = await getActiveProfile(userId);
   if (!profileRow) {
     throw new Error(
@@ -141,6 +266,17 @@ export async function generateRecommendations(
     );
   }
   const profile = profileRow.profileData;
+  const prompt = options.prompt?.trim() || null;
+
+  // Create the batch row first so all rec inserts can reference it.
+  const [batch] = await db
+    .insert(recommendationBatches)
+    .values({ userId, prompt, name: null })
+    .returning();
+  if (!batch) throw new Error("Failed to create recommendation batch");
+  console.log(
+    `[rec] batch created: ${batch.id}${prompt ? ` (prompt="${prompt}")` : " (default)"}`,
+  );
 
   const seenCacheIds = new Set(
     (
@@ -151,8 +287,18 @@ export async function generateRecommendations(
     ).map((r) => r.mediaCacheId),
   );
 
-  // Step 1 — AI proposes candidates.
-  const plan = await generateCandidatePlan(profile);
+  const library = await getUserLibrary(userId, profile);
+  const librarySources = library.reduce<Record<string, number>>((acc, l) => {
+    acc[l.source] = (acc[l.source] ?? 0) + 1;
+    return acc;
+  }, {});
+  console.log(
+    `[rec] library: ${library.length} items will inform scoring`,
+    librarySources,
+  );
+
+  // Step 1 — AI proposes candidates (prompt + library aware).
+  const plan = await generateCandidatePlan(profile, prompt, library);
   const formatsInPlan = countByFormat(
     plan.titleSuggestions.map((s) => s.mediaType),
   );
@@ -162,13 +308,23 @@ export async function generateRecommendations(
   );
 
   // Step 2 — validate against real APIs, deduping and excluding seen items
-  // (already-recommended cache rows + titles already named in onboarding).
+  // (already-recommended cache rows + profile favorites + avoid-list).
   const favorites = collectFavorites(profile);
+  const avoidTitles = await collectAvoidTitles(userId);
   console.log(
     `[rec] favorites set (${favorites.size}):`,
     Array.from(favorites).slice(0, 12),
   );
-  const candidates = await collectRealCandidates(plan, seenCacheIds, favorites);
+  console.log(
+    `[rec] avoid set (${avoidTitles.size}):`,
+    Array.from(avoidTitles).slice(0, 12),
+  );
+  const candidates = await collectRealCandidates(
+    plan,
+    seenCacheIds,
+    favorites,
+    avoidTitles,
+  );
   console.log(
     `[rec] validated: ${candidates.length} cache rows after dedupe + seen-filter — by format:`,
     countByFormat(candidates.map((c) => c.mediaType)),
@@ -179,22 +335,24 @@ export async function generateRecommendations(
     );
   }
 
-  // Step 3 — AI scores real candidates.
-  const scored = await scoreCandidates(profile, candidates);
+  // Step 3 — AI scores real candidates with library context.
+  const scored = await scoreCandidates(profile, candidates, {
+    prompt,
+    library,
+  });
   console.log(
     `[rec] scored: ${scored.recommendations.length} recommendations returned by model`,
   );
 
-  // Step 4 — persist scored recs.
-  const batchId = randomUUID();
+  // Step 4 — persist scored recs against the batch.
   const saved = await persistRecommendations(
     userId,
-    batchId,
+    batch.id,
     candidates,
     scored,
   );
   console.log(
-    `[rec] persisted: ${saved.length} rows (batch=${batchId}) — by format:`,
+    `[rec] persisted: ${saved.length} rows (batch=${batch.id}) — by format:`,
     countByFormat(
       saved.map(
         (r) =>
@@ -203,7 +361,7 @@ export async function generateRecommendations(
       ),
     ),
   );
-  return saved;
+  return { batch, recs: saved };
 }
 
 function countByFormat(formats: string[]): Record<string, number> {
@@ -214,20 +372,49 @@ function countByFormat(formats: string[]): Record<string, number> {
   return counts;
 }
 
+function formatLibraryBlock(library: LibraryItem[]): string {
+  if (library.length === 0) return "";
+  const lines = library.map((l, i) => {
+    let detail: string;
+    if (l.source === "saved") detail = "saved";
+    else if (l.source === "rated" && l.rating != null)
+      detail = `rated ${l.rating}/5`;
+    else detail = "mentioned in onboarding";
+    return `[${i + 1}] ${l.title} (${l.mediaType}, ${detail})`;
+  });
+  return lines.join("\n");
+}
+
 async function generateCandidatePlan(
   profile: TasteProfile,
+  prompt: string | null,
+  library: LibraryItem[],
 ): Promise<CandidatesOutput> {
   const client = getAnthropic();
+
+  const sections: string[] = [
+    `# Taste profile\n\n${JSON.stringify(profile, null, 2)}`,
+  ];
+
+  if (library.length > 0) {
+    sections.push(
+      `# User's library (works they've already loved — do NOT re-propose, but use as anchors)\n\n${formatLibraryBlock(library)}`,
+    );
+  }
+
+  if (prompt) {
+    sections.push(
+      `# This batch's prompt\n\n"${prompt}"\n\nThe user wants recommendations specifically aligned with this prompt. Their broader taste profile still applies as a guardrail (don't violate avoidances), but tilt your suggestions toward what the prompt asks for.`,
+    );
+  }
+
+  sections.push(`# Task\n\nGenerate candidate recommendations.`);
+
   const response = await client.messages.parse({
     model: RECOMMENDER_MODEL,
     max_tokens: 2048,
     system: recommendCandidatesSystemPrompt(),
-    messages: [
-      {
-        role: "user",
-        content: `Here is the taste profile.\n\n${JSON.stringify(profile, null, 2)}\n\nGenerate candidate recommendations.`,
-      },
-    ],
+    messages: [{ role: "user", content: sections.join("\n\n") }],
     output_config: {
       format: zodOutputFormat(
         CandidatesOutputSchema as unknown as Parameters<
@@ -249,6 +436,7 @@ async function collectRealCandidates(
   plan: CandidatesOutput,
   seenCacheIds: Set<string>,
   favorites: Set<string>,
+  avoidTitles: Set<string>,
 ): Promise<MediaCacheRow[]> {
   const byCacheId = new Map<string, MediaCacheRow>();
   // Canonical titles we've already accepted into this batch — prevents
@@ -257,6 +445,7 @@ async function collectRealCandidates(
   const seenCanonicals = new Set<string>();
   let droppedAsFavorite = 0;
   let droppedAsSeen = 0;
+  let droppedAsAvoided = 0;
   let droppedAsDup = 0;
 
   function consider(r: MediaCacheRow): void {
@@ -266,6 +455,10 @@ async function collectRealCandidates(
     }
     if (matchesKnown(r.normalizedData.title, favorites)) {
       droppedAsFavorite++;
+      return;
+    }
+    if (matchesKnown(r.normalizedData.title, avoidTitles)) {
+      droppedAsAvoided++;
       return;
     }
     if (matchesKnown(r.normalizedData.title, seenCanonicals)) {
@@ -330,7 +523,7 @@ async function collectRealCandidates(
   console.log(`[rec] raw hits before any filtering — by format:`, rawByFormat);
 
   console.log(
-    `[rec] filtered: ${droppedAsSeen} already-recommended, ${droppedAsFavorite} matched profile favorite, ${droppedAsDup} canonical-title duplicate`,
+    `[rec] filtered: ${droppedAsSeen} already-recommended, ${droppedAsFavorite} matched profile favorite, ${droppedAsAvoided} matched negative-feedback title, ${droppedAsDup} canonical-title duplicate`,
   );
 
   // Cap per format first (so books don't drown out games/anime), then cap the
@@ -350,11 +543,19 @@ async function collectRealCandidates(
   return capped.slice(0, MAX_CANDIDATES_TO_SCORE);
 }
 
-async function scoreCandidates(
+export interface ScoreOptions {
+  prompt?: string | null;
+  library?: LibraryItem[];
+}
+
+export async function scoreCandidates(
   profile: TasteProfile,
   candidates: MediaCacheRow[],
+  options: ScoreOptions = {},
 ): Promise<ScoredCandidatesOutput> {
   const client = getAnthropic();
+  const library = options.library ?? [];
+  const prompt = options.prompt ?? null;
 
   // Sequential ID per candidate so the model doesn't have to parrot UUIDs.
   // We map back to media_cache.id when persisting.
@@ -368,23 +569,36 @@ synopsis: ${truncate(item.description, 600)}`;
     .join("\n\n");
 
   const requiredFloor = Math.min(20, candidates.length);
-  const userMessage = `# User profile
 
-${JSON.stringify(profile, null, 2)}
+  const sections: string[] = [
+    `# User profile\n\n${JSON.stringify(profile, null, 2)}`,
+  ];
 
-# Candidates (use the bracketed number as candidateId)
+  if (library.length > 0) {
+    sections.push(
+      `# User's library (works they personally loved — REFERENCE these by name in explanations whenever a candidate's themes overlap)\n\n${formatLibraryBlock(library)}`,
+    );
+  }
 
-${candidateBlock}
+  if (prompt) {
+    sections.push(
+      `# This batch's prompt\n\n"${prompt}"\n\nThe user wants recs specifically aligned with this prompt. Reflect it in your explanations — name the connection between each rec and what they asked for.`,
+    );
+  }
 
-# Task
+  sections.push(
+    `# Candidates (use the bracketed number as candidateId)\n\n${candidateBlock}`,
+  );
 
-You have ${candidates.length} candidates. Per the volume rule, return AT LEAST ${requiredFloor} recommendations. If you can't, you're not following instructions — re-read the system prompt.`;
+  sections.push(
+    `# Task\n\nYou have ${candidates.length} candidates. Per the volume rule, return AT LEAST ${requiredFloor} recommendations. If you can't, you're not following instructions — re-read the system prompt.`,
+  );
 
   const response = await client.messages.parse({
     model: RECOMMENDER_MODEL,
     max_tokens: 4096,
     system: recommendScoreSystemPrompt(),
-    messages: [{ role: "user", content: userMessage }],
+    messages: [{ role: "user", content: sections.join("\n\n") }],
     output_config: {
       format: zodOutputFormat(
         ScoredCandidatesOutputSchema as unknown as Parameters<
@@ -447,4 +661,66 @@ async function persistRecommendations(
 function truncate(s: string, max: number): string {
   if (s.length <= max) return s;
   return s.slice(0, max - 1).trimEnd() + "…";
+}
+
+/**
+ * Re-score a single recommendation against the user's CURRENT profile.
+ * Updates the row's matchScore / explanation / tasteTags in place; leaves
+ * status / rating / actedAt untouched so user feedback survives.
+ *
+ * Used after profile refinement when the user wants to see how a specific
+ * old rec holds up against the evolved taste DNA. Cheap — one AI call,
+ * one candidate, ~3-5 seconds.
+ */
+export async function rescoreRecommendation(
+  userId: string,
+  recommendationId: string,
+): Promise<RecommendationRow> {
+  const profileRow = await getActiveProfile(userId);
+  if (!profileRow) {
+    throw new Error("Cannot rescore: user has no taste profile");
+  }
+
+  const rec = await db.query.recommendations.findFirst({
+    where: and(
+      eq(recommendations.id, recommendationId),
+      eq(recommendations.userId, userId),
+    ),
+    with: { media: true },
+  });
+  if (!rec) {
+    throw new Error("Recommendation not found");
+  }
+
+  const scored = await scoreCandidates(profileRow.profileData, [rec.media]);
+  const newScore = scored.recommendations[0];
+  if (!newScore) {
+    // Model dropped this candidate — typically means it now violates the
+    // refined profile's avoidances or fits poorly. Encode that as a low
+    // score with an honest explanation rather than refusing the request.
+    const [updated] = await db
+      .update(recommendations)
+      .set({
+        matchScore: 0.3,
+        explanation:
+          "Your taste profile has evolved and this no longer reads as a strong fit.",
+        tasteTags: [],
+      })
+      .where(eq(recommendations.id, recommendationId))
+      .returning();
+    if (!updated) throw new Error("Failed to update recommendation");
+    return updated;
+  }
+
+  const [updated] = await db
+    .update(recommendations)
+    .set({
+      matchScore: newScore.matchScore,
+      explanation: newScore.explanation,
+      tasteTags: newScore.tasteTags,
+    })
+    .where(eq(recommendations.id, recommendationId))
+    .returning();
+  if (!updated) throw new Error("Failed to update recommendation");
+  return updated;
 }

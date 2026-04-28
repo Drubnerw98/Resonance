@@ -27,12 +27,20 @@ interface JikanItem {
   url?: string;
   /** "TV" | "Movie" | "OVA" | "ONA" | "Special" | "Music" | "PV" | "CM" | etc. */
   type?: string | null;
+  /** Number of MAL users tracking this entry. Proxy for popularity. */
+  members?: number | null;
 }
 
 // Promotional and ad entries are separate MAL records from the actual show
 // they advertise — same title, same year, sometimes appearing ahead of the
 // real entry in search relevance. Filter them out at the adapter level.
 const PROMO_TYPES = new Set(["PV", "CM"]);
+
+/** Minimum MAL members on a title-search hit. Filters out parodies, fan
+ * works, and other obscure pollution while keeping legit niche works with
+ * at least a small audience tracking them. Mainstream shows have 100k+;
+ * legit niche typically 5k+; obscure parodies <500. */
+const MIN_MEMBERS_FOR_TITLE_HIT = 500;
 
 interface JikanResponse<T> {
   data: T;
@@ -80,15 +88,20 @@ function yearFromDate(d: string | null | undefined): number | null {
 }
 
 /**
- * Drop promo/CM entries and collapse duplicate (title, year) pairs to the
- * highest-rated single record. MAL routinely indexes the same season twice
- * under slightly different metadata; in our pipeline these are noise.
+ * Drop promo/CM entries, low-popularity entries (parodies, fan works), and
+ * collapse duplicate (title, year) pairs to the highest-rated single record.
+ * MAL routinely indexes the same season twice under slightly different
+ * metadata; in our pipeline these are noise.
  */
 function cleanResults(items: MediaItem[], rawItems: JikanItem[]): MediaItem[] {
-  const promoIds = new Set(
-    rawItems.filter((r) => r.type && PROMO_TYPES.has(r.type)).map((r) => r.mal_id),
+  const dropIds = new Set<number>();
+  for (const r of rawItems) {
+    if (r.type && PROMO_TYPES.has(r.type)) dropIds.add(r.mal_id);
+    if ((r.members ?? 0) < MIN_MEMBERS_FOR_TITLE_HIT) dropIds.add(r.mal_id);
+  }
+  const filtered = items.filter(
+    (i) => !dropIds.has(Number(i.externalId)),
   );
-  const filtered = items.filter((i) => !promoIds.has(Number(i.externalId)));
 
   const byKey = new Map<string, MediaItem>();
   for (const item of filtered) {
@@ -149,14 +162,16 @@ async function loadGenres(): Promise<{
 
 async function searchByTitle(title: string): Promise<MediaItem[]> {
   // Hit anime and manga in parallel; cache layer filters by type if needed.
+  // Slightly higher limit so the popularity / promo filters in cleanResults
+  // don't leave us with too few survivors.
   const [anime, manga] = await Promise.all([
     jikanFetch<JikanResponse<JikanItem[]>>("/anime", {
       q: title,
-      limit: "5",
+      limit: "10",
     }),
     jikanFetch<JikanResponse<JikanItem[]>>("/manga", {
       q: title,
-      limit: "5",
+      limit: "10",
     }),
   ]);
   const animeItems = cleanResults(
@@ -176,6 +191,9 @@ async function searchByQuery(query: MediaSearchQuery): Promise<MediaItem[]> {
     limit: String(query.limit ?? 20),
     order_by: "score",
     sort: "desc",
+    // Quality floor on discovery: 6.0 is "good enough" on MAL's 0-10 scale,
+    // cuts the long tail of low-rated obscure works and parodies.
+    min_score: "6",
   };
 
   if (query.keywords && query.keywords.length > 0) {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { TasteProfile } from "@resonance/shared";
 import { useApi } from "./useApi.ts";
 import { ApiError } from "../lib/api.ts";
@@ -7,19 +7,28 @@ interface ProfileResponse {
   id: string;
   version: number;
   data: TasteProfile;
-  createdAt: string;
+  createdAt?: string;
   updatedAt: string;
 }
 
-export type ProfileState =
+export type ProfileStatus =
   | { status: "loading" }
   | { status: "ready"; profile: TasteProfile; version: number; updatedAt: string }
   | { status: "missing" }
   | { status: "error"; message: string };
 
-export function useProfile(): ProfileState {
+export interface UseProfile {
+  state: ProfileStatus;
+  isRefining: boolean;
+  refineError: string | null;
+  refine: () => Promise<void>;
+}
+
+export function useProfile(): UseProfile {
   const api = useApi();
-  const [state, setState] = useState<ProfileState>({ status: "loading" });
+  const [state, setState] = useState<ProfileStatus>({ status: "loading" });
+  const [isRefining, setIsRefining] = useState(false);
+  const [refineError, setRefineError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,5 +58,32 @@ export function useProfile(): ProfileState {
     };
   }, [api]);
 
-  return state;
+  const refine = useCallback(async () => {
+    if (isRefining) return;
+    setIsRefining(true);
+    setRefineError(null);
+    try {
+      const res = await api<ProfileResponse>("/profile/refine", {
+        method: "POST",
+      });
+      setState({
+        status: "ready",
+        profile: res.data,
+        version: res.version,
+        updatedAt: res.updatedAt,
+      });
+    } catch (err) {
+      setRefineError(
+        err instanceof ApiError
+          ? `${err.status}: ${err.message}`
+          : err instanceof Error
+            ? err.message
+            : "Failed to refine",
+      );
+    } finally {
+      setIsRefining(false);
+    }
+  }, [api, isRefining]);
+
+  return { state, isRefining, refineError, refine };
 }

@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm --filter @resonance/client build && rm -rf dist && cp -r apps/client/dist dist",
+  "buildCommand": "pnpm --filter @resonance/client build",
   "outputDirectory": "dist",
   "installCommand": "pnpm install --frozen-lockfile",
   "framework": null,

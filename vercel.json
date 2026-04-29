@@ -3,7 +3,8 @@
   "buildCommand": "pnpm --filter @resonance/client build",
   "outputDirectory": "dist",
   "installCommand": "pnpm install --frozen-lockfile",
-  "framework": "vite",
+  "trailingSlash": false,
+  "cleanUrls": false,
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]

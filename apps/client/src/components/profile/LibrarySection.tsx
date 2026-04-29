@@ -25,6 +25,7 @@ const FORMAT_LABEL: Record<string, string> = {
 const SOURCE_LABEL: Record<ImportSource, string> = {
   letterboxd: "Letterboxd",
   goodreads: "Goodreads",
+  myanimelist: "MyAnimeList",
 };
 
 export function LibrarySection() {
@@ -102,28 +103,38 @@ export function LibrarySection() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv,text/csv"
+            // CSV (Letterboxd, Goodreads) + XML (MyAnimeList). Source is
+            // selected by which import button got clicked; this just
+            // restricts the file picker to relevant types.
+            accept=".csv,text/csv,.xml,text/xml,application/xml"
             onChange={(e) => void handleFile(e)}
             className="hidden"
           />
 
-          {/* Primary action surface — bigger import buttons, side-by-side, so
+          {/* Primary action surface — import buttons, side-by-side, so
               users arriving from the home dashboard's "Manage library" link
               immediately see how to import rather than scanning past stats. */}
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <ImportButton
               label="Import Letterboxd CSV"
-              hint="Movies — your watched / rated list"
+              hint="Movies — watched / rated list"
               busy={lib.importing && pendingSource === "letterboxd"}
               disabled={lib.importing}
               onClick={() => startImport("letterboxd")}
             />
             <ImportButton
               label="Import Goodreads CSV"
-              hint="Books from your read shelf"
+              hint="Books — read + to-read shelves"
               busy={lib.importing && pendingSource === "goodreads"}
               disabled={lib.importing}
               onClick={() => startImport("goodreads")}
+            />
+            <ImportButton
+              label="Import MyAnimeList XML"
+              hint="Anime / manga — completed + plan-to lists"
+              busy={lib.importing && pendingSource === "myanimelist"}
+              disabled={lib.importing}
+              onClick={() => startImport("myanimelist")}
             />
           </div>
 
@@ -153,7 +164,7 @@ export function LibrarySection() {
                 : `${visibleItems.length} item${visibleItems.length === 1 ? "" : "s"}${summary ? " · " + summary : ""}`}
             </p>
             <div className="flex flex-wrap gap-2">
-              {(["letterboxd", "goodreads"] as const).map(
+              {(["letterboxd", "goodreads", "myanimelist"] as const).map(
                 (source) =>
                   visibleItems.some((i) => i.source === source) && (
                     <button
@@ -250,6 +261,36 @@ export function LibrarySection() {
                 it&quot; — useful context, but no positive/negative bias. If
                 you watched something and hated it, prefer{" "}
                 <code>ratings.csv</code> so we know.
+              </li>
+            </ol>
+          </details>
+
+          <details className="rounded-md border border-neutral-800 bg-neutral-900 p-3 text-sm text-neutral-400">
+            <summary className="cursor-pointer text-neutral-300">
+              How to import from MyAnimeList
+            </summary>
+            <ol className="mt-2 list-decimal space-y-1 pl-5">
+              <li>
+                On MyAnimeList:{" "}
+                <span className="text-neutral-200">
+                  Profile → My List → Export
+                </span>
+                {" "}— pick anime or manga (you can do both, one at a time).
+                MAL gives you a <code>.xml.gz</code>; unzip to get a{" "}
+                <code>.xml</code>.
+              </li>
+              <li>
+                Upload the .xml here. Anime and manga can be imported from
+                separate files, or you can do them in two upload steps. We
+                detect the format from the file&apos;s contents.
+              </li>
+              <li>
+                Status mapping: <span className="text-neutral-200">Completed</span>{" "}
+                entries go into your Library (with score → rating: 9-10⇒5,
+                8⇒4, 5-7⇒3, 3-4⇒2, 1-2⇒1, unrated⇒no rating);{" "}
+                <span className="text-neutral-200">Plan to Watch / Plan to Read</span>{" "}
+                go into your Watchlist; Watching / Reading / On-Hold /
+                Dropped are skipped (in-progress or ambiguous).
               </li>
             </ol>
           </details>

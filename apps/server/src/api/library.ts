@@ -11,6 +11,7 @@ import {
   listLibraryItems,
   parseGoodreadsCSV,
   parseLetterboxdCSV,
+  parseMyAnimeListXML,
 } from "../services/library.js";
 
 export const libraryRouter: Router = Router();
@@ -135,8 +136,10 @@ libraryRouter.patch("/:id", async (req, res, next) => {
 
 const importBodySchema = z
   .object({
-    source: z.enum(["letterboxd", "goodreads"]),
-    csv: z.string().min(1).max(2_000_000), // ~2MB cap
+    source: z.enum(["letterboxd", "goodreads", "myanimelist"]),
+    // Reused for CSV (Letterboxd, Goodreads) and XML (MyAnimeList) — same
+    // upload mechanism, parser dispatches by source.
+    csv: z.string().min(1).max(5_000_000), // 5MB cap (MAL XML can be large)
   })
   .strict();
 
@@ -163,6 +166,8 @@ libraryRouter.post("/import", async (req, res, next) => {
         items = parseLetterboxdCSV(csv);
       } else if (source === "goodreads") {
         items = parseGoodreadsCSV(csv);
+      } else if (source === "myanimelist") {
+        items = parseMyAnimeListXML(csv);
       } else {
         res.status(400).json({ error: `unsupported source: ${source}` });
         return;

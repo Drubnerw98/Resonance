@@ -7,6 +7,8 @@ import {
   type NewLibraryItemRow,
 } from "../db/schema.js";
 
+type LibraryStatus = "consumed" | "watchlist";
+
 /**
  * Minimal CSV parser. Handles double-quoted fields with embedded commas and
  * escaped double quotes (the standard CSV escape: "" inside a quoted field
@@ -218,6 +220,120 @@ export function parseGoodreadsCSV(text: string): NewLibraryItemRow[] {
     });
   }
   return items;
+}
+
+/**
+ * Parse a MyAnimeList XML export into library item rows. MAL exports one
+ * type at a time (anime list OR manga list) but we accept both shapes —
+ * anime entries appear as `<anime>...</anime>` blocks with `<series_title>`,
+ * manga as `<manga>...</manga>` with `<manga_title>`. Title text is wrapped
+ * in `<![CDATA[...]]>` so XML escaping isn't a concern.
+ *
+ * Status mapping:
+ *   - "Completed"      → consumed (with score → rating)
+ *   - "Plan to Watch"  → watchlist (anime; score ignored)
+ *   - "Plan to Read"   → watchlist (manga; score ignored)
+ *   - "Watching" / "Reading" / "On-Hold" / "Dropped" → skip (in-progress
+ *     or ambiguous; not useful as either positive or negative signal)
+ *
+ * Score mapping (MAL 1-10 → app 1-5):
+ *   - 9-10 → 5 (Masterpiece / Great)
+ *   - 8     → 4 (Very Good — real endorsement)
+ *   - 5-7   → 3 (Average / Fine / Good — neutral)
+ *   - 3-4   → 2 (Bad / Very Bad — avoid signal)
+ *   - 1-2   → 1 (Horrible / Appalling)
+ *   - 0     → null (unrated on MAL)
+ */
+export function parseMyAnimeListXML(text: string): NewLibraryItemRow[] {
+  if (!text.includes("<myanimelist>")) {
+    throw new Error(
+      "Doesn't look like a MyAnimeList XML export — missing <myanimelist> root.",
+    );
+  }
+
+  const items: NewLibraryItemRow[] = [];
+
+  for (const match of text.matchAll(/<anime>([\s\S]*?)<\/anime>/g)) {
+    const item = parseMalEntry(match[1] ?? "", "series_title", "anime");
+    if (item) items.push(item);
+  }
+
+  for (const match of text.matchAll(/<manga>([\s\S]*?)<\/manga>/g)) {
+    const item = parseMalEntry(match[1] ?? "", "manga_title", "manga");
+    if (item) items.push(item);
+  }
+
+  if (items.length === 0) {
+    throw new Error(
+      "MyAnimeList XML had no anime or manga entries with usable status — only Completed and Plan-to-Watch/Read entries are imported.",
+    );
+  }
+
+  return items;
+}
+
+function parseMalEntry(
+  block: string,
+  titleTag: string,
+  mediaType: MediaType,
+): NewLibraryItemRow | null {
+  const title = extractMalTag(block, titleTag);
+  if (!title) return null;
+
+  const malStatus = extractMalTag(block, "my_status");
+  if (!malStatus) return null;
+
+  const status = mapMalStatus(malStatus);
+  if (!status) return null;
+
+  let rating: number | null = null;
+  if (status === "consumed") {
+    const scoreStr = extractMalTag(block, "my_score");
+    if (scoreStr) rating = mapMalScore(Number(scoreStr));
+  }
+
+  return {
+    userId: "",
+    title,
+    mediaType,
+    source: "myanimelist",
+    status,
+    rating,
+    year: null,
+  };
+}
+
+/** Pull a single tag's text content out of an XML block, handling CDATA
+ * wrapping. Regex-only since the format is well-defined and tags don't
+ * nest within entry blocks. */
+function extractMalTag(block: string, tag: string): string | null {
+  const re = new RegExp(
+    `<${tag}>(?:<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>|([\\s\\S]*?))</${tag}>`,
+  );
+  const m = block.match(re);
+  if (!m) return null;
+  return (m[1] ?? m[2] ?? "").trim() || null;
+}
+
+function mapMalStatus(s: string): LibraryStatus | null {
+  switch (s) {
+    case "Completed":
+      return "consumed";
+    case "Plan to Watch":
+    case "Plan to Read":
+      return "watchlist";
+    default:
+      return null;
+  }
+}
+
+function mapMalScore(score: number): number | null {
+  if (!Number.isFinite(score) || score <= 0) return null;
+  if (score >= 9) return 5;
+  if (score >= 8) return 4;
+  if (score >= 5) return 3;
+  if (score >= 3) return 2;
+  return 1;
 }
 
 /**

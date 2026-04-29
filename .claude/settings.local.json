@@ -28,7 +28,8 @@
       "Bash(PORT=4567 timeout 3 pnpm --filter @resonance/server start)",
       "Bash(git push *)",
       "Bash(pnpm db:generate)",
-      "Bash(pnpm db:migrate)"
+      "Bash(pnpm db:migrate)",
+      "Bash(pnpm --filter @resonance/server tsx -e ' *)"
     ]
   }
 }

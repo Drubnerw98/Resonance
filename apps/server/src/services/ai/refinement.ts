@@ -11,6 +11,28 @@ import { TasteProfileSchema } from "./schemas.js";
 /** Number of post-pending feedback items required before auto-refinement fires. */
 const REFINEMENT_THRESHOLD = 5;
 
+/**
+ * Returns true if the user has accumulated enough feedback since their last
+ * profile save to trigger an auto-refinement. The feedback route uses this to
+ * tell the client "your save is what kicked the refinement off" — UI shows a
+ * banner. Evaluated synchronously (one quick count query) so the PATCH
+ * response doesn't have to wait for the actual model call.
+ */
+export async function wouldTriggerRefinement(
+  userId: string,
+): Promise<boolean> {
+  const profileRow = await getActiveProfile(userId);
+  if (!profileRow) return false;
+  const recentFeedback = await db.query.recommendations.findMany({
+    where: and(
+      eq(recommendations.userId, userId),
+      gt(recommendations.actedAt, profileRow.updatedAt),
+    ),
+    columns: { id: true },
+  });
+  return recentFeedback.length >= REFINEMENT_THRESHOLD;
+}
+
 /** Hard ceiling on how many recent feedback items we feed to the model. */
 const MAX_FEEDBACK_FOR_REFINEMENT = 25;
 

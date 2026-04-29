@@ -61,6 +61,11 @@ export interface UseRecommendations {
     rating?: number | null,
   ) => Promise<void>;
   rescore: (recId: string) => Promise<void>;
+  /** True when the latest feedback PATCH triggered the auto-refinement
+   * background job. Auto-clears after 30s. UI shows a banner so the user
+   * knows their profile is evolving. */
+  refinementBanner: boolean;
+  dismissRefinementBanner: () => void;
 }
 
 export function useRecommendations(): UseRecommendations {
@@ -74,6 +79,11 @@ export function useRecommendations(): UseRecommendations {
     new Set(),
   );
   const [error, setError] = useState<string | null>(null);
+  const [refinementBanner, setRefinementBanner] = useState(false);
+
+  const dismissRefinementBanner = useCallback(() => {
+    setRefinementBanner(false);
+  }, []);
 
   // Track the active job ID so a follow-up poll loop knows what to ask about.
   // Stored in a ref so polling doesn't trigger re-renders or close over stale
@@ -221,17 +231,38 @@ export function useRecommendations(): UseRecommendations {
             ? {
                 ...r,
                 status,
-                rating: rating ?? r.rating,
+                // Distinguish "don't change" (undefined) from "explicitly
+                // clear" (null). Save/Skip toggles pass undefined and keep
+                // the existing rating; star clicks pass a number; clicking
+                // the same star you already gave passes null.
+                rating: rating === undefined ? r.rating : rating,
                 actedAt: new Date().toISOString(),
               }
             : r,
         );
       });
       try {
-        await api(`/recommendations/${recId}/feedback`, {
+        const res = await api<{
+          id: string;
+          status: RecommendationItem["status"];
+          rating: number | null;
+          actedAt: string;
+          refinementTriggered?: boolean;
+        }>(`/recommendations/${recId}/feedback`, {
           method: "PATCH",
-          body: { status, ...(rating != null ? { rating } : {}) },
+          // Same distinction at the wire layer: include rating only when
+          // explicitly provided (number or null). Undefined → omitted.
+          body: {
+            status,
+            ...(rating !== undefined ? { rating } : {}),
+          },
         });
+        if (res.refinementTriggered) {
+          setRefinementBanner(true);
+          // Auto-dismiss after a beat — refinement runs ~30s, banner is a
+          // confidence cue, not a progress bar.
+          window.setTimeout(() => setRefinementBanner(false), 30_000);
+        }
       } catch (err) {
         setRecommendations(snapshot);
         setError(err instanceof Error ? err.message : "Failed to save feedback");
@@ -280,5 +311,7 @@ export function useRecommendations(): UseRecommendations {
     clear,
     setFeedback,
     rescore,
+    refinementBanner,
+    dismissRefinementBanner,
   };
 }

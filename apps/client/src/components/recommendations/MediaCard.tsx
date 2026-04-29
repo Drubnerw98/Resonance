@@ -141,25 +141,34 @@ function FeedbackRow({
 }) {
   const isSaved = status === "saved";
   const isSkipped = status === "skipped";
-  const isRated = status === "rated";
 
-  // Toggle behavior — clicking Save/Skip again returns the rec to "pending".
+  // Save/Skip toggle the *status*, never touch the rating column. Pass
+  // `undefined` so the PATCH body omits rating entirely (backend leaves
+  // the column alone). Lets a user save AND keep their stars visible.
   function toggleSave() {
-    onFeedback(recId, isSaved ? "pending" : "saved", null);
+    onFeedback(recId, isSaved ? "pending" : "saved", undefined);
   }
   function toggleSkip() {
-    onFeedback(recId, isSkipped ? "pending" : "skipped", null);
+    onFeedback(recId, isSkipped ? "pending" : "skipped", undefined);
   }
+  // Rating click: number sets it; clicking the same star you already gave
+  // sends an explicit `null` to clear it (and resets status to "pending"
+  // unless we want to keep it saved — see below). Status flips to "rated"
+  // when setting a new rating.
   function setRating(stars: number) {
-    if (isRated && rating === stars) {
-      onFeedback(recId, "pending", null);
+    if (rating === stars) {
+      // Toggling the same star off — clear rating, status back to pending
+      // unless it's saved (preserve saved-ness, just remove the stars).
+      onFeedback(recId, isSaved ? "saved" : "pending", null);
     } else {
-      onFeedback(recId, "rated", stars);
+      // Setting a rating doesn't unset saved — flip status to "rated" only
+      // if not currently saved. Saved + rated coexist via rating column.
+      onFeedback(recId, isSaved ? "saved" : "rated", stars);
     }
   }
 
   return (
-    <div className="flex items-center gap-3 pt-2">
+    <div className="flex flex-wrap items-center gap-3 pt-2">
       <button
         onClick={toggleSave}
         className={
@@ -184,10 +193,9 @@ function FeedbackRow({
       >
         {isSkipped ? "✗ Skipped" : "Skip"}
       </button>
-      <Stars
-        value={isRated ? (rating ?? 0) : 0}
-        onChange={setRating}
-      />
+      {/* Stars reflect the rating column directly — independent of status.
+          Saved + rated 4★ shows both: emerald Save button + filled stars. */}
+      <Stars value={rating ?? 0} onChange={setRating} />
     </div>
   );
 }

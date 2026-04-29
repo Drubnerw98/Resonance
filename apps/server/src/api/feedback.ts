@@ -2,7 +2,10 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireUser } from "../middleware/auth.js";
 import { applyFeedback } from "../services/feedback.js";
-import { maybeRefineProfile } from "../services/ai/refinement.js";
+import {
+  maybeRefineProfile,
+  wouldTriggerRefinement,
+} from "../services/ai/refinement.js";
 
 export const feedbackRouter: Router = Router();
 
@@ -50,6 +53,12 @@ feedbackRouter.patch("/:id/feedback", async (req, res, next) => {
       return;
     }
 
+    // Quick count check — synchronous, so we can tell the client whether
+    // their feedback just kicked off a background refinement. The actual
+    // refine call still runs fire-and-forget below; this just lets the UI
+    // show a "your profile is evolving" banner immediately.
+    const refinementTriggered = await wouldTriggerRefinement(userId);
+
     // Fire-and-forget. Errors get logged in the service; never block the user.
     void maybeRefineProfile(userId).catch((err) => {
       console.error("[refinement] background trigger failed:", err);
@@ -60,6 +69,7 @@ feedbackRouter.patch("/:id/feedback", async (req, res, next) => {
       status: row.status,
       rating: row.rating,
       actedAt: row.actedAt,
+      refinementTriggered,
     });
   } catch (err) {
     next(err);

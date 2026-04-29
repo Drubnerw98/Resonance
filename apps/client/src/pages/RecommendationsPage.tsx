@@ -215,6 +215,25 @@ export function RecommendationsPage() {
         }
       />
 
+      {recs.refinementBanner && (
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-emerald-900/40 bg-emerald-950/20 p-3 text-sm text-emerald-200">
+          <div className="flex items-center gap-2">
+            <span aria-hidden className="text-emerald-300">✨</span>
+            <span>
+              Your profile is evolving from your recent feedback — usually ~30s.
+              Refresh <Link to="/profile" className="underline">your profile</Link> in a moment to see the version bump.
+            </span>
+          </div>
+          <button
+            onClick={recs.dismissRefinementBanner}
+            aria-label="Dismiss"
+            className="shrink-0 rounded-md px-1 text-emerald-400 hover:bg-emerald-950/40 hover:text-emerald-200"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Prompt + Generate. The prompt is optional — empty submission still
           generates a default batch grounded in the profile. */}
       <form

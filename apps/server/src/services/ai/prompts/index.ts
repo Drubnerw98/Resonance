@@ -3,3 +3,5 @@ export { extractionSystemPrompt } from "./extraction.js";
 export { profileRefinementSystemPrompt } from "./profileRefinement.js";
 export { recommendCandidatesSystemPrompt } from "./recommendCandidates.js";
 export { recommendScoreSystemPrompt } from "./recommendScore.js";
+export { evaluateSystemPrompt } from "./evaluate.js";
+export { discoverThemesSystemPrompt } from "./discoverThemes.js";

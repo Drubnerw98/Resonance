@@ -2,6 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import type { ProfileTrigger, TasteProfile } from "@resonance/shared";
 import { db } from "../db/index.js";
 import {
+  discoveryThemes,
   profileVersions,
   tasteProfiles,
   type TasteProfileRow,
@@ -47,6 +48,14 @@ export async function saveProfile(
     profileData: profile,
     trigger,
   });
+
+  // Invalidate cached discovery themes — they were generated against the old
+  // profile and may now misrepresent the user. Next /discover/themes GET
+  // regenerates fresh against the current profile. Inline the delete to avoid
+  // a circular import (services/ai/discover.ts → services/profile.ts).
+  await db
+    .delete(discoveryThemes)
+    .where(eq(discoveryThemes.userId, userId));
 
   return row;
 }

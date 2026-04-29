@@ -76,6 +76,7 @@ export function RecommendationsPage() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
+  const batchParam = searchParams.get("batch");
   const activeTab: TabKey =
     tabParam && VALID_TAB_KEYS.has(tabParam as TabKey)
       ? (tabParam as TabKey)
@@ -88,12 +89,24 @@ export function RecommendationsPage() {
     setSearchParams(params, { replace: true });
   }
 
+  function clearBatchFilter(): void {
+    const params = new URLSearchParams(searchParams);
+    params.delete("batch");
+    setSearchParams(params, { replace: true });
+  }
+
   const [promptDraft, setPromptDraft] = useState("");
 
-  const buckets = useMemo(
-    () => bucketByType(recs.recommendations),
-    [recs.recommendations],
+  // Apply ?batch=<id> filter first, then ?tab=<format> on top.
+  const batchFiltered = useMemo(
+    () =>
+      batchParam
+        ? recs.recommendations.filter((r) => r.batchId === batchParam)
+        : recs.recommendations,
+    [recs.recommendations, batchParam],
   );
+
+  const buckets = useMemo(() => bucketByType(batchFiltered), [batchFiltered]);
 
   const visibleTabs = useMemo(
     () => TAB_ORDER.filter((t) => buckets[t.key].length > 0),
@@ -101,9 +114,10 @@ export function RecommendationsPage() {
   );
 
   const visible =
-    activeTab === "all" ? recs.recommendations : buckets[activeTab];
+    activeTab === "all" ? batchFiltered : buckets[activeTab];
 
   const grouped = useMemo(() => groupByBatch(visible), [visible]);
+  const focusedBatch = batchParam ? grouped[0]?.batch : null;
 
   function handleSubmit(e: FormEvent): void {
     e.preventDefault();
@@ -130,13 +144,25 @@ export function RecommendationsPage() {
   return (
     <section className="space-y-6">
       <header className="flex flex-col gap-3 border-b border-neutral-800 pb-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold">Recommendations</h1>
-          <p className="text-sm text-neutral-500">
-            {recs.recommendations.length === 0
-              ? "Generate a fresh batch grounded in your taste DNA."
-              : `${recs.recommendations.length} picks across ${grouped.length} ${grouped.length === 1 ? "list" : "lists"}.`}
-          </p>
+          {focusedBatch ? (
+            <p className="text-sm text-neutral-500">
+              Viewing one list ·{" "}
+              <button
+                onClick={clearBatchFilter}
+                className="underline hover:text-neutral-300"
+              >
+                show all
+              </button>
+            </p>
+          ) : (
+            <p className="text-sm text-neutral-500">
+              {recs.recommendations.length === 0
+                ? "Generate a fresh batch grounded in your taste DNA."
+                : `${recs.recommendations.length} picks across ${grouped.length} ${grouped.length === 1 ? "list" : "lists"}.`}
+            </p>
+          )}
         </div>
         {recs.recommendations.length > 0 && (
           <button

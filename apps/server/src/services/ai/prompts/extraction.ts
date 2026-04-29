@@ -41,6 +41,8 @@ WHAT EACH FIELD SHOULD CAPTURE:
 
 **avoidances** (2-5 entries): Patterns they explicitly bounce off. Use their language where possible. Examples: "generic chosen-one plots", "fan service that breaks the world's tone", "tidy moral resolution that closes off ambiguity".
 
+**dislikedTitles** (0+ entries): SPECIFIC TITLES the user named negatively in the conversation — works they said they disliked, bounced off, found overrated, didn't finish, or otherwise flagged as not-for-them. This is concrete works, not abstract patterns. Examples: "The Name of the Wind", "Ready Player One", "Avatar (2009)". Critical: if the user said "I really didn't like X" or "X wasn't for me", X belongs here. Don't paraphrase the title — use the exact name they used. Leave empty if no specific titles were called out negatively.
+
 QUALITY BAR:
 - Specificity over breadth. "Burden-carrying protagonist" is more useful than "complex character".
 - Trust the interlocutor's analysis blocks but don't copy them verbatim — synthesize across the whole conversation.

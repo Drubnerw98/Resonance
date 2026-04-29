@@ -6,6 +6,9 @@ import { feedbackRouter } from "./api/feedback.js";
 import { profileRouter } from "./api/profile.js";
 import { mediaRouter } from "./api/media.js";
 import { meRouter } from "./api/me.js";
+import { libraryRouter } from "./api/library.js";
+import { evaluateRouter } from "./api/evaluate.js";
+import { discoverRouter } from "./api/discover.js";
 import { errorHandler } from "./middleware/error.js";
 
 export function createApp(): Express {
@@ -28,6 +31,9 @@ export function createApp(): Express {
   app.use("/api/recommendations", feedbackRouter);
   app.use("/api/profile", profileRouter);
   app.use("/api/media", mediaRouter);
+  app.use("/api/library", libraryRouter);
+  app.use("/api/evaluate", evaluateRouter);
+  app.use("/api/discover", discoverRouter);
 
   app.use(errorHandler);
 

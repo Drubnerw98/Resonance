@@ -5,7 +5,9 @@ interface Props {
   version: number;
   updatedAt: string;
   onRefine?: () => void;
+  onContinueOnboarding?: () => void;
   isRefining?: boolean;
+  isStartingSession?: boolean;
 }
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -34,11 +36,13 @@ export function ProfileView({
   version,
   updatedAt,
   onRefine,
+  onContinueOnboarding,
   isRefining,
+  isStartingSession,
 }: Props) {
   return (
     <div className="space-y-8">
-      <header className="flex items-baseline justify-between gap-4 border-b border-neutral-800 pb-3">
+      <header className="flex flex-col gap-3 border-b border-neutral-800 pb-3 sm:flex-row sm:items-baseline sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Your taste DNA</h1>
           <p className="text-sm text-neutral-500">
@@ -46,16 +50,28 @@ export function ProfileView({
             {new Date(updatedAt).toLocaleString()}
           </p>
         </div>
-        {onRefine && (
-          <button
-            onClick={onRefine}
-            disabled={isRefining}
-            className="rounded-md border border-neutral-700 px-3 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
-            title="Re-run profile extraction using your recent feedback"
-          >
-            {isRefining ? "Refining…" : "Refine from feedback"}
-          </button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {onContinueOnboarding && (
+            <button
+              onClick={onContinueOnboarding}
+              disabled={isStartingSession}
+              className="rounded-md border border-neutral-700 px-3 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Start a new onboarding chat to add nuance to your profile"
+            >
+              {isStartingSession ? "Starting…" : "Continue onboarding"}
+            </button>
+          )}
+          {onRefine && (
+            <button
+              onClick={onRefine}
+              disabled={isRefining}
+              className="rounded-md border border-neutral-700 px-3 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Re-run profile extraction using your recent feedback"
+            >
+              {isRefining ? "Refining…" : "Refine from feedback"}
+            </button>
+          )}
+        </div>
       </header>
 
       <Section title="Themes" hint="What stories resonate with you and why">

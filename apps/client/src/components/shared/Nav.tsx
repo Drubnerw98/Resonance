@@ -12,6 +12,9 @@ const links: NavItem[] = [
   { to: "/", label: "Home", end: true },
   { to: "/onboarding", label: "Onboarding", protected: true },
   { to: "/recommendations", label: "Recommendations", protected: true },
+  { to: "/explore", label: "Browse", protected: true },
+  { to: "/evaluate", label: "Would I like…?", protected: true },
+  { to: "/lists", label: "Lists", protected: true },
   { to: "/profile", label: "Profile", protected: true },
   { to: "/me", label: "Me", protected: true },
 ];

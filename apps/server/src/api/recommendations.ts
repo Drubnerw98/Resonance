@@ -132,14 +132,15 @@ recommendationsRouter.get("/active-job", (req, res) => {
 
 /**
  * GET /api/recommendations/batches
- * Returns the user's batch list (newest first), without the recs themselves.
- * Lightweight — used to populate a "your lists" UI.
+ * Returns the user's batch list (newest first), with each batch's rec count.
+ * Lightweight — used to populate the "your lists" page.
  */
 recommendationsRouter.get("/batches", async (req, res, next) => {
   try {
     const rows = await db.query.recommendationBatches.findMany({
       where: eq(recommendationBatches.userId, req.user!.id),
       orderBy: [desc(recommendationBatches.createdAt)],
+      with: { recommendations: { columns: { id: true } } },
     });
     res.json({
       batches: rows.map((b) => ({
@@ -148,6 +149,7 @@ recommendationsRouter.get("/batches", async (req, res, next) => {
         name: b.name,
         createdAt: b.createdAt,
         updatedAt: b.updatedAt,
+        count: b.recommendations.length,
       })),
     });
   } catch (err) {

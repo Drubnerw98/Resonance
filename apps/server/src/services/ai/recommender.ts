@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, lt, or } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, lt, or } from "drizzle-orm";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type {
   MediaSearchQuery,
@@ -7,6 +7,7 @@ import type {
 } from "@resonance/shared";
 import { db } from "../../db/index.js";
 import {
+  libraryItems,
   recommendationBatches,
   recommendations,
   type MediaCacheRow,
@@ -42,7 +43,7 @@ const MAX_CANDIDATES_PER_FORMAT = 12;
  * work — collapses "Planescape: Torment" / "Planescape: Torment Enhanced
  * Edition" / "Final Fantasy VII Remastered" / "The Last of Us" / etc.
  */
-function canonicalizeTitle(s: string): string {
+export function canonicalizeTitle(s: string): string {
   let t = s.toLowerCase().trim();
 
   // Strip library-cataloging suffixes like "Republic, The" / "Nausea, LA"
@@ -140,13 +141,21 @@ function collectFavorites(profile: TasteProfile): Set<string> {
 }
 
 /**
- * Titles the user has actively rejected via feedback — explicitly skipped or
- * rated 1-2 stars. Used to filter spinoffs and sequels of disliked works
- * out of future recommendation batches. Saved and 4-5 rated titles are NOT
- * included: positive signal shouldn't block related variants.
+ * Titles the user has actively rejected — pulled from three sources:
+ *   - rec feedback (explicitly skipped, or rated 1-2 stars),
+ *   - library imports rated 1-2 stars,
+ *   - profile.dislikedTitles (specific titles named negatively during
+ *     onboarding or earlier refinement passes).
+ * Used to filter sequels and series variants of disliked works out of every
+ * subsequent batch. Saved and 4-5 rated titles are NOT included: positive
+ * signal shouldn't block related variants.
  */
-async function collectAvoidTitles(userId: string): Promise<Set<string>> {
-  const rows = await db.query.recommendations.findMany({
+export async function collectAvoidTitles(
+  userId: string,
+  profile: TasteProfile,
+): Promise<Set<string>> {
+  // From rec feedback: explicitly skipped, or rated 1-2 stars.
+  const fromRecs = await db.query.recommendations.findMany({
     where: and(
       eq(recommendations.userId, userId),
       or(
@@ -159,7 +168,22 @@ async function collectAvoidTitles(userId: string): Promise<Set<string>> {
     ),
     with: { media: true },
   });
-  return new Set(rows.map((r) => canonicalizeTitle(r.media.title)));
+  // From library imports: any item rated 1-2 stars is treated as
+  // user-flagged "I watched this and didn't like it".
+  const fromLibrary = await db.query.libraryItems.findMany({
+    where: and(
+      eq(libraryItems.userId, userId),
+      lt(libraryItems.rating, 3),
+    ),
+  });
+  const set = new Set<string>();
+  for (const r of fromRecs) set.add(canonicalizeTitle(r.media.title));
+  for (const l of fromLibrary) set.add(canonicalizeTitle(l.title));
+  // Profile-level disliked titles: titles the user named negatively during
+  // onboarding (e.g. "I really didn't like The Name of the Wind"). The
+  // extraction prompt collects these; refinement preserves and extends.
+  for (const t of profile.dislikedTitles ?? []) set.add(canonicalizeTitle(t));
+  return set;
 }
 
 /** A user's "library" — works they've signaled positive on, either by
@@ -171,19 +195,20 @@ async function collectAvoidTitles(userId: string): Promise<Set<string>> {
 export interface LibraryItem {
   title: string;
   mediaType: MediaType;
-  source: "profile" | "saved" | "rated";
+  source: "profile" | "saved" | "rated" | "imported";
   rating: number | null;
 }
 
 /**
- * Build the user's library from two sources, deduped by canonical title:
+ * Build the user's library from three sources, deduped by canonical title:
+ *   - recommendations with status=saved or rated 4-5 (strongest signal)
+ *   - imported library_items (from Letterboxd CSV / manual adds)
  *   - profile.mediaAffinities[].favorites — titles they named in onboarding
- *   - recommendations with status=saved or status=rated rating>=4
  *
- * Bias toward feedback (it's stronger signal than onboarding mentions), so
- * those come first in iteration order.
+ * Bias toward feedback first (strongest), then imports, then profile mentions.
+ * Same-title duplicates collapse to whichever source we encountered first.
  */
-async function getUserLibrary(
+export async function getUserLibrary(
   userId: string,
   profile: TasteProfile,
 ): Promise<LibraryItem[]> {
@@ -210,6 +235,29 @@ async function getUserLibrary(
     rating: r.rating,
   }));
 
+  // Imported library items, EXCLUDING anything the user rated 1-2.
+  // Low-rated imports flow into the avoid set instead — we don't want the
+  // recommender to cross-reference something the user told us they hated.
+  const fromImported: LibraryItem[] = (
+    await db.query.libraryItems.findMany({
+      where: and(
+        eq(libraryItems.userId, userId),
+        // Only items with no rating OR rating >= 3 count as positive library.
+        or(
+          isNull(libraryItems.rating),
+          gt(libraryItems.rating, 2),
+        ),
+      ),
+      orderBy: [desc(libraryItems.createdAt)],
+      limit: 200,
+    })
+  ).map((row) => ({
+    title: row.title,
+    mediaType: row.mediaType,
+    source: "imported" as const,
+    rating: row.rating,
+  }));
+
   const fromProfile: LibraryItem[] = profile.mediaAffinities.flatMap((aff) =>
     aff.favorites.map((title) => ({
       title,
@@ -219,10 +267,10 @@ async function getUserLibrary(
     })),
   );
 
-  // Dedupe by canonical title — feedback wins over profile mention if both.
+  // Dedupe by canonical title — feedback > imported > profile.
   const seen = new Set<string>();
   const merged: LibraryItem[] = [];
-  for (const item of [...fromFeedback, ...fromProfile]) {
+  for (const item of [...fromFeedback, ...fromImported, ...fromProfile]) {
     const key = canonicalizeTitle(item.title);
     if (seen.has(key)) continue;
     seen.add(key);
@@ -278,13 +326,19 @@ export async function generateRecommendations(
     `[rec] batch created: ${batch.id}${prompt ? ` (prompt="${prompt}")` : " (default)"}`,
   );
 
-  const seenCacheIds = new Set(
-    (
-      await db.query.recommendations.findMany({
-        where: eq(recommendations.userId, userId),
-        columns: { mediaCacheId: true },
-      })
-    ).map((r) => r.mediaCacheId),
+  // Pull existing recs once and derive two caches: the set of media_cache
+  // UUIDs already recommended (exact-row dedup), AND the set of canonical
+  // titles already recommended (cross-batch series-variant dedup). Without
+  // the second set, "Vinland Saga" in batch 1 doesn't prevent "Vinland Saga
+  // Season 2" from showing up in batch 2 — different cache rows, different
+  // UUIDs, but the same work-cluster from the user's perspective.
+  const existingRecs = await db.query.recommendations.findMany({
+    where: eq(recommendations.userId, userId),
+    with: { media: { columns: { id: true, title: true } } },
+  });
+  const seenCacheIds = new Set(existingRecs.map((r) => r.mediaCacheId));
+  const previouslyRecommendedTitles = new Set(
+    existingRecs.map((r) => canonicalizeTitle(r.media.title)),
   );
 
   const library = await getUserLibrary(userId, profile);
@@ -310,7 +364,7 @@ export async function generateRecommendations(
   // Step 2 — validate against real APIs, deduping and excluding seen items
   // (already-recommended cache rows + profile favorites + avoid-list).
   const favorites = collectFavorites(profile);
-  const avoidTitles = await collectAvoidTitles(userId);
+  const avoidTitles = await collectAvoidTitles(userId, profile);
   console.log(
     `[rec] favorites set (${favorites.size}):`,
     Array.from(favorites).slice(0, 12),
@@ -324,6 +378,7 @@ export async function generateRecommendations(
     seenCacheIds,
     favorites,
     avoidTitles,
+    previouslyRecommendedTitles,
   );
   console.log(
     `[rec] validated: ${candidates.length} cache rows after dedupe + seen-filter — by format:`,
@@ -372,6 +427,49 @@ function countByFormat(formats: string[]): Record<string, number> {
   return counts;
 }
 
+/** Map common phrasings to a dominant media type. Returns null when the
+ * prompt doesn't pin a single format. Used by the candidate + scoring
+ * prompts to override format-breadth requirements when the user is being
+ * explicit ("a movie that'll make me cry" should bias hard to movies). */
+function detectExplicitFormat(prompt: string | null): MediaType | null {
+  if (!prompt) return null;
+  const p = prompt.toLowerCase();
+  // Order matters when a phrase contains a substring of another.
+  const checks: { mediaType: MediaType; patterns: RegExp[] }[] = [
+    {
+      mediaType: "manga",
+      patterns: [/\bmanga(s)?\b/, /\blight novel(s)?\b/],
+    },
+    {
+      mediaType: "anime",
+      patterns: [/\banime(s)?\b/],
+    },
+    {
+      mediaType: "tv",
+      patterns: [/\btv\b/, /\bshow(s)?\b/, /\bseries\b/, /\bseason(s)?\b/],
+    },
+    {
+      mediaType: "movie",
+      patterns: [/\bmovie(s)?\b/, /\bfilm(s)?\b/, /\bcinema\b/],
+    },
+    {
+      mediaType: "game",
+      patterns: [/\bgame(s)?\b/, /\bvideo\s+game(s)?\b/],
+    },
+    {
+      mediaType: "book",
+      patterns: [/\bbook(s)?\b/, /\bnovel(s)?\b/, /\bread(s)?\b/],
+    },
+  ];
+  // First match wins; "tv" / "show" before "movie" so "tv show" doesn't
+  // false-match "movie" via the "show" check (it doesn't, but order is
+  // belt and suspenders).
+  for (const c of checks) {
+    if (c.patterns.some((re) => re.test(p))) return c.mediaType;
+  }
+  return null;
+}
+
 function formatLibraryBlock(library: LibraryItem[]): string {
   if (library.length === 0) return "";
   const lines = library.map((l, i) => {
@@ -379,6 +477,9 @@ function formatLibraryBlock(library: LibraryItem[]): string {
     if (l.source === "saved") detail = "saved";
     else if (l.source === "rated" && l.rating != null)
       detail = `rated ${l.rating}/5`;
+    else if (l.source === "imported")
+      detail =
+        l.rating != null ? `imported, rated ${l.rating}/5` : "imported";
     else detail = "mentioned in onboarding";
     return `[${i + 1}] ${l.title} (${l.mediaType}, ${detail})`;
   });
@@ -403,9 +504,12 @@ async function generateCandidatePlan(
   }
 
   if (prompt) {
-    sections.push(
-      `# This batch's prompt\n\n"${prompt}"\n\nThe user wants recommendations specifically aligned with this prompt. Their broader taste profile still applies as a guardrail (don't violate avoidances), but tilt your suggestions toward what the prompt asks for.`,
-    );
+    const explicitFormat = detectExplicitFormat(prompt);
+    let promptSection = `# This batch's prompt\n\n"${prompt}"\n\nThe user wants recommendations specifically aligned with this prompt. Their broader taste profile still applies as a guardrail (don't violate avoidances), but tilt your suggestions toward what the prompt asks for.`;
+    if (explicitFormat) {
+      promptSection += `\n\n**The prompt asks specifically for ${explicitFormat}.** Treat this as a single-format request: at LEAST 80% of titleSuggestions must be ${explicitFormat}. The cross-format breadth rule is OVERRIDDEN by an explicit format request — the user is telling you what they want; respect it. A single complementary suggestion in a different format is fine, but don't fan out across all formats.`;
+    }
+    sections.push(promptSection);
   }
 
   sections.push(`# Task\n\nGenerate candidate recommendations.`);
@@ -437,12 +541,14 @@ async function collectRealCandidates(
   seenCacheIds: Set<string>,
   favorites: Set<string>,
   avoidTitles: Set<string>,
+  previouslyRecommendedTitles: Set<string>,
 ): Promise<MediaCacheRow[]> {
   const byCacheId = new Map<string, MediaCacheRow>();
-  // Canonical titles we've already accepted into this batch — prevents
-  // "Planescape: Torment" + "Enhanced Edition" both surviving, and catches
-  // duplicate Open Library Work entries for the same novel.
-  const seenCanonicals = new Set<string>();
+  // Canonical titles we've already accepted — both within this batch AND
+  // across all prior batches. Seed with prior-rec canonicals so series
+  // variants like "Vinland Saga Season 2" get deduped against an earlier
+  // batch's "Vinland Saga".
+  const seenCanonicals = new Set<string>(previouslyRecommendedTitles);
   let droppedAsFavorite = 0;
   let droppedAsSeen = 0;
   let droppedAsAvoided = 0;
@@ -581,9 +687,12 @@ synopsis: ${truncate(item.description, 600)}`;
   }
 
   if (prompt) {
-    sections.push(
-      `# This batch's prompt\n\n"${prompt}"\n\nThe user wants recs specifically aligned with this prompt. Reflect it in your explanations — name the connection between each rec and what they asked for.`,
-    );
+    const explicitFormat = detectExplicitFormat(prompt);
+    let promptSection = `# This batch's prompt\n\n"${prompt}"\n\nThe user wants recs specifically aligned with this prompt. Reflect it in your explanations — name the connection between each rec and what they asked for.`;
+    if (explicitFormat) {
+      promptSection += `\n\n**The prompt asks specifically for ${explicitFormat}.** Your output must be at least 80% ${explicitFormat}. The format-breadth rule is overridden by an explicit format request. Drop non-${explicitFormat} candidates rather than padding to satisfy breadth.`;
+    }
+    sections.push(promptSection);
   }
 
   sections.push(
@@ -591,7 +700,7 @@ synopsis: ${truncate(item.description, 600)}`;
   );
 
   sections.push(
-    `# Task\n\nYou have ${candidates.length} candidates. Per the volume rule, return AT LEAST ${requiredFloor} recommendations. If you can't, you're not following instructions — re-read the system prompt.`,
+    `# Task\n\nYou have ${candidates.length} candidates. Target AT LEAST ${requiredFloor} recommendations — but Rule 1 (drop misfits) always wins over the volume target. Returning fewer than ${requiredFloor} because the rest are genuine misfits is the right answer; padding with poor fits is wrong.`,
   );
 
   const response = await client.messages.parse({

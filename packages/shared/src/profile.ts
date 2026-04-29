@@ -33,6 +33,14 @@ export interface TasteProfile {
   narrativePrefs: NarrativePreferences;
   mediaAffinities: MediaAffinity[];
   avoidances: string[];
+  /** Specific titles the user said they DIDN'T like during onboarding or
+   * feedback. Distinct from `avoidances`, which holds abstract patterns
+   * ("generic chosen-one plots"); this is concrete works to keep out of
+   * recommendations entirely.
+   *
+   * Optional because it was added after some profiles were already persisted —
+   * old rows don't have the field. Always read via `?? []`. */
+  dislikedTitles?: string[];
 }
 
 export type OnboardingStatus = "pending" | "in_progress" | "complete";

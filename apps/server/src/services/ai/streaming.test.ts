@@ -77,6 +77,18 @@ const cases: Case[] = [
     ready: true,
   },
   {
+    name: "leading whitespace after analysis block is suppressed",
+    chunks: ["<analysis>note</analysis>\n\n", "Hello there"],
+    expected: "Hello there",
+    ready: false,
+  },
+  {
+    name: "leading whitespace after thinking block is suppressed",
+    chunks: ["<thinking>note</thinking>\n\nHello "],
+    expected: "Hello ",
+    ready: false,
+  },
+  {
     name: "lone < not a tag start",
     chunks: ["x < y"],
     expected: "x < y",

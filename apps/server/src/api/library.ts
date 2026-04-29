@@ -1,0 +1,175 @@
+import { Router } from "express";
+import { z } from "zod";
+import { and, eq } from "drizzle-orm";
+import { requireUser } from "../middleware/auth.js";
+import { db } from "../db/index.js";
+import { libraryItems } from "../db/schema.js";
+import {
+  addLibraryItem,
+  deleteLibraryItem,
+  importLibraryItems,
+  listLibraryItems,
+  parseGoodreadsCSV,
+  parseLetterboxdCSV,
+} from "../services/library.js";
+
+export const libraryRouter: Router = Router();
+
+libraryRouter.use(requireUser);
+
+const mediaTypeEnum = z.enum([
+  "movie",
+  "tv",
+  "anime",
+  "manga",
+  "game",
+  "book",
+]);
+
+/**
+ * GET /api/library
+ * Returns the user's library items, newest first.
+ */
+libraryRouter.get("/", async (req, res, next) => {
+  try {
+    const rows = await listLibraryItems(req.user!.id);
+    res.json({ items: rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const addBodySchema = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    mediaType: mediaTypeEnum,
+    year: z.number().int().min(1800).max(2100).optional(),
+    rating: z.number().int().min(1).max(5).optional(),
+  })
+  .strict();
+
+/**
+ * POST /api/library
+ * Add a single library item manually. Body: { title, mediaType, year?, rating? }
+ */
+libraryRouter.post("/", async (req, res, next) => {
+  try {
+    const parsed = addBodySchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({ error: "invalid body", issues: parsed.error.issues });
+      return;
+    }
+    const row = await addLibraryItem(req.user!.id, {
+      title: parsed.data.title,
+      mediaType: parsed.data.mediaType,
+      ...(parsed.data.year !== undefined ? { year: parsed.data.year } : {}),
+      ...(parsed.data.rating !== undefined
+        ? { rating: parsed.data.rating }
+        : {}),
+    });
+    if (!row) {
+      res.status(409).json({ error: "already in library" });
+      return;
+    }
+    res.status(201).json({ item: row });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const importBodySchema = z
+  .object({
+    source: z.enum(["letterboxd", "goodreads"]),
+    csv: z.string().min(1).max(2_000_000), // ~2MB cap
+  })
+  .strict();
+
+/**
+ * POST /api/library/import
+ * Body: { source: "letterboxd", csv: string }
+ * Parses the supplied CSV text and bulk-inserts library items, deduping
+ * against existing entries.
+ */
+libraryRouter.post("/import", async (req, res, next) => {
+  try {
+    const parsed = importBodySchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({ error: "invalid body", issues: parsed.error.issues });
+      return;
+    }
+
+    const { source, csv } = parsed.data;
+    let items: ReturnType<typeof parseLetterboxdCSV>;
+    try {
+      if (source === "letterboxd") {
+        items = parseLetterboxdCSV(csv);
+      } else if (source === "goodreads") {
+        items = parseGoodreadsCSV(csv);
+      } else {
+        res.status(400).json({ error: `unsupported source: ${source}` });
+        return;
+      }
+    } catch (err) {
+      res
+        .status(400)
+        .json({ error: err instanceof Error ? err.message : "Parse failed" });
+      return;
+    }
+
+    const inserted = await importLibraryItems(req.user!.id, items);
+    res.json({
+      parsed: items.length,
+      inserted,
+      duplicates: items.length - inserted,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * DELETE /api/library
+ * Bulk-clear the user's library. Optional ?source=letterboxd query param
+ * scopes the wipe to a single import source — useful for "remove all my
+ * Letterboxd entries so I can re-import the right CSV" workflows.
+ */
+libraryRouter.delete("/", async (req, res, next) => {
+  try {
+    const source = typeof req.query.source === "string" ? req.query.source : null;
+    const where = source
+      ? and(
+          eq(libraryItems.userId, req.user!.id),
+          eq(libraryItems.source, source),
+        )
+      : eq(libraryItems.userId, req.user!.id);
+    const deleted = await db
+      .delete(libraryItems)
+      .where(where)
+      .returning({ id: libraryItems.id });
+    res.json({ deleted: deleted.length });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * DELETE /api/library/:id
+ * Removes a single library item.
+ */
+libraryRouter.delete("/:id", async (req, res, next) => {
+  try {
+    const id = req.params.id!;
+    const ok = await deleteLibraryItem(req.user!.id, id);
+    if (!ok) {
+      res.status(404).json({ error: "not found" });
+      return;
+    }
+    res.json({ deleted: id });
+  } catch (err) {
+    next(err);
+  }
+});

@@ -7,18 +7,31 @@ import {
 } from "../db/schema.js";
 
 /**
- * Returns the user's most recent onboarding session that actually has content
- * (turnCount > 0), falling back to any session if no session has content yet.
- * Returns null if they've never onboarded.
+ * Returns the user's most relevant onboarding session.
  *
- * The "prefer with content" rule matters because GET handlers can spawn empty
- * active sessions opportunistically. After a user completes a session and
- * revisits /onboarding, we want to keep showing the completed transcript, not
- * the empty active session that gets created on the way in.
+ * Priority order:
+ *   1. An ACTIVE session — if you have an ongoing conversation, that's
+ *      what you want to see, even if it has no turns yet (e.g., the user
+ *      just clicked "Continue onboarding" and we created a fresh active
+ *      session — they want the empty chat, not their old completed one).
+ *   2. The latest session WITH content (turnCount > 0). Used to keep a
+ *      completed transcript visible after completion across page loads.
+ *   3. The latest session of any kind, as a final fallback.
+ *
+ * Returns null if the user has never onboarded.
  */
 export async function getLatestSession(
   userId: string,
 ): Promise<OnboardingSession | null> {
+  const active = await db.query.onboardingSessions.findFirst({
+    where: and(
+      eq(onboardingSessions.userId, userId),
+      eq(onboardingSessions.status, "active"),
+    ),
+    orderBy: (s, { desc }) => [desc(s.createdAt)],
+  });
+  if (active) return active;
+
   const withContent = await db.query.onboardingSessions.findFirst({
     where: and(
       eq(onboardingSessions.userId, userId),
@@ -92,6 +105,40 @@ export async function appendMessage(
     .returning();
   if (!updated) throw new Error("Failed to update session");
   return updated;
+}
+
+/**
+ * Force-start a brand-new active session, even if one exists already (the
+ * previous active session, if any, is marked abandoned). Used by the
+ * "Continue onboarding" / "Talk to it again" flow on the profile page —
+ * we want a fresh transcript without losing the old one.
+ */
+export async function startNewSession(
+  userId: string,
+): Promise<OnboardingSession> {
+  // Mark any existing active session as abandoned so getOrCreate doesn't
+  // pick it up later.
+  await db
+    .update(onboardingSessions)
+    .set({ status: "abandoned" })
+    .where(
+      and(
+        eq(onboardingSessions.userId, userId),
+        eq(onboardingSessions.status, "active"),
+      ),
+    );
+
+  const [created] = await db
+    .insert(onboardingSessions)
+    .values({
+      userId,
+      status: "active",
+      messages: [],
+      turnCount: 0,
+    })
+    .returning();
+  if (!created) throw new Error("Failed to create onboarding session");
+  return created;
 }
 
 export async function markSessionCompleted(

@@ -1,12 +1,31 @@
-import { useState, type FormEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 
 interface Props {
   onSend: (content: string) => void;
   disabled: boolean;
 }
 
+const MIN_ROWS = 4;
+const MAX_HEIGHT_PX = 220;
+
 export function ChatInput({ onSend, disabled }: Props) {
   const [value, setValue] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-grow as the user types, capped at MAX_HEIGHT_PX. Resets cleanly when
+  // the message is sent and `value` returns to "".
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT_PX)}px`;
+  }, [value]);
 
   function submit() {
     const trimmed = value.trim();
@@ -30,13 +49,19 @@ export function ChatInput({ onSend, disabled }: Props) {
   return (
     <form onSubmit={handleSubmit} className="flex gap-2">
       <textarea
+        ref={textareaRef}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKey}
-        placeholder={disabled ? "Waiting for reply…" : "Tell me about it…"}
-        rows={2}
+        placeholder={
+          disabled
+            ? "Waiting for reply…"
+            : "Tell me about it… (Shift+Enter for newline)"
+        }
+        rows={MIN_ROWS}
         disabled={disabled}
-        className="flex-1 resize-none rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-500 focus:outline-none disabled:opacity-50"
+        style={{ maxHeight: `${MAX_HEIGHT_PX}px` }}
+        className="flex-1 resize-none overflow-y-auto rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm leading-relaxed text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-500 focus:outline-none disabled:opacity-50"
       />
       <button
         type="submit"

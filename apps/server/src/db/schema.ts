@@ -12,9 +12,10 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import type {
+  DiscoveryTheme,
   MediaItem,
-  TasteProfile,
   OnboardingMessage,
+  TasteProfile,
 } from "@resonance/shared";
 
 export const onboardingStatusEnum = pgEnum("onboarding_status", [
@@ -155,6 +156,44 @@ export const mediaCache = pgTable(
   ],
 );
 
+// User-curated library entries — works the user has explicitly told the
+// system they've engaged with positively. Two main sources:
+//   - Imported from external services (Letterboxd CSV, Goodreads, etc.)
+//   - Added manually
+// Distinct from `recommendations` rows (which are AI-generated suggestions
+// the user reacted to) and from profile.mediaAffinities[].favorites (which
+// were inferred during onboarding extraction). The recommender's
+// "library" feed pulls from all three.
+export const libraryItems = pgTable(
+  "library_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    mediaType: mediaTypeEnum("media_type").notNull(),
+    /** "letterboxd" | "goodreads" | "manual" | etc. */
+    source: text("source").notNull(),
+    /** Optional 1-5 user rating, when the import provides one. */
+    rating: integer("rating"),
+    /** Optional release year — stored when import provides it; helps
+     * disambiguate same-titled works. */
+    year: integer("year"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("library_items_user_id_idx").on(t.userId),
+    uniqueIndex("library_items_user_title_uniq").on(
+      t.userId,
+      t.mediaType,
+      t.title,
+    ),
+  ],
+);
+
 // Persistent batches — every generated rec batch becomes a first-class
 // object with a name, optional prompt, and timestamp. Lays the groundwork
 // for "your lists" UX where users can revisit, rename, and organize batches
@@ -213,6 +252,19 @@ export const recommendations = pgTable(
   ],
 );
 
+// Browse-mode themes generated from the user's profile. One row per user;
+// regenerated on manual refresh or invalidated when the profile changes.
+// Stored as a jsonb array (cheap to read/write, max 6-8 entries).
+export const discoveryThemes = pgTable("discovery_themes", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  themes: jsonb("themes").$type<DiscoveryTheme[]>().notNull(),
+  generatedAt: timestamp("generated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const usersRelations = relations(users, ({ one, many }) => ({
   tasteProfile: one(tasteProfiles, {
     fields: [users.id],
@@ -220,6 +272,14 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
   onboardingSessions: many(onboardingSessions),
   recommendations: many(recommendations),
+  libraryItems: many(libraryItems),
+}));
+
+export const libraryItemsRelations = relations(libraryItems, ({ one }) => ({
+  user: one(users, {
+    fields: [libraryItems.userId],
+    references: [users.id],
+  }),
 }));
 
 export const tasteProfilesRelations = relations(
@@ -294,3 +354,7 @@ export type RecommendationRow = typeof recommendations.$inferSelect;
 export type NewRecommendationRow = typeof recommendations.$inferInsert;
 export type RecommendationBatchRow = typeof recommendationBatches.$inferSelect;
 export type NewRecommendationBatchRow = typeof recommendationBatches.$inferInsert;
+export type LibraryItemRow = typeof libraryItems.$inferSelect;
+export type NewLibraryItemRow = typeof libraryItems.$inferInsert;
+export type DiscoveryThemesRow = typeof discoveryThemes.$inferSelect;
+export type NewDiscoveryThemesRow = typeof discoveryThemes.$inferInsert;

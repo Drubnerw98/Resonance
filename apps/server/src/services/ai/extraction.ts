@@ -2,6 +2,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type { OnboardingMessage, TasteProfile } from "@resonance/shared";
 import { getAnthropic } from "./client.js";
 import { extractionSystemPrompt } from "./prompts/extraction.js";
+import { profileRefinementSystemPrompt } from "./prompts/profileRefinement.js";
 import { TasteProfileSchema } from "./schemas.js";
 
 const EXTRACTION_MODEL = "claude-sonnet-4-6";
@@ -57,5 +58,56 @@ export async function extractProfile(
   // model output, so the runtime shape matches TasteProfile — but its return
   // type was inferred through the `unknown` cast above, so we re-validate
   // here both for type assertion and as a defense-in-depth check.
+  return TasteProfileSchema.parse(response.parsed_output) as TasteProfile;
+}
+
+/**
+ * Evolve an existing TasteProfile using a new onboarding transcript. Unlike
+ * `extractProfile` (which builds from scratch), this preserves the user's
+ * existing taste DNA and updates it based on what they said in the new
+ * conversation. Used by the "Continue onboarding" flow — successive sessions
+ * sharpen the profile rather than overwriting it.
+ *
+ * Reuses the refinement system prompt (same "evolve, don't rebuild" framing
+ * as feedback-driven refinement) but with a transcript instead of feedback
+ * items.
+ */
+export async function evolveProfileFromTranscript(
+  current: TasteProfile,
+  history: OnboardingMessage[],
+): Promise<TasteProfile> {
+  const client = getAnthropic();
+
+  const transcript = history
+    .map((m) => `${m.role.toUpperCase()}:\n${m.content}`)
+    .join("\n\n---\n\n");
+
+  const format = zodOutputFormat(
+    TasteProfileSchema as unknown as Parameters<typeof zodOutputFormat>[0],
+  );
+
+  const userMessage = `# Current TasteProfile
+
+${JSON.stringify(current, null, 2)}
+
+# New conversation transcript (a continuation of the previous onboarding)
+
+${transcript}
+
+Evolve the profile based on what was said in this new conversation. Treat the new transcript as additional signal, not a replacement. Keep what's still true; sharpen what's been clarified; add what's new.`;
+
+  const response = await client.messages.parse({
+    model: EXTRACTION_MODEL,
+    max_tokens: 4096,
+    system: profileRefinementSystemPrompt(),
+    messages: [{ role: "user", content: userMessage }],
+    output_config: { format },
+  });
+
+  if (!response.parsed_output) {
+    throw new Error(
+      `Profile evolution failed: model did not return a parseable profile (stop_reason=${response.stop_reason})`,
+    );
+  }
   return TasteProfileSchema.parse(response.parsed_output) as TasteProfile;
 }

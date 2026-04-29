@@ -54,6 +54,10 @@ export const TasteProfileSchema = z.object({
   narrativePrefs: NarrativePrefsSchema,
   mediaAffinities: z.array(MediaAffinitySchema),
   avoidances: z.array(z.string().min(1)),
+  // Specific titles the user said they DIDN'T like — distinct from
+  // `avoidances` (abstract patterns). `.default([])` lets profiles persisted
+  // before this field existed parse without migration.
+  dislikedTitles: z.array(z.string().min(1)).default([]),
 });
 
 // Compile-time check that the zod-inferred type matches the shared interface.
@@ -116,3 +120,35 @@ export const ScoredCandidatesOutputSchema = z.object({
 });
 
 export type ScoredCandidatesOutput = z.infer<typeof ScoredCandidatesOutputSchema>;
+
+// === Evaluate mode: single-item verdict ===
+//
+// "Would I like X?" — model gets one candidate and the user's profile/library,
+// outputs a calibrated belief score, a verdict paragraph, and tasteTags. The
+// verdict is allowed to be negative; that's the differentiator from the rec
+// scoring path which is biased toward inclusion.
+export const VerdictOutputSchema = z.object({
+  matchScore: z.number().min(0).max(1),
+  verdict: z.string().min(1),
+  tasteTags: z.array(z.string().min(1)),
+});
+
+export type VerdictOutput = z.infer<typeof VerdictOutputSchema>;
+
+// === Mode 4: discovery themes ===
+//
+// Six browse-mode entry surfaces tailored to the user. Schema cap is 8 to
+// give the model a tiny bit of slack; we slice to 6 in the service. Each
+// theme is plain text + a list of media types it applies to.
+export const DiscoveryThemeSchema = z.object({
+  title: z.string().min(1).max(80),
+  description: z.string().min(1).max(400),
+  formats: z.array(MediaTypeEnum).min(1).max(3),
+  promptHint: z.string().min(1).max(300),
+});
+
+export const DiscoveryThemesOutputSchema = z.object({
+  themes: z.array(DiscoveryThemeSchema).min(1).max(8),
+});
+
+export type DiscoveryThemesOutput = z.infer<typeof DiscoveryThemesOutputSchema>;

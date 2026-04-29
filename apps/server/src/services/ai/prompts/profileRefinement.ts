@@ -36,6 +36,7 @@ Output: the SAME TasteProfile shape, evolved.
 - mediaAffinities.comfort can drift up if the user is engaging with that format more (multiple saves in that format) and down if they're skipping it heavily.
 - The output is a complete TasteProfile — every field must be populated. Carry forward unchanged what feedback didn't speak to.
 - Specificity over breadth — same as the original extraction. "Burden-carrying protagonist" beats "complex character".
+- **dislikedTitles**: PRESERVE every entry from the existing profile. If a feedback item is a 1-2 rating or a skip, ADD that title to dislikedTitles (use the exact title from feedback). Never drop an existing dislikedTitle on the basis of feedback — once flagged as disliked, stays flagged.
 
 Output ONLY the JSON object. No commentary.`;
 }

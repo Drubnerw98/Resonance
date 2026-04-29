@@ -35,6 +35,7 @@ For titleSuggestions:
 - Focus on titles you have HIGH CONFIDENCE the API can find. Use canonical English titles.
 - Don't propose titles in formats the user shows zero comfort with (comfort < 0.2).
 - Don't propose anything in their avoidances list.
+- **NEVER propose anything in their dislikedTitles list, or any sequel / prequel / spinoff / adaptation of those titles.** dislikedTitles are specific works the user has already told us they bounced off — proposing them or their close variants is a hard failure.
 - **REQUIRED FORMAT BREADTH**: For every mediaAffinity with comfort >= 0.3, propose AT LEAST 3 titles in that format. This is non-negotiable — a cross-media recommender that returns only one format has failed at its core job. If the profile shows tv comfort 0.5 and game comfort 0.5, you must propose 3+ tv AND 3+ game titles.
 - Don't repeat titles already in their mediaAffinities.favorites — those are inputs, not recommendations.
 

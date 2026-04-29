@@ -73,6 +73,28 @@ function descriptionToString(
   return d.value ?? "";
 }
 
+// Open Library indexes a lot of scholarly companion material alongside the
+// novels themselves — reader's guides, essay collections, study companions.
+// They share a key word with the source novel ("Piranesi", "Name of the Wind")
+// so a title search returns them as look-alikes. We never want these in the
+// candidate pool — the user asked for fiction, not literary criticism.
+const SCHOLARLY_TITLE_PATTERNS: RegExp[] = [
+  /\b(?:essay|essays)\b/i,
+  /\b(?:study|reader'?s|reading)\s+guide\b/i,
+  /\bcompanion\b/i,
+  /\bcriticism\b/i,
+  /\bcritical\s+(?:essay|study|introduction|companion|companion to)/i,
+  /\bnotes\s+on\b/i,
+  /\bcliff'?s?notes\b/i,
+  /\bsparknotes\b/i,
+  /\bmonograph\b/i,
+  /\banalysis\s+of\b/i,
+];
+
+function isScholarlyTitle(title: string): boolean {
+  return SCHOLARLY_TITLE_PATTERNS.some((re) => re.test(title));
+}
+
 function normalizeDoc(doc: OpenLibraryDoc): MediaItem {
   const externalId = workIdFromKey(doc.key);
   const description = doc.author_name
@@ -105,7 +127,10 @@ async function searchByTitle(title: string): Promise<MediaItem[]> {
     language: "eng",
     limit: "10",
   });
-  return res.docs.slice(0, 10).map(normalizeDoc);
+  return res.docs
+    .filter((d) => !isScholarlyTitle(d.title ?? ""))
+    .slice(0, 10)
+    .map(normalizeDoc);
 }
 
 async function searchByQuery(query: MediaSearchQuery): Promise<MediaItem[]> {
@@ -136,7 +161,9 @@ async function searchByQuery(query: MediaSearchQuery): Promise<MediaItem[]> {
   params.language = "eng";
 
   const res = await olFetch<OpenLibrarySearchResponse>("/search.json", params);
-  return res.docs.map(normalizeDoc);
+  return res.docs
+    .filter((d) => !isScholarlyTitle(d.title ?? ""))
+    .map(normalizeDoc);
 }
 
 async function getById(externalId: string): Promise<MediaItem | null> {

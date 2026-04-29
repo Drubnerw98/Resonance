@@ -58,6 +58,11 @@ export class StreamFilter {
   /** Close tag we're currently scanning for, or null in NORMAL state. */
   private waitingFor: string | null = null;
   private ready = false;
+  /** Have we emitted any non-whitespace yet? Used to suppress leading
+   * whitespace left behind after stripping a leading reasoning block —
+   * otherwise the user sees 2-3 blank lines before the bot's actual reply
+   * starts typing. */
+  private hasEmittedContent = false;
 
   push(chunk: string): FilterChunk {
     this.buffer += chunk;
@@ -126,6 +131,14 @@ export class StreamFilter {
       }
     }
 
+    // Suppress any leading whitespace until we've emitted real content.
+    // This hides the newlines that typically follow a stripped <thinking>
+    // or <analysis> block at the start of the model's response.
+    if (!this.hasEmittedContent && output.length > 0) {
+      output = output.replace(/^\s+/, "");
+      if (output.length > 0) this.hasEmittedContent = true;
+    }
+
     return { text: output, readySignaled: signaled };
   }
 
@@ -138,8 +151,12 @@ export class StreamFilter {
       this.buffer = "";
       return "";
     }
-    const out = this.buffer;
+    let out = this.buffer;
     this.buffer = "";
+    if (!this.hasEmittedContent) {
+      out = out.replace(/^\s+/, "");
+      if (out.length > 0) this.hasEmittedContent = true;
+    }
     return out;
   }
 

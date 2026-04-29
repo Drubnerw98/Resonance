@@ -1,10 +1,72 @@
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ProfileView } from "../components/profile/ProfileView.tsx";
+import { LibrarySection } from "../components/profile/LibrarySection.tsx";
 import { Skeleton } from "../components/shared/Skeleton.tsx";
 import { useProfile } from "../hooks/useProfile.ts";
+import { useApi } from "../hooks/useApi.ts";
 
 export function ProfilePage() {
   const { state, isRefining, refineError, refine } = useProfile();
+  const api = useApi();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [isStartingSession, setIsStartingSession] = useState(false);
+  const [continueError, setContinueError] = useState<string | null>(null);
+
+  // Scroll to anchored section after profile data renders. Re-runs when state
+  // becomes "ready" because the section we're targeting (e.g. #library) only
+  // mounts once data is loaded — running on initial navigation alone would
+  // miss the element.
+  useEffect(() => {
+    if (state.status !== "ready") return;
+    const hash = location.hash.slice(1);
+    if (!hash) return;
+    const el = document.getElementById(hash);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [location.hash, state.status]);
+
+  async function handleContinueOnboarding() {
+    if (isStartingSession) return;
+    setIsStartingSession(true);
+    setContinueError(null);
+    try {
+      await api("/onboarding/restart", { method: "POST" });
+      navigate("/onboarding");
+    } catch (err) {
+      setContinueError(
+        err instanceof Error ? err.message : "Failed to start session",
+      );
+    } finally {
+      setIsStartingSession(false);
+    }
+  }
+
+  async function handleResetProfile() {
+    const ok = confirm(
+      "Start over from scratch?\n\n" +
+        "This will delete:\n" +
+        "  • Your taste profile and all profile versions\n" +
+        "  • Your onboarding chat history\n\n" +
+        "These will NOT be deleted (clear them separately if you want):\n" +
+        "  • Your recommendations and lists\n" +
+        "  • Your imported library\n\n" +
+        "After reset you'll be sent back to onboarding to build a fresh profile.",
+    );
+    if (!ok) return;
+    setIsStartingSession(true);
+    setContinueError(null);
+    try {
+      await api("/profile/reset", { method: "POST" });
+      navigate("/onboarding");
+    } catch (err) {
+      setContinueError(
+        err instanceof Error ? err.message : "Failed to reset",
+      );
+    } finally {
+      setIsStartingSession(false);
+    }
+  }
 
   if (state.status === "loading") {
     return (
@@ -57,9 +119,9 @@ export function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      {refineError && (
+      {(refineError || continueError) && (
         <pre className="rounded border border-red-900 bg-red-950/40 p-3 text-sm text-red-300">
-          {refineError}
+          {refineError ?? continueError}
         </pre>
       )}
 
@@ -68,8 +130,29 @@ export function ProfilePage() {
         version={state.version}
         updatedAt={state.updatedAt}
         onRefine={() => void refine()}
+        onContinueOnboarding={() => void handleContinueOnboarding()}
         isRefining={isRefining}
+        isStartingSession={isStartingSession}
       />
+
+      <LibrarySection />
+
+      <section className="space-y-2 border-t border-neutral-800 pt-4">
+        <h2 className="text-sm font-semibold text-neutral-400">Danger zone</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-rose-900/40 bg-rose-950/10 p-3">
+          <p className="text-sm text-neutral-400">
+            Wipe your taste profile and onboarding chat history, then start
+            fresh. Recommendations and library stay.
+          </p>
+          <button
+            onClick={() => void handleResetProfile()}
+            disabled={isStartingSession}
+            className="rounded-md border border-rose-900 px-3 py-1.5 text-xs font-medium text-rose-300 hover:bg-rose-950/40 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Start over from scratch
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

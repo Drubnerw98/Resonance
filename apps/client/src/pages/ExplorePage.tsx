@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { DiscoveryTheme, MediaType } from "@resonance/shared";
 import { useApi } from "../hooks/useApi.ts";
 import { useThemes } from "../hooks/useThemes.ts";
+import { useProfile } from "../hooks/useProfile.ts";
 import { Skeleton } from "../components/shared/Skeleton.tsx";
 import { PageHeader } from "../components/shared/PageHeader.tsx";
 import { LoadingPulse } from "../components/shared/LoadingPulse.tsx";
@@ -33,6 +34,7 @@ const FORMAT_BAR_COLOR: Record<MediaType, string> = {
  * (where the polling state machine picks up the active job).
  */
 export function ExplorePage() {
+  const profile = useProfile();
   const themes = useThemes();
   const api = useApi();
   const navigate = useNavigate();
@@ -40,6 +42,33 @@ export function ExplorePage() {
     string | null
   >(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
+
+  // Gate on profile existence — themes are derived from the profile, so
+  // landing here without one would surface an unhelpful backend error
+  // ("Cannot generate themes: user has no taste profile yet"). Show a
+  // friendly empty state with a route to onboarding instead.
+  if (profile.state.status === "missing") {
+    return (
+      <section className="space-y-6">
+        <PageHeader
+          title="Browse"
+          subtitle="Curated entry surfaces tailored to your profile."
+        />
+        <EmptyState
+          title="No profile yet"
+          description="Browse themes are generated from your taste DNA. Finish onboarding first — once your profile lands, six themes show up here."
+          action={
+            <Link
+              to="/onboarding"
+              className="rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-neutral-200"
+            >
+              Start onboarding
+            </Link>
+          }
+        />
+      </section>
+    );
+  }
 
   async function handleGenerate(theme: DiscoveryTheme) {
     if (generatingPromptHint) return;

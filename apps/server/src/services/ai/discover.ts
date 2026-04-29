@@ -41,7 +41,14 @@ export async function generateThemes(
 ): Promise<DiscoveryThemesRow> {
   const profileRow = await getActiveProfile(userId);
   if (!profileRow) {
-    throw new Error("Cannot generate themes: user has no taste profile yet");
+    // Status-coded error so the global errorHandler returns 400 (user state),
+    // not 500 (server fault). Frontend handles "missing profile" by gating
+    // the UI to an EmptyState; this just keeps the API honest.
+    const err: Error & { status?: number } = new Error(
+      "Cannot generate themes: user has no taste profile yet",
+    );
+    err.status = 400;
+    throw err;
   }
   const profile = profileRow.profileData;
   const library = await getUserLibrary(userId, profile);

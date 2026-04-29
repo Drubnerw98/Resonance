@@ -135,6 +135,31 @@ pnpm db:studio         # open Drizzle Studio
 
 `db:generate` works without a live database. `db:migrate` and `db:studio` need `DATABASE_URL`.
 
+## Deployment
+
+Resonance is set up for a **split deploy**: frontend on Vercel, backend on Render, database on Neon, auth on Clerk. The frontend is static; the backend stays a single long-lived Express process so the in-memory job tracker for recommendation generation works as designed (see [ARCHITECTURE.md → Job system](./ARCHITECTURE.md#7-job-system)).
+
+### Frontend — Vercel
+
+1. **Import the repo** at [vercel.com/new](https://vercel.com/new). Vercel auto-detects pnpm + the `vercel.json` at the repo root.
+2. **Environment variables** (Settings → Environment Variables):
+   - `VITE_API_BASE_URL` → `https://<your-render-service>.onrender.com/api`
+   - `VITE_CLERK_PUBLISHABLE_KEY` → your Clerk publishable key
+3. **Deploy.** Vercel's pnpm support handles the workspace; `vercel.json` pins the build command + output directory.
+
+### Backend — Render
+
+1. **New → Blueprint** at [render.com](https://render.com). Point it at this repo; it picks up `render.yaml`.
+2. **Set secrets** in the Render dashboard (each shows as "Sync: false" pending):
+   - `FRONTEND_ORIGIN` → your Vercel URL, e.g. `https://resonance.vercel.app` (comma-separate to allow preview deploys too)
+   - `DATABASE_URL`, `ANTHROPIC_API_KEY`, `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`, `TMDB_API_KEY`, `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET` — same values as your local `.env.local`
+3. **Deploy.** Render runs `pnpm install` then `pnpm --filter @resonance/server start` (the server uses `tsx` directly to avoid the workspace-deps build dance).
+
+### Free-tier gotchas
+
+- **Render free tier spins down after 15 min idle.** First request after that takes ~30s (cold start). Acceptable for testing and personal use; upgrade to the paid tier for real users.
+- **In-memory job tracker is single-instance only.** Don't scale Render replicas above 1 — running rec generation across multiple containers breaks the polling pattern. Documented in ARCHITECTURE.md as the open work for "production-grade" deployment.
+
 ## Status
 
 **Shipped:**

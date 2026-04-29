@@ -23,7 +23,9 @@
       "Bash(pnpm -r --filter @resonance/client typecheck)",
       "Bash(pnpm drizzle-kit *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(timeout 5 pnpm --filter @resonance/server start)",
+      "Bash(PORT=4567 timeout 3 pnpm --filter @resonance/server start)"
     ]
   }
 }

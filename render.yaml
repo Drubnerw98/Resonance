@@ -1,0 +1,36 @@
+# Render.com infrastructure for the Resonance backend.
+# Deploy by pointing Render at this file: New → Blueprint → connect the repo.
+# Secrets (sync: false) must be filled in via the Render dashboard after the
+# service is created — they're never committed.
+
+services:
+  - type: web
+    name: resonance-server
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: .
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: pnpm --filter @resonance/server start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Origin of the deployed Vercel frontend, e.g. https://resonance.vercel.app
+      # Comma-separated for multiple environments (preview + prod).
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: TMDB_API_KEY
+        sync: false
+      - key: IGDB_CLIENT_ID
+        sync: false
+      - key: IGDB_CLIENT_SECRET
+        sync: false

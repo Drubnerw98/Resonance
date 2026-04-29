@@ -27,6 +27,19 @@ export function ChatInput({ onSend, disabled }: Props) {
     el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT_PX)}px`;
   }, [value]);
 
+  // Refocus after a send finishes. Disabling a focused input drops focus in
+  // the browser, so without this the user has to click back into the textarea
+  // before each new turn. Tracking the previous `disabled` value (rather than
+  // re-focusing on every render where !disabled) avoids stealing focus on
+  // initial mount or when disabled never went true to begin with.
+  const prevDisabledRef = useRef(disabled);
+  useEffect(() => {
+    if (prevDisabledRef.current && !disabled) {
+      textareaRef.current?.focus();
+    }
+    prevDisabledRef.current = disabled;
+  }, [disabled]);
+
   function submit() {
     const trimmed = value.trim();
     if (!trimmed || disabled) return;

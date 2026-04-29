@@ -79,34 +79,9 @@ export function RecommendationsPage() {
   const profile = useProfile();
   const recs = useRecommendations();
 
-  // Gate on profile existence — without a profile, generation throws and the
-  // existing "no recommendations" empty state would still let users hit
-  // Generate, only to see a server error. Surface the missing-profile state
-  // explicitly with a route to onboarding instead. Same pattern as
-  // ExplorePage.
-  if (profile.state.status === "missing") {
-    return (
-      <section className="space-y-6">
-        <PageHeader
-          title="Recommendations"
-          subtitle="Cross-format picks grounded in your taste DNA."
-        />
-        <EmptyState
-          title="No profile yet"
-          description="Recommendations are generated against your taste profile. Finish onboarding first — once your profile is in, you can prompt for any kind of batch you want."
-          action={
-            <Link
-              to="/onboarding"
-              className="rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-neutral-200"
-            >
-              Start onboarding
-            </Link>
-          }
-        />
-      </section>
-    );
-  }
-
+  // All hooks must be called unconditionally before any early return — React's
+  // Rules of Hooks. The profile-missing gate happens AFTER all the useState /
+  // useSearchParams / useMemo calls below.
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
   const batchParam = searchParams.get("batch");
@@ -157,6 +132,32 @@ export function RecommendationsPage() {
     const prompt = promptDraft.trim();
     void recs.generate(prompt || undefined);
     setPromptDraft("");
+  }
+
+  // Gate on profile existence — without a profile, generation throws server-
+  // side. Surface the missing-profile state explicitly with a route to
+  // onboarding. Same pattern as ExplorePage / EvaluatePage.
+  if (profile.state.status === "missing") {
+    return (
+      <section className="space-y-6">
+        <PageHeader
+          title="Recommendations"
+          subtitle="Cross-format picks grounded in your taste DNA."
+        />
+        <EmptyState
+          title="No profile yet"
+          description="Recommendations are generated against your taste profile. Finish onboarding first — once your profile is in, you can prompt for any kind of batch you want."
+          action={
+            <Link
+              to="/onboarding"
+              className="rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-neutral-200"
+            >
+              Start onboarding
+            </Link>
+          }
+        />
+      </section>
+    );
   }
 
   if (recs.status === "loading") {

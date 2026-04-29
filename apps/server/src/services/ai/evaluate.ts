@@ -74,7 +74,11 @@ export async function evaluateCandidate(
 ): Promise<EvaluateResult> {
   const profileRow = await getActiveProfile(userId);
   if (!profileRow) {
-    throw new Error("Cannot evaluate: user has no taste profile yet");
+    const err: Error & { status?: number } = new Error(
+      "Cannot evaluate: user has no taste profile yet",
+    );
+    err.status = 400;
+    throw err;
   }
   const profile = profileRow.profileData;
 

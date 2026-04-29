@@ -310,9 +310,14 @@ export async function generateRecommendations(
 ): Promise<GenerateResult> {
   const profileRow = await getActiveProfile(userId);
   if (!profileRow) {
-    throw new Error(
+    // 400 (user state), not 500 (server fault). Frontend gates the UI to an
+    // EmptyState when profile is missing; the status code keeps the API honest
+    // for any callers that bypass the UI gate.
+    const err: Error & { status?: number } = new Error(
       "Cannot generate recommendations: user has no taste profile yet",
     );
+    err.status = 400;
+    throw err;
   }
   const profile = profileRow.profileData;
   const prompt = options.prompt?.trim() || null;

@@ -6,6 +6,7 @@ import {
   type BatchInfo,
   type RecommendationItem,
 } from "../hooks/useRecommendations.ts";
+import { useProfile } from "../hooks/useProfile.ts";
 import { MediaCard } from "../components/recommendations/MediaCard.tsx";
 import { MediaCardSkeleton } from "../components/recommendations/MediaCardSkeleton.tsx";
 import { PageHeader } from "../components/shared/PageHeader.tsx";
@@ -75,7 +76,36 @@ function batchLabel(batch: BatchInfo): string {
 }
 
 export function RecommendationsPage() {
+  const profile = useProfile();
   const recs = useRecommendations();
+
+  // Gate on profile existence — without a profile, generation throws and the
+  // existing "no recommendations" empty state would still let users hit
+  // Generate, only to see a server error. Surface the missing-profile state
+  // explicitly with a route to onboarding instead. Same pattern as
+  // ExplorePage.
+  if (profile.state.status === "missing") {
+    return (
+      <section className="space-y-6">
+        <PageHeader
+          title="Recommendations"
+          subtitle="Cross-format picks grounded in your taste DNA."
+        />
+        <EmptyState
+          title="No profile yet"
+          description="Recommendations are generated against your taste profile. Finish onboarding first — once your profile is in, you can prompt for any kind of batch you want."
+          action={
+            <Link
+              to="/onboarding"
+              className="rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-neutral-200"
+            >
+              Start onboarding
+            </Link>
+          }
+        />
+      </section>
+    );
+  }
 
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import type { MediaType } from "@resonance/shared";
 import {
   useEvaluate,
@@ -7,7 +8,9 @@ import {
   type Verdict,
 } from "../hooks/useEvaluate.ts";
 import { useLibrary } from "../hooks/useLibrary.ts";
+import { useProfile } from "../hooks/useProfile.ts";
 import { PageHeader } from "../components/shared/PageHeader.tsx";
+import { EmptyState } from "../components/shared/EmptyState.tsx";
 import { LoadingPulse } from "../components/shared/LoadingPulse.tsx";
 
 const FORMAT_OPTIONS: { value: MediaType; label: string }[] = [
@@ -31,6 +34,7 @@ const FORMAT_OPTIONS: { value: MediaType; label: string }[] = [
  *      the candidate to their library directly from the verdict card.
  */
 export function EvaluatePage() {
+  const profile = useProfile();
   const evaluate = useEvaluate();
   const library = useLibrary();
   const [title, setTitle] = useState("");
@@ -41,6 +45,33 @@ export function EvaluatePage() {
     const trimmed = title.trim();
     if (!trimmed) return;
     void evaluate.search({ title: trimmed, mediaType });
+  }
+
+  // Verdicts are scored against the profile + library. Without a profile,
+  // the score endpoint throws — surface the missing-profile state up front
+  // instead of letting users search and then hit a server error after they
+  // pick a candidate. Same pattern as ExplorePage and RecommendationsPage.
+  if (profile.state.status === "missing") {
+    return (
+      <section className="mx-auto max-w-3xl space-y-6">
+        <PageHeader
+          title="Would I like…?"
+          subtitle="Honest verdict on a specific title against your taste."
+        />
+        <EmptyState
+          title="No profile yet"
+          description="Verdicts are scored against your taste DNA. Finish onboarding first — once your profile is in, you can ask about any specific title."
+          action={
+            <Link
+              to="/onboarding"
+              className="rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-neutral-200"
+            >
+              Start onboarding
+            </Link>
+          }
+        />
+      </section>
+    );
   }
 
   return (

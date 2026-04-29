@@ -145,16 +145,40 @@ export function ProfileView({
       </Section>
 
       <Section title="Avoidances" hint="Patterns you bounce off">
-        <ul className="flex flex-wrap gap-2">
-          {profile.avoidances.map((a, i) => (
-            <li
-              key={i}
-              className="rounded-full border border-rose-900 bg-rose-950/40 px-3 py-1 text-sm text-rose-200"
-            >
-              {a}
-            </li>
-          ))}
-        </ul>
+        {profile.avoidances.length === 0 ? (
+          <p className="text-sm text-neutral-500">None recorded.</p>
+        ) : (
+          <ul className="flex flex-wrap gap-2">
+            {profile.avoidances.map((a, i) => (
+              <li
+                key={i}
+                className="rounded-full border border-rose-900 bg-rose-950/40 px-3 py-1 text-sm text-rose-200"
+              >
+                {a}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <Section
+        title="Disliked titles"
+        hint="Specific works you've told us not to recommend"
+      >
+        {(profile.dislikedTitles ?? []).length === 0 ? (
+          <p className="text-sm text-neutral-500">None recorded.</p>
+        ) : (
+          <ul className="flex flex-wrap gap-2">
+            {(profile.dislikedTitles ?? []).map((t, i) => (
+              <li
+                key={i}
+                className="rounded-full border border-rose-900 bg-rose-950/40 px-3 py-1 text-sm text-rose-200"
+              >
+                {t}
+              </li>
+            ))}
+          </ul>
+        )}
       </Section>
     </div>
   );

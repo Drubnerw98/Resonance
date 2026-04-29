@@ -22,6 +22,12 @@ export interface UseProfile {
   isRefining: boolean;
   refineError: string | null;
   refine: () => Promise<void>;
+  isUpdating: boolean;
+  updateError: string | null;
+  /** Persist a manually-edited profile via PUT /api/profile. Resolves with
+   * the saved profile on success; throws on validation/persist failure so
+   * the caller can keep edit mode open instead of dropping the user's work. */
+  update: (profile: TasteProfile) => Promise<TasteProfile>;
 }
 
 export function useProfile(): UseProfile {
@@ -29,6 +35,8 @@ export function useProfile(): UseProfile {
   const [state, setState] = useState<ProfileStatus>({ status: "loading" });
   const [isRefining, setIsRefining] = useState(false);
   const [refineError, setRefineError] = useState<string | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,5 +93,46 @@ export function useProfile(): UseProfile {
     }
   }, [api, isRefining]);
 
-  return { state, isRefining, refineError, refine };
+  const update = useCallback(
+    async (profile: TasteProfile): Promise<TasteProfile> => {
+      if (isUpdating) throw new Error("update already in progress");
+      setIsUpdating(true);
+      setUpdateError(null);
+      try {
+        const res = await api<ProfileResponse>("/profile", {
+          method: "PUT",
+          body: profile,
+        });
+        setState({
+          status: "ready",
+          profile: res.data,
+          version: res.version,
+          updatedAt: res.updatedAt,
+        });
+        return res.data;
+      } catch (err) {
+        const msg =
+          err instanceof ApiError
+            ? `${err.status}: ${err.message}`
+            : err instanceof Error
+              ? err.message
+              : "Failed to save";
+        setUpdateError(msg);
+        throw err;
+      } finally {
+        setIsUpdating(false);
+      }
+    },
+    [api, isUpdating],
+  );
+
+  return {
+    state,
+    isRefining,
+    refineError,
+    refine,
+    isUpdating,
+    updateError,
+    update,
+  };
 }

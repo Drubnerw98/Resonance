@@ -7,8 +7,9 @@ import {
   tasteProfiles,
   users,
 } from "../db/schema.js";
-import { getActiveProfile } from "../services/profile.js";
+import { getActiveProfile, saveProfile } from "../services/profile.js";
 import { refineProfile } from "../services/ai/refinement.js";
+import { TasteProfileSchema } from "../services/ai/schemas.js";
 
 export const profileRouter: Router = Router();
 
@@ -33,10 +34,42 @@ profileRouter.get("/", async (req, res, next) => {
   }
 });
 
-profileRouter.put("/", (_req, res) => {
-  // Manual profile editing — wire this up when the profile viewer needs an
-  // edit mode. For now extraction is the only write path.
-  res.status(501).json({ error: "not implemented" });
+/**
+ * PUT /api/profile
+ * Manual edit. Body: full TasteProfile JSON. Validated via the same zod
+ * schema the AI extraction path uses, then persisted with
+ * trigger="manual_edit" so it shows up correctly in profile_versions
+ * history. saveProfile already invalidates cached discovery themes, so the
+ * next /explore visit regenerates against the edited profile.
+ */
+profileRouter.put("/", async (req, res, next) => {
+  try {
+    const parsed = TasteProfileSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({ error: "invalid profile", issues: parsed.error.issues });
+      return;
+    }
+
+    const existing = await getActiveProfile(req.user!.id);
+    if (!existing) {
+      res
+        .status(404)
+        .json({ error: "no profile to edit — run onboarding first" });
+      return;
+    }
+
+    const row = await saveProfile(req.user!.id, parsed.data, "manual_edit");
+    res.json({
+      id: row.id,
+      version: row.currentVersion,
+      data: row.profileData,
+      updatedAt: row.updatedAt,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 /**

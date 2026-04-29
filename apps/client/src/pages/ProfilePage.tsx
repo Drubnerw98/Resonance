@@ -1,18 +1,39 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import type { TasteProfile } from "@resonance/shared";
 import { ProfileView } from "../components/profile/ProfileView.tsx";
+import { ProfileEditor } from "../components/profile/ProfileEditor.tsx";
 import { LibrarySection } from "../components/profile/LibrarySection.tsx";
 import { Skeleton } from "../components/shared/Skeleton.tsx";
 import { useProfile } from "../hooks/useProfile.ts";
 import { useApi } from "../hooks/useApi.ts";
 
 export function ProfilePage() {
-  const { state, isRefining, refineError, refine } = useProfile();
+  const {
+    state,
+    isRefining,
+    refineError,
+    refine,
+    isUpdating,
+    updateError,
+    update,
+  } = useProfile();
   const api = useApi();
   const navigate = useNavigate();
   const location = useLocation();
   const [isStartingSession, setIsStartingSession] = useState(false);
   const [continueError, setContinueError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+
+  async function handleSave(profile: TasteProfile) {
+    try {
+      await update(profile);
+      setIsEditing(false);
+    } catch {
+      // updateError is set by the hook; keep edit mode open so the user
+      // can fix and retry without losing their work.
+    }
+  }
 
   // Scroll to anchored section after profile data renders. Re-runs when state
   // becomes "ready" because the section we're targeting (e.g. #library) only
@@ -125,15 +146,36 @@ export function ProfilePage() {
         </pre>
       )}
 
-      <ProfileView
-        profile={state.profile}
-        version={state.version}
-        updatedAt={state.updatedAt}
-        onRefine={() => void refine()}
-        onContinueOnboarding={() => void handleContinueOnboarding()}
-        isRefining={isRefining}
-        isStartingSession={isStartingSession}
-      />
+      {isEditing ? (
+        <ProfileEditor
+          initial={state.profile}
+          onSave={handleSave}
+          onCancel={() => setIsEditing(false)}
+          isSaving={isUpdating}
+          error={updateError}
+        />
+      ) : (
+        <>
+          <div className="flex justify-end">
+            <button
+              onClick={() => setIsEditing(true)}
+              className="rounded-md border border-neutral-700 px-3 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-900"
+              title="Manually edit any field the AI got wrong"
+            >
+              Edit profile
+            </button>
+          </div>
+          <ProfileView
+            profile={state.profile}
+            version={state.version}
+            updatedAt={state.updatedAt}
+            onRefine={() => void refine()}
+            onContinueOnboarding={() => void handleContinueOnboarding()}
+            isRefining={isRefining}
+            isStartingSession={isStartingSession}
+          />
+        </>
+      )}
 
       <LibrarySection />
 

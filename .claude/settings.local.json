@@ -22,7 +22,8 @@
       "Bash(pnpm -r --filter @resonance/client build)",
       "Bash(pnpm -r --filter @resonance/client typecheck)",
       "Bash(pnpm drizzle-kit *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

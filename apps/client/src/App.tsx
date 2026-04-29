@@ -11,6 +11,7 @@ import { ProfilePage } from "./pages/ProfilePage.tsx";
 import { MePage } from "./pages/MePage.tsx";
 import { SignInPage } from "./pages/SignInPage.tsx";
 import { SignUpPage } from "./pages/SignUpPage.tsx";
+import { NotFoundPage } from "./pages/NotFoundPage.tsx";
 
 export function App() {
   return (
@@ -29,6 +30,11 @@ export function App() {
           <Route path="profile" element={<ProfilePage />} />
           <Route path="me" element={<MePage />} />
         </Route>
+
+        {/* Catch-all 404. Lives inside Layout so the nav + footer wrap a
+            branded NotFoundPage, instead of falling through to Vercel's
+            bare default. */}
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   );

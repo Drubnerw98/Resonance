@@ -28,6 +28,14 @@ const SOURCE_LABEL: Record<ImportSource, string> = {
   myanimelist: "MyAnimeList",
 };
 
+// Steam isn't an ImportSource (it has its own /import-steam endpoint, not
+// /import) but the clear-by-source filter covers all sources stored on
+// library_items rows.
+const SOURCE_DISPLAY: Record<string, string> = {
+  ...SOURCE_LABEL,
+  steam: "Steam",
+};
+
 export function LibrarySection() {
   const lib = useLibrary();
   const [importMessage, setImportMessage] = useState<string | null>(null);
@@ -36,7 +44,26 @@ export function LibrarySection() {
   // after the import resolves.
   const [pendingSource, setPendingSource] = useState<ImportSource | null>(null);
   const [activeTab, setActiveTab] = useState<LibraryItemStatus>("consumed");
+  const [steamInput, setSteamInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleSteamSubmit() {
+    const value = steamInput.trim();
+    if (!value || lib.importing) return;
+    const result = await lib.importSteam(value);
+    if (result) {
+      const dupes =
+        result.duplicates > 0
+          ? ` · ${result.duplicates} already in library`
+          : "";
+      setImportMessage(
+        `Imported ${result.inserted} of ${result.parsed} Steam games${dupes}.`,
+      );
+      setSteamInput("");
+    } else {
+      setImportMessage(null);
+    }
+  }
 
   function startImport(source: ImportSource) {
     setPendingSource(source);
@@ -138,6 +165,47 @@ export function LibrarySection() {
             />
           </div>
 
+          {/* Steam — different shape (no file upload, just a text input
+              for SteamID/URL). Sits below the file-upload row so the
+              visual hierarchy stays "the three CSV/XML imports look the
+              same; Steam is its own thing because it's API-driven". */}
+          <div className="flex flex-col gap-2 rounded-lg border border-neutral-700 bg-neutral-900 p-4 sm:flex-row sm:items-center">
+            <div className="flex-1 space-y-1">
+              <label
+                htmlFor="steam-input"
+                className="block text-sm font-medium text-neutral-100"
+              >
+                Import Steam library
+              </label>
+              <p className="text-xs text-neutral-500">
+                Owned games — no file upload. Paste your SteamID, profile
+                URL, or vanity URL.
+              </p>
+              <input
+                id="steam-input"
+                type="text"
+                value={steamInput}
+                onChange={(e) => setSteamInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleSteamSubmit();
+                  }
+                }}
+                disabled={lib.importing}
+                placeholder="76561198… or steamcommunity.com/id/yourname"
+                className="mt-1 w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm placeholder:text-neutral-600 focus:border-neutral-500 focus:outline-none disabled:opacity-50"
+              />
+            </div>
+            <button
+              onClick={() => void handleSteamSubmit()}
+              disabled={!steamInput.trim() || lib.importing}
+              className="self-end rounded-md border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 hover:border-emerald-700 hover:bg-emerald-950/20 disabled:cursor-not-allowed disabled:opacity-50 sm:self-auto"
+            >
+              {lib.importing && steamInput.trim() ? "Importing…" : "Import"}
+            </button>
+          </div>
+
           {/* Tabs — Library (consumed) vs Watchlist (planned). Counts shown
               per tab so the user knows where their stuff is. */}
           <nav className="flex gap-1 border-b border-neutral-800">
@@ -164,7 +232,9 @@ export function LibrarySection() {
                 : `${visibleItems.length} item${visibleItems.length === 1 ? "" : "s"}${summary ? " · " + summary : ""}`}
             </p>
             <div className="flex flex-wrap gap-2">
-              {(["letterboxd", "goodreads", "myanimelist"] as const).map(
+              {(
+                ["letterboxd", "goodreads", "myanimelist", "steam"] as const
+              ).map(
                 (source) =>
                   visibleItems.some((i) => i.source === source) && (
                     <button
@@ -172,18 +242,18 @@ export function LibrarySection() {
                       onClick={async () => {
                         if (
                           confirm(
-                            `Remove all your ${SOURCE_LABEL[source]}-imported items? Manually-added entries stay.`,
+                            `Remove all your ${SOURCE_DISPLAY[source]}-imported items? Manually-added entries stay.`,
                           )
                         ) {
                           const n = await lib.clear(source);
                           setImportMessage(
-                            `Cleared ${n} ${SOURCE_LABEL[source]} items.`,
+                            `Cleared ${n} ${SOURCE_DISPLAY[source]} items.`,
                           );
                         }
                       }}
                       className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-300 hover:bg-neutral-800"
                     >
-                      Clear {SOURCE_LABEL[source]}
+                      Clear {SOURCE_DISPLAY[source]}
                     </button>
                   ),
               )}
@@ -261,6 +331,42 @@ export function LibrarySection() {
                 it&quot; — useful context, but no positive/negative bias. If
                 you watched something and hated it, prefer{" "}
                 <code>ratings.csv</code> so we know.
+              </li>
+            </ol>
+          </details>
+
+          <details className="rounded-md border border-neutral-800 bg-neutral-900 p-3 text-sm text-neutral-400">
+            <summary className="cursor-pointer text-neutral-300">
+              How to import from Steam
+            </summary>
+            <ol className="mt-2 list-decimal space-y-1 pl-5">
+              <li>
+                Visit your Steam profile (
+                <code>steamcommunity.com/id/yourname</code> or{" "}
+                <code>steamcommunity.com/profiles/76561…</code>) and copy
+                the URL — or grab your 64-bit Steam ID from the same page.
+              </li>
+              <li>
+                Paste it into the field above and hit Import. We&apos;ll
+                resolve the URL to a SteamID and pull your owned games.
+              </li>
+              <li>
+                <span className="text-neutral-200">Privacy</span>: your
+                Steam profile and game-details visibility need to be set
+                to Public for the API to return your library. Steam →{" "}
+                <span className="text-neutral-200">
+                  Edit Profile → Privacy Settings → Game details: Public
+                </span>
+                . You can flip it back after the import.
+              </li>
+              <li>
+                Owned games come in as{" "}
+                <span className="text-neutral-200">consumed</span> with no
+                rating — playtime is too noisy a signal to derive a real
+                rating from. Rate manually in your library if you want a
+                game to anchor cross-references in explanations. Wishlist
+                support is deferred (Steam&apos;s wishlist API is
+                gated behind user OAuth).
               </li>
             </ol>
           </details>

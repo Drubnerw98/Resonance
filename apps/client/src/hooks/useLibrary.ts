@@ -34,6 +34,9 @@ export interface UseLibrary {
   error: string | null;
   importing: boolean;
   importCsv: (source: ImportSource, csv: string) => Promise<ImportResult | null>;
+  /** Import owned games from Steam by SteamID, profile URL, or vanity URL.
+   * Different shape from importCsv (no file upload), so it's its own method. */
+  importSteam: (steamIdOrUrl: string) => Promise<ImportResult | null>;
   add: (input: {
     title: string;
     mediaType: MediaType;
@@ -92,6 +95,34 @@ export function useLibrary(): UseLibrary {
             : err instanceof Error
               ? err.message
               : "Import failed",
+        );
+        return null;
+      } finally {
+        setImporting(false);
+      }
+    },
+    [api, importing, refresh],
+  );
+
+  const importSteam = useCallback(
+    async (steamIdOrUrl: string): Promise<ImportResult | null> => {
+      if (importing) return null;
+      setImporting(true);
+      setError(null);
+      try {
+        const res = await api<ImportResult>("/library/import-steam", {
+          method: "POST",
+          body: { steamIdOrUrl },
+        });
+        await refresh();
+        return res;
+      } catch (err) {
+        setError(
+          err instanceof ApiError
+            ? `${err.status}: ${err.message}`
+            : err instanceof Error
+              ? err.message
+              : "Steam import failed",
         );
         return null;
       } finally {
@@ -178,6 +209,7 @@ export function useLibrary(): UseLibrary {
     error,
     importing,
     importCsv,
+    importSteam,
     add,
     remove,
     setItemStatus,

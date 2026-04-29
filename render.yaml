@@ -38,3 +38,7 @@ services:
         sync: false
       - key: IGDB_CLIENT_SECRET
         sync: false
+      # Optional — only used for the Steam library import feature. Get a
+      # free key at https://steamcommunity.com/dev/apikey.
+      - key: STEAM_API_KEY
+        sync: false

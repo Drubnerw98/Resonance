@@ -13,6 +13,7 @@ import {
   parseLetterboxdCSV,
   parseMyAnimeListXML,
 } from "../services/library.js";
+import { fetchOwnedGames, resolveSteamId } from "../services/steam.js";
 
 export const libraryRouter: Router = Router();
 
@@ -176,6 +177,58 @@ libraryRouter.post("/import", async (req, res, next) => {
       res
         .status(400)
         .json({ error: err instanceof Error ? err.message : "Parse failed" });
+      return;
+    }
+
+    const inserted = await importLibraryItems(req.user!.id, items);
+    res.json({
+      parsed: items.length,
+      inserted,
+      duplicates: items.length - inserted,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const importSteamBodySchema = z
+  .object({
+    /** Accepts: 64-bit SteamID, /profiles/ URL, /id/<vanity> URL, or
+     * bare vanity name. Server resolves vanity inputs via Steam's
+     * ResolveVanityURL. */
+    steamIdOrUrl: z.string().trim().min(1).max(200),
+  })
+  .strict();
+
+/**
+ * POST /api/library/import-steam
+ * Body: { steamIdOrUrl }. Resolves to a 64-bit Steam ID, fetches owned
+ * games via the Steam Web API, bulk-inserts as library_items with
+ * status="consumed", source="steam". Owned games only — wishlist support
+ * depends on a deprecated/changing Valve endpoint and is deferred.
+ */
+libraryRouter.post("/import-steam", async (req, res, next) => {
+  try {
+    const parsed = importSteamBodySchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({ error: "invalid body", issues: parsed.error.issues });
+      return;
+    }
+
+    let steamId: string;
+    let items;
+    try {
+      steamId = await resolveSteamId(parsed.data.steamIdOrUrl);
+      items = await fetchOwnedGames(steamId);
+    } catch (err) {
+      // Steam-side errors (private profile, vanity not found, etc.) are
+      // user-facing — surface as 400 with the helpful message we already
+      // crafted in the service.
+      res
+        .status(400)
+        .json({ error: err instanceof Error ? err.message : "Steam fetch failed" });
       return;
     }
 

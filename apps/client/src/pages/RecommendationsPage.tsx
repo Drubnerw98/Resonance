@@ -226,7 +226,7 @@ export function RecommendationsPage() {
         </pre>
       )}
 
-      {recs.isGenerating && recs.recommendations.length === 0 && (
+      {recs.isGenerating && (
         <LoadingPulse message="AI is proposing titles, validating against TMDB / IGDB / Jikan / Open Library, and scoring against your profile. Usually 60-120 seconds." />
       )}
 

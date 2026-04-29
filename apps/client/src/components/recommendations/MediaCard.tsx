@@ -29,10 +29,10 @@ export function MediaCard({ rec, onFeedback, onRescore, isRescoring }: Props) {
 
   // Tone the entire card based on its feedback state.
   const cardClasses = [
-    "flex gap-4 rounded-lg border p-4 transition-opacity",
+    "flex gap-4 rounded-lg border p-4 transition-all duration-200",
     isSaved
       ? "border-emerald-700 bg-emerald-950/20"
-      : "border-neutral-800 bg-neutral-900",
+      : "border-neutral-800 bg-neutral-900 hover:border-neutral-600 hover:bg-neutral-900/80",
     isSkipped ? "opacity-50" : "opacity-100",
   ].join(" ");
 

@@ -15,21 +15,29 @@ interface Props {
   size?: number;
 }
 
-export function LoadingPulse({ message, size = 48 }: Props) {
+export function LoadingPulse({ message, size = 64 }: Props) {
   return (
-    <div className="flex flex-col items-center gap-3 py-6">
+    <div className="flex flex-col items-center gap-4 rounded-lg border border-emerald-900/40 bg-gradient-to-br from-emerald-950/20 to-neutral-900 px-6 py-10 text-center">
       <div className="relative" style={{ width: size, height: size }}>
         {/* Static rings + center dot */}
-        <Logo size={size} />
-        {/* Outer ripple — animate-ping uses Tailwind's built-in radial scale
-            + fade keyframe. The ring expands and fades; loops infinitely. */}
+        <div className="text-emerald-300">
+          <Logo size={size} />
+        </div>
+        {/* Outer ripples — two staggered ping rings so the "wave" effect is
+            perpetually in motion rather than blinking off between cycles. */}
         <span
-          className="absolute inset-0 animate-ping rounded-full border-2 border-emerald-500 opacity-50"
+          className="absolute inset-0 animate-ping rounded-full border-2 border-emerald-400 opacity-60"
+          aria-hidden
+        />
+        <span
+          className="absolute inset-2 animate-ping rounded-full border-2 border-emerald-500/70 opacity-50 [animation-delay:600ms]"
           aria-hidden
         />
       </div>
       {message && (
-        <p className="text-sm text-neutral-400">{message}</p>
+        <p className="mx-auto max-w-md text-sm text-neutral-300">
+          {message}
+        </p>
       )}
     </div>
   );

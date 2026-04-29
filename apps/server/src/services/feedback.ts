@@ -1,4 +1,4 @@
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   recommendations,
@@ -36,23 +36,4 @@ export async function applyFeedback(
     )
     .returning();
   return updated ?? null;
-}
-
-/**
- * Count feedback rows recorded since `since` for `userId`. Used by the
- * auto-refinement trigger to decide whether to fire a new profile pass.
- * "Feedback" means status moved off the default `pending`.
- */
-export async function countFeedbackSince(
-  userId: string,
-  since: Date,
-): Promise<number> {
-  const rows = await db.query.recommendations.findMany({
-    where: and(
-      eq(recommendations.userId, userId),
-      gt(recommendations.actedAt, since),
-    ),
-    columns: { id: true },
-  });
-  return rows.length;
 }

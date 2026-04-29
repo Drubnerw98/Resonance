@@ -147,20 +147,14 @@ export function useRecommendations(): UseRecommendations {
   );
 
   // Mount: hydrate the rec list, AND check for an active job to resume polling.
+  // refresh() handles the GET; we just chain the active-job check after it.
+  // cancelledRef guards against state updates after unmount.
   useEffect(() => {
     cancelledRef.current = false;
 
     void (async () => {
-      try {
-        const res = await api<ListResponse>("/recommendations");
-        if (cancelledRef.current) return;
-        setRecommendations(res.recommendations);
-        setStatus("ready");
-      } catch (err) {
-        if (cancelledRef.current) return;
-        setStatus("error");
-        setError(err instanceof Error ? err.message : "Failed to load");
-      }
+      await refresh();
+      if (cancelledRef.current) return;
 
       // Resume polling if there's a running generate job (e.g., the user
       // reloaded mid-generation). Endpoint returns { jobId: null } when none.
@@ -179,7 +173,7 @@ export function useRecommendations(): UseRecommendations {
     return () => {
       cancelledRef.current = true;
     };
-  }, [api, pollJob]);
+  }, [api, pollJob, refresh]);
 
   const generate = useCallback(
     async (prompt?: string) => {

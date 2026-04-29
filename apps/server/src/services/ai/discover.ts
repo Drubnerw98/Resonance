@@ -14,6 +14,7 @@ import {
   type DiscoveryThemesOutput,
 } from "./schemas.js";
 import { getUserLibrary, type LibraryItem } from "./recommender.js";
+import { formatLibraryBlock } from "./aiHelpers.js";
 
 const DISCOVER_MODEL = ONBOARDING_MODEL;
 const TARGET_THEME_COUNT = 6;
@@ -92,18 +93,8 @@ async function callModel(
   ];
 
   if (library.length > 0) {
-    const lines = library.map((l, i) => {
-      let detail: string;
-      if (l.source === "saved") detail = "saved";
-      else if (l.source === "rated" && l.rating != null)
-        detail = `rated ${l.rating}/5`;
-      else if (l.source === "imported")
-        detail = l.rating != null ? `imported, rated ${l.rating}/5` : "imported";
-      else detail = "mentioned in onboarding";
-      return `[${i + 1}] ${l.title} (${l.mediaType}, ${detail})`;
-    });
     sections.push(
-      `# User's library (works they personally loved — REFERENCE these by name in theme descriptions when applicable)\n\n${lines.join("\n")}`,
+      `# User's library (works they personally loved — REFERENCE these by name in theme descriptions when applicable)\n\n${formatLibraryBlock(library)}`,
     );
   }
 

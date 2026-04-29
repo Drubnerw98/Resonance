@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray } from "drizzle-orm";
+import { and, desc, eq, gt } from "drizzle-orm";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type { TasteProfile } from "@resonance/shared";
 import { db } from "../../db/index.js";
@@ -152,6 +152,3 @@ Evolve the profile.`;
 
   return TasteProfileSchema.parse(response.parsed_output) as TasteProfile;
 }
-
-// Drizzle import noise check — silence unused-import warnings if present.
-void inArray;

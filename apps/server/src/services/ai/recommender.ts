@@ -23,6 +23,7 @@ import { getActiveProfile } from "../profile.js";
 import { getAnthropic, ONBOARDING_MODEL } from "./client.js";
 import { recommendCandidatesSystemPrompt } from "./prompts/recommendCandidates.js";
 import { recommendScoreSystemPrompt } from "./prompts/recommendScore.js";
+import { formatLibraryBlock } from "./aiHelpers.js";
 import {
   CandidatesOutputSchema,
   ScoredCandidatesOutputSchema,
@@ -470,22 +471,6 @@ function detectExplicitFormat(prompt: string | null): MediaType | null {
   return null;
 }
 
-function formatLibraryBlock(library: LibraryItem[]): string {
-  if (library.length === 0) return "";
-  const lines = library.map((l, i) => {
-    let detail: string;
-    if (l.source === "saved") detail = "saved";
-    else if (l.source === "rated" && l.rating != null)
-      detail = `rated ${l.rating}/5`;
-    else if (l.source === "imported")
-      detail =
-        l.rating != null ? `imported, rated ${l.rating}/5` : "imported";
-    else detail = "mentioned in onboarding";
-    return `[${i + 1}] ${l.title} (${l.mediaType}, ${detail})`;
-  });
-  return lines.join("\n");
-}
-
 async function generateCandidatePlan(
   profile: TasteProfile,
   prompt: string | null,
@@ -581,49 +566,75 @@ async function collectRealCandidates(
   // "raw" has zero games, the IGDB call failed or returned nothing.
   const rawByFormat: Record<string, number> = {};
 
-  // Title suggestions — fan out, tolerant of individual failures.
-  for (const sug of plan.titleSuggestions) {
-    try {
-      const hits = await searchAndCacheByTitle(sug.mediaType, sug.title);
-      rawByFormat[sug.mediaType] = (rawByFormat[sug.mediaType] ?? 0) + hits.length;
-      if (hits.length === 0) {
-        console.warn(
-          `[rec] title search returned 0 hits: "${sug.title}" (${sug.mediaType})`,
-        );
-      }
-      for (const r of hits) consider(r);
-    } catch (err) {
+  // Fan out title searches AND discovery queries in parallel. Each adapter
+  // has its own token bucket, so concurrent calls to the same adapter
+  // serialize naturally; concurrent calls to *different* adapters run truly
+  // in parallel. Promise.allSettled keeps a single failed search from
+  // killing the whole batch — failures get logged and the survivor results
+  // proceed. Insertion order into byCacheId / seenCanonicals matters for
+  // the per-format cap (earlier hits win slots), so we apply title-search
+  // results before discovery-query results.
+  const titleSettlements = await Promise.allSettled(
+    plan.titleSuggestions.map(async (sug) => ({
+      sug,
+      hits: await searchAndCacheByTitle(sug.mediaType, sug.title),
+    })),
+  );
+  for (let i = 0; i < titleSettlements.length; i++) {
+    const settlement = titleSettlements[i]!;
+    const sug = plan.titleSuggestions[i]!;
+    if (settlement.status === "rejected") {
       console.warn(
         `[rec] title search failed for "${sug.title}" (${sug.mediaType}):`,
-        err instanceof Error ? err.message : err,
+        settlement.reason instanceof Error
+          ? settlement.reason.message
+          : settlement.reason,
+      );
+      continue;
+    }
+    const { hits } = settlement.value;
+    rawByFormat[sug.mediaType] = (rawByFormat[sug.mediaType] ?? 0) + hits.length;
+    if (hits.length === 0) {
+      console.warn(
+        `[rec] title search returned 0 hits: "${sug.title}" (${sug.mediaType})`,
       );
     }
+    for (const r of hits) consider(r);
   }
 
   // Discovery queries — genre-based only. Keywords were dropped from the
   // schema because abstract theme strings don't match how these APIs do
   // free-text search.
-  for (const q of plan.discoveryQueries) {
-    const query: MediaSearchQuery = {
-      mediaType: q.mediaType,
-      genres: q.genres,
-      limit: 8,
-    };
-    try {
-      const hits = await searchAndCacheByQuery(query);
-      rawByFormat[q.mediaType] = (rawByFormat[q.mediaType] ?? 0) + hits.length;
-      if (hits.length === 0) {
-        console.warn(
-          `[rec] discovery query returned 0 hits: ${q.mediaType} genres=[${q.genres.join(",")}]`,
-        );
-      }
-      for (const r of hits) consider(r);
-    } catch (err) {
+  const discoverySettlements = await Promise.allSettled(
+    plan.discoveryQueries.map(async (q) => {
+      const query: MediaSearchQuery = {
+        mediaType: q.mediaType,
+        genres: q.genres,
+        limit: 8,
+      };
+      return { q, hits: await searchAndCacheByQuery(query) };
+    }),
+  );
+  for (let i = 0; i < discoverySettlements.length; i++) {
+    const settlement = discoverySettlements[i]!;
+    const q = plan.discoveryQueries[i]!;
+    if (settlement.status === "rejected") {
       console.warn(
         `[rec] discovery query failed (${q.mediaType}):`,
-        err instanceof Error ? err.message : err,
+        settlement.reason instanceof Error
+          ? settlement.reason.message
+          : settlement.reason,
+      );
+      continue;
+    }
+    const { hits } = settlement.value;
+    rawByFormat[q.mediaType] = (rawByFormat[q.mediaType] ?? 0) + hits.length;
+    if (hits.length === 0) {
+      console.warn(
+        `[rec] discovery query returned 0 hits: ${q.mediaType} genres=[${q.genres.join(",")}]`,
       );
     }
+    for (const r of hits) consider(r);
   }
 
   console.log(`[rec] raw hits before any filtering — by format:`, rawByFormat);

@@ -13,38 +13,40 @@ const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
  * (source, external_id) unique we set up in the schema, so re-running this
  * with the same items just updates the rows in place.
  *
- * Sequential rather than batched on purpose: Drizzle's neon-http driver
- * doesn't support multi-row ON CONFLICT cleanly with array inputs, and the
- * volumes here (5–20 items per call) don't justify the optimization.
+ * Per-row inserts in parallel rather than a single multi-row insert because
+ * Drizzle's neon-http driver doesn't support multi-row ON CONFLICT cleanly
+ * with array inputs. Each row is independent, so Promise.all is safe and
+ * collapses what was previously N sequential round-trips.
  */
 async function upsertItems(items: MediaItem[]): Promise<MediaCacheRow[]> {
   if (items.length === 0) return [];
   const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
-  const rows: MediaCacheRow[] = [];
-  for (const item of items) {
-    const [row] = await db
-      .insert(mediaCache)
-      .values({
-        externalId: item.externalId,
-        source: item.source,
-        mediaType: item.mediaType,
-        title: item.title,
-        normalizedData: item,
-        expiresAt,
-      })
-      .onConflictDoUpdate({
-        target: [mediaCache.source, mediaCache.externalId],
-        set: {
+  const results = await Promise.all(
+    items.map(async (item) => {
+      const [row] = await db
+        .insert(mediaCache)
+        .values({
+          externalId: item.externalId,
+          source: item.source,
+          mediaType: item.mediaType,
           title: item.title,
           normalizedData: item,
-          fetchedAt: new Date(),
           expiresAt,
-        },
-      })
-      .returning();
-    if (row) rows.push(row);
-  }
-  return rows;
+        })
+        .onConflictDoUpdate({
+          target: [mediaCache.source, mediaCache.externalId],
+          set: {
+            title: item.title,
+            normalizedData: item,
+            fetchedAt: new Date(),
+            expiresAt,
+          },
+        })
+        .returning();
+      return row;
+    }),
+  );
+  return results.filter((r): r is MediaCacheRow => r != null);
 }
 
 /**

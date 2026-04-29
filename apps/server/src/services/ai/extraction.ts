@@ -1,11 +1,11 @@
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type { OnboardingMessage, TasteProfile } from "@resonance/shared";
-import { getAnthropic } from "./client.js";
+import { getAnthropic, ONBOARDING_MODEL } from "./client.js";
 import { extractionSystemPrompt } from "./prompts/extraction.js";
 import { profileRefinementSystemPrompt } from "./prompts/profileRefinement.js";
 import { TasteProfileSchema } from "./schemas.js";
 
-const EXTRACTION_MODEL = "claude-sonnet-4-6";
+const EXTRACTION_MODEL = ONBOARDING_MODEL;
 
 /**
  * Mode 2: extract a structured TasteProfile from a full onboarding transcript.

@@ -265,15 +265,12 @@ recommendationsRouter.post("/:id/rescore", async (req, res, next) => {
  */
 recommendationsRouter.get("/", async (req, res, next) => {
   try {
-    const ids = (
-      await db.query.recommendations.findMany({
-        where: eq(recommendations.userId, req.user!.id),
-        orderBy: [desc(recommendations.createdAt)],
-        columns: { id: true },
-      })
-    ).map((r) => r.id);
-
-    res.json({ recommendations: await joinWithMedia(ids) });
+    const rows = await db.query.recommendations.findMany({
+      where: eq(recommendations.userId, req.user!.id),
+      orderBy: [desc(recommendations.createdAt)],
+      with: { media: true, batch: true },
+    });
+    res.json({ recommendations: rows.map(serializeRec) });
   } catch (err) {
     next(err);
   }
@@ -286,7 +283,17 @@ async function joinWithMedia(ids: string[]) {
     orderBy: [desc(recommendations.createdAt)],
     with: { media: true, batch: true },
   });
-  return rows.map((r) => ({
+  return rows.map(serializeRec);
+}
+
+function serializeRec(
+  r: Awaited<
+    ReturnType<typeof db.query.recommendations.findMany<{
+      with: { media: true; batch: true };
+    }>>
+  >[number],
+) {
+  return {
     id: r.id,
     batchId: r.batchId,
     batch: {
@@ -306,5 +313,5 @@ async function joinWithMedia(ids: string[]) {
       cacheId: r.media.id,
       ...r.media.normalizedData,
     },
-  }));
+  };
 }

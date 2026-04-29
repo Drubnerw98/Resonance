@@ -491,12 +491,18 @@ function BatchSection({
         <h2 className="min-w-0 flex-1 text-base font-semibold leading-snug">
           {batchLabel(batch)}
         </h2>
-        <div className="flex shrink-0 items-baseline gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           <button
             onClick={() => setRefining((v) => !v)}
             disabled={isGenerating}
-            className="text-xs text-neutral-400 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+            className={
+              "rounded-full px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 " +
+              (refining
+                ? "border border-neutral-700 text-neutral-300 hover:bg-neutral-800"
+                : "border border-emerald-800/70 bg-emerald-950/30 text-emerald-300 hover:border-emerald-600 hover:bg-emerald-900/40 hover:text-emerald-100")
+            }
             title="Generate a new batch with this prompt + an extra constraint"
+            aria-expanded={refining}
           >
             {refining ? "Cancel" : "Refine"}
           </button>

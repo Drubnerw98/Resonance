@@ -12,3 +12,15 @@ body {
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/* iOS Safari auto-zooms when a focused input/textarea/select has a font-size
+   below 16px. Bump every form control to 16px on narrow viewports so the
+   keyboard doesn't trigger a zoom-and-shift that hides the send button.
+   Desktop keeps the smaller, more refined sizes. */
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}

@@ -1,4 +1,5 @@
 import type { TasteProfile } from "@resonance/shared";
+import { PageHeader } from "../shared/PageHeader.tsx";
 
 interface Props {
   profile: TasteProfile;
@@ -42,37 +43,36 @@ export function ProfileView({
 }: Props) {
   return (
     <div className="space-y-8">
-      <header className="flex flex-col gap-3 border-b border-neutral-800 pb-3 sm:flex-row sm:items-baseline sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Your taste DNA</h1>
-          <p className="text-sm text-neutral-500">
-            Version {version} · updated{" "}
-            {new Date(updatedAt).toLocaleString()}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {onContinueOnboarding && (
-            <button
-              onClick={onContinueOnboarding}
-              disabled={isStartingSession}
-              className="rounded-md border border-neutral-700 px-3 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
-              title="Start a new onboarding chat to add nuance to your profile"
-            >
-              {isStartingSession ? "Starting…" : "Continue onboarding"}
-            </button>
-          )}
-          {onRefine && (
-            <button
-              onClick={onRefine}
-              disabled={isRefining}
-              className="rounded-md border border-neutral-700 px-3 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
-              title="Re-run profile extraction using your recent feedback"
-            >
-              {isRefining ? "Refining…" : "Refine from feedback"}
-            </button>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title="Your taste DNA"
+        subtitle={`Version ${version} · updated ${new Date(updatedAt).toLocaleString()}`}
+        action={
+          (onContinueOnboarding || onRefine) && (
+            <div className="flex flex-wrap gap-2">
+              {onContinueOnboarding && (
+                <button
+                  onClick={onContinueOnboarding}
+                  disabled={isStartingSession}
+                  className="rounded-md border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  title="Start a new onboarding chat to add nuance to your profile"
+                >
+                  {isStartingSession ? "Starting…" : "Continue onboarding"}
+                </button>
+              )}
+              {onRefine && (
+                <button
+                  onClick={onRefine}
+                  disabled={isRefining}
+                  className="rounded-md border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  title="Re-run profile extraction using your recent feedback"
+                >
+                  {isRefining ? "Refining…" : "Refine from feedback"}
+                </button>
+              )}
+            </div>
+          )
+        }
+      />
 
       <Section title="Themes" hint="What stories resonate with you and why">
         <ul className="space-y-3">

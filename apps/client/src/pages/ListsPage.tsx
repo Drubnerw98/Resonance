@@ -5,6 +5,8 @@ import {
   type BatchSummary,
 } from "../hooks/useBatches.ts";
 import { Skeleton } from "../components/shared/Skeleton.tsx";
+import { PageHeader } from "../components/shared/PageHeader.tsx";
+import { EmptyState } from "../components/shared/EmptyState.tsx";
 
 function deriveLabel(b: BatchSummary): string {
   if (b.name) return b.name;
@@ -17,10 +19,8 @@ export function ListsPage() {
 
   if (status === "loading") {
     return (
-      <section className="space-y-4">
-        <div className="border-b border-neutral-800 pb-3">
-          <h1 className="text-2xl font-semibold">Your lists</h1>
-        </div>
+      <section className="space-y-6">
+        <PageHeader title="Your lists" />
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-16 w-full rounded-md" />
@@ -40,29 +40,40 @@ export function ListsPage() {
 
   return (
     <section className="space-y-6">
-      <header className="flex items-baseline justify-between gap-4 border-b border-neutral-800 pb-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Your lists</h1>
-          <p className="text-sm text-neutral-500">
-            Every batch you&apos;ve generated. Click to view, rename, or delete.
-          </p>
-        </div>
-        <Link
-          to="/recommendations"
-          className="rounded-md bg-white px-3 py-2 text-sm font-medium text-neutral-950 hover:bg-neutral-200"
-        >
-          New list
-        </Link>
-      </header>
+      <PageHeader
+        title="Your lists"
+        subtitle="Every batch you've generated. Click to view, rename, or delete."
+        action={
+          <Link
+            to="/recommendations"
+            className="rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-neutral-200"
+          >
+            New list
+          </Link>
+        }
+      />
 
       {batches.length === 0 ? (
-        <div className="rounded-md border border-neutral-800 bg-neutral-900 p-6 text-sm text-neutral-400">
-          You haven&apos;t generated any lists yet. Head to{" "}
-          <Link to="/recommendations" className="underline">
-            recommendations
-          </Link>{" "}
-          and prompt your first one.
-        </div>
+        <EmptyState
+          title="No lists yet"
+          description={
+            <>
+              You haven&apos;t generated any batches. Head to{" "}
+              <Link to="/recommendations" className="underline">
+                recommendations
+              </Link>{" "}
+              and prompt your first one.
+            </>
+          }
+          action={
+            <Link
+              to="/recommendations"
+              className="rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-neutral-200"
+            >
+              Go to recommendations
+            </Link>
+          }
+        />
       ) : (
         <ul className="space-y-2">
           {batches.map((b) => (

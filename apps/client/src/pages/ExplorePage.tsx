@@ -4,6 +4,9 @@ import type { DiscoveryTheme, MediaType } from "@resonance/shared";
 import { useApi } from "../hooks/useApi.ts";
 import { useThemes } from "../hooks/useThemes.ts";
 import { Skeleton } from "../components/shared/Skeleton.tsx";
+import { PageHeader } from "../components/shared/PageHeader.tsx";
+import { LoadingPulse } from "../components/shared/LoadingPulse.tsx";
+import { EmptyState } from "../components/shared/EmptyState.tsx";
 
 const FORMAT_LABEL: Record<MediaType, string> = {
   movie: "Movies",
@@ -57,25 +60,20 @@ export function ExplorePage() {
   }
 
   return (
-    <section className="space-y-6 py-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            Browse
-          </h1>
-          <p className="text-sm text-neutral-400">
-            Curated entry surfaces tailored to your profile. No prompt needed —
-            click and we&apos;ll generate a batch.
-          </p>
-        </div>
-        <button
-          onClick={() => void themes.refresh()}
-          disabled={themes.isRefreshing || themes.status === "loading"}
-          className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-300 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {themes.isRefreshing ? "Refreshing…" : "Refresh themes"}
-        </button>
-      </header>
+    <section className="space-y-6">
+      <PageHeader
+        title="Browse"
+        subtitle="Curated entry surfaces tailored to your profile. No prompt needed — click and we'll generate a batch."
+        action={
+          <button
+            onClick={() => void themes.refresh()}
+            disabled={themes.isRefreshing || themes.status === "loading"}
+            className="rounded-md border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {themes.isRefreshing ? "Refreshing…" : "Refresh themes"}
+          </button>
+        }
+      />
 
       {themes.error && (
         <pre className="whitespace-pre-wrap rounded border border-red-900 bg-red-950/40 p-3 text-xs text-red-300">
@@ -88,6 +86,10 @@ export function ExplorePage() {
         </pre>
       )}
 
+      {generatingPromptHint && (
+        <LoadingPulse message="Generating a batch from this theme. Usually 60-120 seconds." />
+      )}
+
       {themes.status === "loading" ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -95,9 +97,18 @@ export function ExplorePage() {
           ))}
         </div>
       ) : themes.themes.length === 0 ? (
-        <p className="text-sm text-neutral-400">
-          No themes yet. Try refreshing.
-        </p>
+        <EmptyState
+          title="No themes yet"
+          description="Try refreshing — themes are generated from your current profile."
+          action={
+            <button
+              onClick={() => void themes.refresh()}
+              className="rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-neutral-200"
+            >
+              Refresh themes
+            </button>
+          }
+        />
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {themes.themes.map((theme, i) => (

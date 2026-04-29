@@ -8,6 +8,9 @@ import {
 } from "../hooks/useRecommendations.ts";
 import { MediaCard } from "../components/recommendations/MediaCard.tsx";
 import { MediaCardSkeleton } from "../components/recommendations/MediaCardSkeleton.tsx";
+import { PageHeader } from "../components/shared/PageHeader.tsx";
+import { EmptyState } from "../components/shared/EmptyState.tsx";
+import { LoadingPulse } from "../components/shared/LoadingPulse.tsx";
 
 type TabKey = "all" | MediaType;
 
@@ -129,9 +132,7 @@ export function RecommendationsPage() {
   if (recs.status === "loading") {
     return (
       <section className="space-y-6">
-        <div className="border-b border-neutral-800 pb-3">
-          <h1 className="text-2xl font-semibold">Recommendations</h1>
-        </div>
+        <PageHeader title="Recommendations" />
         <div className="grid gap-4 lg:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <MediaCardSkeleton key={i} />
@@ -141,53 +142,53 @@ export function RecommendationsPage() {
     );
   }
 
+  const subtitle = focusedBatch ? (
+    <>
+      Viewing one list ·{" "}
+      <button
+        onClick={clearBatchFilter}
+        className="underline hover:text-neutral-300"
+      >
+        show all
+      </button>
+    </>
+  ) : recs.recommendations.length === 0 ? (
+    "Generate a fresh batch grounded in your taste DNA."
+  ) : (
+    `${recs.recommendations.length} picks across ${grouped.length} ${grouped.length === 1 ? "list" : "lists"}.`
+  );
+
   return (
     <section className="space-y-6">
-      <header className="flex flex-col gap-3 border-b border-neutral-800 pb-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold">Recommendations</h1>
-          {focusedBatch ? (
-            <p className="text-sm text-neutral-500">
-              Viewing one list ·{" "}
-              <button
-                onClick={clearBatchFilter}
-                className="underline hover:text-neutral-300"
-              >
-                show all
-              </button>
-            </p>
-          ) : (
-            <p className="text-sm text-neutral-500">
-              {recs.recommendations.length === 0
-                ? "Generate a fresh batch grounded in your taste DNA."
-                : `${recs.recommendations.length} picks across ${grouped.length} ${grouped.length === 1 ? "list" : "lists"}.`}
-            </p>
-          )}
-        </div>
-        {recs.recommendations.length > 0 && (
-          <button
-            onClick={() => {
-              if (
-                confirm(
-                  "Delete all your recommendations and lists? (Profile and onboarding stay.)",
-                )
-              ) {
-                void recs.clear();
-              }
-            }}
-            disabled={recs.isGenerating}
-            className="self-start rounded-md border border-neutral-700 px-3 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-50 sm:self-auto"
-          >
-            Clear history
-          </button>
-        )}
-      </header>
+      <PageHeader
+        title="Recommendations"
+        subtitle={subtitle}
+        action={
+          recs.recommendations.length > 0 ? (
+            <button
+              onClick={() => {
+                if (
+                  confirm(
+                    "Delete all your recommendations and lists? (Profile and onboarding stay.)",
+                  )
+                ) {
+                  void recs.clear();
+                }
+              }}
+              disabled={recs.isGenerating}
+              className="rounded-md border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Clear history
+            </button>
+          ) : null
+        }
+      />
 
       {/* Prompt + Generate. The prompt is optional — empty submission still
           generates a default batch grounded in the profile. */}
       <form
         onSubmit={handleSubmit}
-        className="flex flex-col gap-2 rounded-lg border border-neutral-800 bg-neutral-950 p-4 sm:flex-row sm:items-end"
+        className="flex flex-col gap-2 rounded-lg border border-neutral-800 bg-neutral-900 p-4 sm:flex-row sm:items-end"
       >
         <div className="flex-1">
           <label
@@ -203,7 +204,7 @@ export function RecommendationsPage() {
             onChange={(e) => setPromptDraft(e.target.value)}
             disabled={recs.isGenerating}
             placeholder="e.g. a movie that'll make me cry · book series like Red Rising · old anime curated to me"
-            className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm placeholder:text-neutral-600 focus:border-neutral-500 focus:outline-none disabled:opacity-50"
+            className="mt-1 w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm placeholder:text-neutral-600 focus:border-neutral-500 focus:outline-none disabled:opacity-50"
           />
         </div>
         <button
@@ -225,23 +226,24 @@ export function RecommendationsPage() {
         </pre>
       )}
 
-      {recs.isGenerating && (
-        <p className="text-sm text-neutral-400">
-          AI is proposing titles, validating them against TMDB / IGDB / Jikan
-          / Open Library, and scoring each against your profile. This usually
-          takes 60-120 seconds.
-        </p>
+      {recs.isGenerating && recs.recommendations.length === 0 && (
+        <LoadingPulse message="AI is proposing titles, validating against TMDB / IGDB / Jikan / Open Library, and scoring against your profile. Usually 60-120 seconds." />
       )}
 
       {recs.recommendations.length === 0 && !recs.isGenerating && !recs.error && (
-        <div className="rounded-md border border-neutral-800 bg-neutral-900 p-6 text-sm text-neutral-400">
-          No recommendations yet. Make sure you&apos;ve completed{" "}
-          <Link to="/onboarding" className="underline">
-            onboarding
-          </Link>{" "}
-          (we need a profile to recommend against), then submit a prompt above
-          (or leave it blank for a default batch).
-        </div>
+        <EmptyState
+          title="No recommendations yet"
+          description={
+            <>
+              Make sure you&apos;ve completed{" "}
+              <Link to="/onboarding" className="underline">
+                onboarding
+              </Link>{" "}
+              (we need a profile to recommend against), then submit a prompt
+              above — or leave it blank for a default batch.
+            </>
+          }
+        />
       )}
 
       {visibleTabs.length > 1 && (

@@ -7,6 +7,8 @@ import {
   type Verdict,
 } from "../hooks/useEvaluate.ts";
 import { useLibrary } from "../hooks/useLibrary.ts";
+import { PageHeader } from "../components/shared/PageHeader.tsx";
+import { LoadingPulse } from "../components/shared/LoadingPulse.tsx";
 
 const FORMAT_OPTIONS: { value: MediaType; label: string }[] = [
   { value: "movie", label: "Movie" },
@@ -42,15 +44,11 @@ export function EvaluatePage() {
   }
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Would I like…?</h1>
-        <p className="text-sm text-neutral-400">
-          Type a specific title and we&apos;ll give you an honest read against
-          your taste profile and library. Different from a recommendation feed:
-          you pick the work, we tell you whether it&apos;ll land.
-        </p>
-      </header>
+    <section className="mx-auto max-w-3xl space-y-6">
+      <PageHeader
+        title="Would I like…?"
+        subtitle="Type a specific title and we'll give you an honest read against your taste profile and library. Different from a recommendation feed: you pick the work, we tell you whether it'll land."
+      />
 
       <form
         onSubmit={handleSubmit}
@@ -109,7 +107,7 @@ export function EvaluatePage() {
       )}
 
       {evaluate.scoreStatus === "scoring" && (
-        <p className="text-sm text-neutral-400">Reading the synopsis…</p>
+        <LoadingPulse message="Reading the synopsis and scoring against your profile…" />
       )}
 
       {evaluate.result && (

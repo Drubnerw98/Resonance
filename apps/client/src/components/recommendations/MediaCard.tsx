@@ -67,7 +67,7 @@ export function MediaCard({ rec, onFeedback, onRescore, isRescoring }: Props) {
               <span>· ★ {media.rating.toFixed(1)}</span>
             )}
           </div>
-          <h3 className="truncate text-base font-semibold leading-tight">
+          <h3 className="text-base font-semibold leading-tight">
             <a
               href={media.externalUrl}
               target="_blank"

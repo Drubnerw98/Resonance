@@ -362,10 +362,10 @@ function PosterCard({ rec }: { rec: RecommendationItem }) {
           {scorePct}%
         </span>
       </div>
-      <p className="truncate text-xs font-medium text-neutral-200 group-hover:text-white">
+      <p className="text-xs font-medium leading-snug text-neutral-200 group-hover:text-white">
         {rec.media.title}
       </p>
-      <p className="truncate text-[10px] uppercase tracking-wide text-neutral-500">
+      <p className="text-[10px] uppercase tracking-wide text-neutral-500">
         {FORMAT_LABEL[rec.media.mediaType] ?? rec.media.mediaType}
         {rec.media.year && ` · ${rec.media.year}`}
       </p>
@@ -484,7 +484,7 @@ function ProfileCard({ themes }: { themes: TasteTheme[] }) {
           {top.map((theme) => (
             <li key={theme.label} className="space-y-1">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-sm font-medium text-neutral-200">
+                <span className="text-sm font-medium leading-snug text-neutral-200">
                   {theme.label}
                 </span>
                 <span className="text-xs text-neutral-500">
@@ -573,7 +573,7 @@ function SectionCard({
             {title}
           </h2>
           {subtitle && (
-            <p className="mt-0.5 truncate text-sm text-neutral-200">
+            <p className="mt-0.5 text-sm leading-snug text-neutral-200">
               {subtitle}
             </p>
           )}

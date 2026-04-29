@@ -45,12 +45,25 @@ export async function maybeRefineProfile(
     columns: { id: true },
   });
 
-  if (recentFeedback.length < REFINEMENT_THRESHOLD) return null;
+  // Always log progress so the user can see the auto-refinement chain in
+  // Render logs — even when below threshold ("X / 5 — not yet"). Helps verify
+  // the system is wired correctly without needing to instrument the UI.
+  if (recentFeedback.length < REFINEMENT_THRESHOLD) {
+    console.log(
+      `[refinement] user=${userId} ${recentFeedback.length}/${REFINEMENT_THRESHOLD} feedback items since v${profileRow.currentVersion} — not refining yet`,
+    );
+    return null;
+  }
 
   console.log(
-    `[refinement] threshold reached (${recentFeedback.length} feedback items since last refinement) — refining`,
+    `[refinement] user=${userId} threshold reached (${recentFeedback.length}/${REFINEMENT_THRESHOLD}) — refining from v${profileRow.currentVersion}`,
   );
-  return refineProfile(userId);
+  const refined = await refineProfile(userId);
+  const after = await getActiveProfile(userId);
+  console.log(
+    `[refinement] user=${userId} done — profile now v${after?.currentVersion ?? "?"}`,
+  );
+  return refined;
 }
 
 /**

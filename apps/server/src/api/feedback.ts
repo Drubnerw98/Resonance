@@ -34,10 +34,17 @@ feedbackRouter.patch("/:id/feedback", async (req, res, next) => {
     }
 
     const userId = req.user!.id;
-    const row = await applyFeedback(userId, id, {
-      status: parsed.data.status,
-      rating: parsed.data.rating ?? null,
-    });
+    // Preserve the undefined-vs-null distinction so applyFeedback can decide
+    // whether to leave the rating column alone (omitted) or clear it
+    // (explicit null). The `?? null` collapse here was the bug behind
+    // "save clears my rating" — saving a rated rec sent no rating in the
+    // body, but ?? coerced it to null, clobbering the column.
+    const feedbackInput: { status: typeof parsed.data.status; rating?: number | null } =
+      { status: parsed.data.status };
+    if (parsed.data.rating !== undefined) {
+      feedbackInput.rating = parsed.data.rating;
+    }
+    const row = await applyFeedback(userId, id, feedbackInput);
     if (!row) {
       res.status(404).json({ error: "recommendation not found" });
       return;

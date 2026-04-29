@@ -303,8 +303,8 @@ export function RecommendationsPage() {
       <div className="space-y-8">
         {grouped.map(({ batch, items }) => (
           <section key={batch.id} className="space-y-3">
-            <header className="flex items-baseline justify-between gap-4 border-b border-neutral-800 pb-1">
-              <h2 className="truncate text-base font-semibold">
+            <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-neutral-800 pb-1">
+              <h2 className="min-w-0 flex-1 text-base font-semibold leading-snug">
                 {batchLabel(batch)}
               </h2>
               <span className="shrink-0 text-xs text-neutral-500">
@@ -329,8 +329,8 @@ export function RecommendationsPage() {
         ))}
         {recs.isGenerating && (
           <section className="space-y-3">
-            <header className="flex items-baseline justify-between gap-4 border-b border-neutral-800 pb-1">
-              <h2 className="truncate text-base font-semibold text-neutral-400">
+            <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-neutral-800 pb-1">
+              <h2 className="min-w-0 flex-1 text-base font-semibold leading-snug text-neutral-400">
                 {promptDraft.trim()
                   ? `"${promptDraft.trim()}"`
                   : "New batch"}

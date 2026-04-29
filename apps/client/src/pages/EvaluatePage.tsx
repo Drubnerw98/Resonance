@@ -206,7 +206,7 @@ function Picker({
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{m.item.title}</p>
+                  <p className="text-sm font-medium leading-snug">{m.item.title}</p>
                   <p className="text-xs text-neutral-500">
                     {m.item.year ?? "—"}
                     {m.item.rating != null

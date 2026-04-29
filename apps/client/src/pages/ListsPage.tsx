@@ -114,10 +114,10 @@ function BatchRow({
 
   return (
     <li className="rounded-md border border-neutral-800 bg-neutral-900 p-3">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <Link
           to={`/recommendations?batch=${batch.id}`}
-          className="min-w-0 flex-1 truncate text-base font-medium hover:underline"
+          className="min-w-0 flex-1 text-base font-medium leading-snug hover:underline"
         >
           {deriveLabel(batch)}
         </Link>

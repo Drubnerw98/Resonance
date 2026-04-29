@@ -187,7 +187,7 @@ export function LibrarySection() {
                     className="flex items-center justify-between gap-2 px-3 py-2"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm">
+                      <p className="text-sm leading-snug">
                         {it.title}
                         {it.year ? (
                           <span className="ml-1 text-neutral-500">

@@ -16,11 +16,18 @@ interface Props {
     status: RecommendationItem["status"],
     rating?: number | null,
   ) => void;
+  onPlanTo: (rec: RecommendationItem) => void;
   onRescore: (recId: string) => void;
   isRescoring: boolean;
 }
 
-export function MediaCard({ rec, onFeedback, onRescore, isRescoring }: Props) {
+export function MediaCard({
+  rec,
+  onFeedback,
+  onPlanTo,
+  onRescore,
+  isRescoring,
+}: Props) {
   const { media, matchScore, explanation, tasteTags, status, rating } = rec;
   const scorePct = Math.round(matchScore * 100);
 
@@ -99,6 +106,7 @@ export function MediaCard({ rec, onFeedback, onRescore, isRescoring }: Props) {
           status={status}
           rating={rating}
           onFeedback={onFeedback}
+          onPlanTo={() => onPlanTo(rec)}
         />
 
         <div className="flex items-center justify-end gap-2 pt-1">
@@ -133,14 +141,17 @@ function FeedbackRow({
   status,
   rating,
   onFeedback,
+  onPlanTo,
 }: {
   recId: string;
   status: RecommendationItem["status"];
   rating: number | null;
   onFeedback: Props["onFeedback"];
+  onPlanTo: () => void;
 }) {
   const isSaved = status === "saved";
   const isSkipped = status === "skipped";
+  const isPlanTo = status === "plan_to";
 
   // Save/Skip toggle the *status*, never touch the rating column. Pass
   // `undefined` so the PATCH body omits rating entirely (backend leaves
@@ -168,7 +179,7 @@ function FeedbackRow({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 pt-2">
+    <div className="flex flex-wrap items-center gap-2 pt-2">
       <button
         onClick={toggleSave}
         className={
@@ -180,6 +191,20 @@ function FeedbackRow({
         aria-pressed={isSaved}
       >
         {isSaved ? "✓ Saved" : "Save"}
+      </button>
+      <button
+        onClick={onPlanTo}
+        disabled={isPlanTo}
+        title="Add to your watchlist — won't be re-recommended"
+        className={
+          "rounded-md px-2 py-1 text-xs font-medium transition-colors disabled:cursor-default " +
+          (isPlanTo
+            ? "bg-sky-800 text-white"
+            : "border border-neutral-700 text-neutral-300 hover:bg-neutral-800")
+        }
+        aria-pressed={isPlanTo}
+      >
+        {isPlanTo ? "✓ On watchlist" : "Plan to"}
       </button>
       <button
         onClick={toggleSkip}

@@ -417,6 +417,7 @@ export function RecommendationsPage() {
             onFeedback={(id, status, rating) =>
               void recs.setFeedback(id, status, rating)
             }
+            onPlanTo={(rec) => void recs.planTo(rec)}
             onRescore={(id) => void recs.rescore(id)}
             rescoringIds={recs.rescoringIds}
           />
@@ -458,6 +459,7 @@ function BatchSection({
   isGenerating,
   onRefine,
   onFeedback,
+  onPlanTo,
   onRescore,
   rescoringIds,
 }: {
@@ -470,6 +472,7 @@ function BatchSection({
     status: RecommendationItem["status"],
     rating?: number | null,
   ) => void;
+  onPlanTo: (rec: RecommendationItem) => void;
   onRescore: (id: string) => void;
   rescoringIds: ReadonlySet<string>;
 }) {
@@ -556,6 +559,7 @@ function BatchSection({
             key={rec.id}
             rec={rec}
             onFeedback={onFeedback}
+            onPlanTo={onPlanTo}
             onRescore={onRescore}
             isRescoring={rescoringIds.has(rec.id)}
           />

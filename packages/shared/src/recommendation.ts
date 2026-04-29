@@ -5,7 +5,8 @@ export type RecommendationStatus =
   | "seen"
   | "saved"
   | "skipped"
-  | "rated";
+  | "rated"
+  | "plan_to";
 
 export interface Recommendation {
   id: string;

@@ -3,11 +3,14 @@ import type { MediaType } from "@resonance/shared";
 import { useApi } from "./useApi.ts";
 import { ApiError } from "../lib/api.ts";
 
+export type LibraryItemStatus = "consumed" | "watchlist";
+
 export interface LibraryItem {
   id: string;
   title: string;
   mediaType: MediaType;
   source: string;
+  status: LibraryItemStatus;
   rating: number | null;
   year: number | null;
   createdAt: string;
@@ -36,8 +39,12 @@ export interface UseLibrary {
     mediaType: MediaType;
     year?: number;
     rating?: number;
+    status?: LibraryItemStatus;
   }) => Promise<void>;
   remove: (id: string) => Promise<void>;
+  /** Flip an item between consumed and watchlist. Used by the
+   * "Mark consumed" / "Move to watchlist" actions. */
+  setItemStatus: (id: string, status: LibraryItemStatus) => Promise<void>;
   /** Clear every library item, optionally filtered by source. Returns count
    * deleted. */
   clear: (source?: string) => Promise<number>;
@@ -100,6 +107,7 @@ export function useLibrary(): UseLibrary {
       mediaType: MediaType;
       year?: number;
       rating?: number;
+      status?: LibraryItemStatus;
     }) => {
       try {
         await api("/library", { method: "POST", body: input });
@@ -120,6 +128,28 @@ export function useLibrary(): UseLibrary {
       } catch (err) {
         setItems(snapshot);
         setError(err instanceof Error ? err.message : "Failed to remove");
+      }
+    },
+    [api, items],
+  );
+
+  const setItemStatus = useCallback(
+    async (id: string, status: LibraryItemStatus) => {
+      // Optimistic flip — UI moves the item between tabs immediately.
+      const snapshot = items;
+      setItems((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, status } : i)),
+      );
+      try {
+        await api(`/library/${id}`, {
+          method: "PATCH",
+          body: { status },
+        });
+      } catch (err) {
+        setItems(snapshot);
+        setError(
+          err instanceof Error ? err.message : "Failed to update status",
+        );
       }
     },
     [api, items],
@@ -150,6 +180,7 @@ export function useLibrary(): UseLibrary {
     importCsv,
     add,
     remove,
+    setItemStatus,
     clear,
     refresh,
   };

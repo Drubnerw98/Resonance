@@ -17,7 +17,7 @@ export interface RecommendationItem {
   matchScore: number;
   explanation: string;
   tasteTags: string[];
-  status: "pending" | "seen" | "saved" | "skipped" | "rated";
+  status: "pending" | "seen" | "saved" | "skipped" | "rated" | "plan_to";
   rating: number | null;
   createdAt: string;
   actedAt: string | null;
@@ -61,6 +61,10 @@ export interface UseRecommendations {
     rating?: number | null,
   ) => Promise<void>;
   rescore: (recId: string) => Promise<void>;
+  /** Mark a rec as plan-to-consume: flips status to plan_to AND adds the
+   * media to the user's watchlist (library_items with status=watchlist).
+   * Future generation passes will skip this title. */
+  planTo: (rec: RecommendationItem) => Promise<void>;
   /** True when the latest feedback PATCH triggered the auto-refinement
    * background job. Auto-clears after 30s. UI shows a banner so the user
    * knows their profile is evolving. */
@@ -271,6 +275,52 @@ export function useRecommendations(): UseRecommendations {
     [api],
   );
 
+  const planTo = useCallback(
+    async (rec: RecommendationItem) => {
+      // Optimistic: flip status locally so the UI button toggles immediately.
+      let snapshot: RecommendationItem[] = [];
+      setRecommendations((prev) => {
+        snapshot = prev;
+        return prev.map((r) =>
+          r.id === rec.id
+            ? { ...r, status: "plan_to" as const, actedAt: new Date().toISOString() }
+            : r,
+        );
+      });
+      try {
+        // Two writes: flip the rec status AND add a watchlist library_item
+        // so the title appears in the user's watchlist view + the
+        // recommender's dedup pool. Run in parallel — order doesn't matter
+        // and the user already sees the optimistic flip.
+        await Promise.all([
+          api(`/recommendations/${rec.id}/feedback`, {
+            method: "PATCH",
+            body: { status: "plan_to" },
+          }),
+          api("/library", {
+            method: "POST",
+            body: {
+              title: rec.media.title,
+              mediaType: rec.media.mediaType,
+              status: "watchlist",
+              ...(rec.media.year != null ? { year: rec.media.year } : {}),
+            },
+          }).catch(() => {
+            // Library POST might 409 if a row already exists with this
+            // title (manual add or earlier import). Not a failure — the
+            // dedup pool already contains it.
+          }),
+        ]);
+      } catch (err) {
+        setRecommendations(snapshot);
+        setError(
+          err instanceof Error ? err.message : "Failed to add to watchlist",
+        );
+      }
+    },
+    [api],
+  );
+
   const rescore = useCallback(
     async (recId: string) => {
       if (rescoringIds.has(recId)) return;
@@ -311,6 +361,7 @@ export function useRecommendations(): UseRecommendations {
     clear,
     setFeedback,
     rescore,
+    planTo,
     refinementBanner,
     dismissRefinementBanner,
   };

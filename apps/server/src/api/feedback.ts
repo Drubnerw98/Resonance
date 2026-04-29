@@ -12,7 +12,7 @@ export const feedbackRouter: Router = Router();
 feedbackRouter.use(requireUser);
 
 const feedbackSchema = z.object({
-  status: z.enum(["pending", "seen", "saved", "skipped", "rated"]),
+  status: z.enum(["pending", "seen", "saved", "skipped", "rated", "plan_to"]),
   rating: z.number().int().min(1).max(5).optional().nullable(),
 });
 

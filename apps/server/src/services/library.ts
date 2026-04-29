@@ -124,9 +124,14 @@ export function parseLetterboxdCSV(text: string): NewLibraryItemRow[] {
 
 /**
  * Parse a Goodreads CSV export into library item rows. Goodreads exports
- * a single library.csv covering every shelf — we filter to Exclusive Shelf
- * = "read" so we only ingest books the user has actually finished, not
- * their to-read list (which would pollute the cross-reference set).
+ * a single library.csv covering every shelf. We ingest:
+ *   - "read" → status="consumed" (with star ratings if present)
+ *   - "to-read" → status="watchlist" (no rating; user hasn't read it)
+ *   - everything else (currently-reading, custom shelves) → skipped
+ *
+ * Watchlist entries don't anchor cross-references in explanations (the user
+ * hasn't actually read them), but they DO go into the recommender's dedup
+ * pool so the same titles aren't surfaced as new recommendations later.
  *
  * Columns we care about:
  *   Title, My Rating (0-5 integer; 0 = unrated), Year Published,
@@ -160,12 +165,24 @@ export function parseGoodreadsCSV(text: string): NewLibraryItemRow[] {
     const title = row[titleIdx]?.trim();
     if (!title) continue;
 
-    // Skip to-read / currently-reading / custom shelves — only ingest finished
-    // books. If the column is absent (older export format), include everything
-    // and trust the user to clean up.
+    // Decide ingestion status based on shelf:
+    //   read → consumed (with rating)
+    //   to-read → watchlist (no rating, even if column is present)
+    //   anything else (currently-reading, custom) → skip
+    let status: "consumed" | "watchlist" = "consumed";
     if (shelfIdx !== -1) {
       const shelf = row[shelfIdx]?.trim().toLowerCase();
-      if (shelf && shelf !== "read") continue;
+      if (shelf === "read") {
+        status = "consumed";
+      } else if (shelf === "to-read") {
+        status = "watchlist";
+      } else if (shelf) {
+        // Currently-reading or custom shelves — not yet engaged enough to be
+        // useful as either signal. Skip.
+        continue;
+      }
+      // If shelf is absent (older export format), default to "consumed" and
+      // trust the user to clean up.
     }
 
     let year: number | null = null;
@@ -178,12 +195,16 @@ export function parseGoodreadsCSV(text: string): NewLibraryItemRow[] {
       if (raw && /^-?\d{1,4}$/.test(raw)) year = Number(raw);
     }
 
-    const ratingRaw = ratingIdx !== -1 ? row[ratingIdx]?.trim() : undefined;
+    // Watchlist entries don't carry a meaningful rating (user hasn't read
+    // them); ignore the My Rating column for those.
     let rating: number | null = null;
-    if (ratingRaw && ratingRaw.length > 0) {
-      const n = Number(ratingRaw);
-      // 0 means unrated on Goodreads; keep null. 1-5 are real ratings.
-      if (Number.isFinite(n) && n >= 1 && n <= 5) rating = Math.round(n);
+    if (status === "consumed") {
+      const ratingRaw = ratingIdx !== -1 ? row[ratingIdx]?.trim() : undefined;
+      if (ratingRaw && ratingRaw.length > 0) {
+        const n = Number(ratingRaw);
+        // 0 means unrated on Goodreads; keep null. 1-5 are real ratings.
+        if (Number.isFinite(n) && n >= 1 && n <= 5) rating = Math.round(n);
+      }
     }
 
     items.push({
@@ -191,6 +212,7 @@ export function parseGoodreadsCSV(text: string): NewLibraryItemRow[] {
       title,
       mediaType: "book",
       source: "goodreads",
+      status,
       rating,
       year,
     });
@@ -241,7 +263,14 @@ export async function deleteLibraryItem(
 
 export async function addLibraryItem(
   userId: string,
-  input: { title: string; mediaType: MediaType; year?: number; rating?: number },
+  input: {
+    title: string;
+    mediaType: MediaType;
+    year?: number;
+    rating?: number;
+    status?: "consumed" | "watchlist";
+    source?: string;
+  },
 ): Promise<LibraryItemRow | null> {
   const [row] = await db
     .insert(libraryItems)
@@ -249,7 +278,8 @@ export async function addLibraryItem(
       userId,
       title: input.title.trim(),
       mediaType: input.mediaType,
-      source: "manual",
+      source: input.source ?? "manual",
+      status: input.status ?? "consumed",
       year: input.year ?? null,
       rating: input.rating ?? null,
     })

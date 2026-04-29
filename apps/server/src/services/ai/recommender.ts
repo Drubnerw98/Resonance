@@ -236,13 +236,16 @@ export async function getUserLibrary(
     rating: r.rating,
   }));
 
-  // Imported library items, EXCLUDING anything the user rated 1-2.
-  // Low-rated imports flow into the avoid set instead — we don't want the
-  // recommender to cross-reference something the user told us they hated.
+  // Imported library items, EXCLUDING anything the user rated 1-2 AND
+  // EXCLUDING watchlist entries (the user hasn't actually engaged with
+  // those yet — using them as cross-references would be misleading). Both
+  // get their own treatment elsewhere: low-rated → avoid set; watchlist →
+  // dedup pool.
   const fromImported: LibraryItem[] = (
     await db.query.libraryItems.findMany({
       where: and(
         eq(libraryItems.userId, userId),
+        eq(libraryItems.status, "consumed"),
         // Only items with no rating OR rating >= 3 count as positive library.
         or(
           isNull(libraryItems.rating),
@@ -346,6 +349,22 @@ export async function generateRecommendations(
   const previouslyRecommendedTitles = new Set(
     existingRecs.map((r) => canonicalizeTitle(r.media.title)),
   );
+
+  // Watchlist items go into the same "already on the user's radar" set so
+  // they aren't re-surfaced as new recommendations. Different from the avoid
+  // set: the user might still want recs in the same vein, just not THIS
+  // specific work. Adding to seenCanonicals (via previouslyRecommendedTitles)
+  // is the right semantic — same as already-recommended.
+  const watchlistRows = await db.query.libraryItems.findMany({
+    where: and(
+      eq(libraryItems.userId, userId),
+      eq(libraryItems.status, "watchlist"),
+    ),
+    columns: { title: true },
+  });
+  for (const row of watchlistRows) {
+    previouslyRecommendedTitles.add(canonicalizeTitle(row.title));
+  }
 
   const library = await getUserLibrary(userId, profile);
   const librarySources = library.reduce<Record<string, number>>((acc, l) => {

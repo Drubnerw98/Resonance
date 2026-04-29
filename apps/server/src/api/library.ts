@@ -45,6 +45,7 @@ const addBodySchema = z
     mediaType: mediaTypeEnum,
     year: z.number().int().min(1800).max(2100).optional(),
     rating: z.number().int().min(1).max(5).optional(),
+    status: z.enum(["consumed", "watchlist"]).optional(),
   })
   .strict();
 
@@ -68,12 +69,65 @@ libraryRouter.post("/", async (req, res, next) => {
       ...(parsed.data.rating !== undefined
         ? { rating: parsed.data.rating }
         : {}),
+      ...(parsed.data.status !== undefined
+        ? { status: parsed.data.status }
+        : {}),
     });
     if (!row) {
       res.status(409).json({ error: "already in library" });
       return;
     }
     res.status(201).json({ item: row });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const patchBodySchema = z
+  .object({
+    status: z.enum(["consumed", "watchlist"]).optional(),
+    rating: z.number().int().min(1).max(5).optional().nullable(),
+  })
+  .strict();
+
+/**
+ * PATCH /api/library/:id
+ * Update mutable fields on a library item — currently `status` (flip
+ * watchlist ↔ consumed) and `rating`. Used by the "Mark consumed" action
+ * in the watchlist UI.
+ */
+libraryRouter.patch("/:id", async (req, res, next) => {
+  try {
+    const id = req.params.id!;
+    const parsed = patchBodySchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({ error: "invalid body", issues: parsed.error.issues });
+      return;
+    }
+    const updates: { status?: "consumed" | "watchlist"; rating?: number | null } = {};
+    if (parsed.data.status !== undefined) updates.status = parsed.data.status;
+    if (parsed.data.rating !== undefined) updates.rating = parsed.data.rating;
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "no fields to update" });
+      return;
+    }
+    const [updated] = await db
+      .update(libraryItems)
+      .set(updates)
+      .where(
+        and(
+          eq(libraryItems.id, id),
+          eq(libraryItems.userId, req.user!.id),
+        ),
+      )
+      .returning();
+    if (!updated) {
+      res.status(404).json({ error: "not found" });
+      return;
+    }
+    res.json({ item: updated });
   } catch (err) {
     next(err);
   }

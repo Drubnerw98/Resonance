@@ -1,5 +1,10 @@
 import { useRef, useState, type ChangeEvent } from "react";
-import { useLibrary, type ImportSource } from "../../hooks/useLibrary.ts";
+import {
+  useLibrary,
+  type ImportSource,
+  type LibraryItem,
+  type LibraryItemStatus,
+} from "../../hooks/useLibrary.ts";
 import { Skeleton } from "../shared/Skeleton.tsx";
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -29,6 +34,7 @@ export function LibrarySection() {
   // input belongs to. Set when the user clicks an "Import X" button, cleared
   // after the import resolves.
   const [pendingSource, setPendingSource] = useState<ImportSource | null>(null);
+  const [activeTab, setActiveTab] = useState<LibraryItemStatus>("consumed");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function startImport(source: ImportSource) {
@@ -64,9 +70,14 @@ export function LibrarySection() {
     }
   }
 
-  // Group counts by format for the summary line.
+  const consumedItems = lib.items.filter((i) => i.status === "consumed");
+  const watchlistItems = lib.items.filter((i) => i.status === "watchlist");
+  const visibleItems =
+    activeTab === "consumed" ? consumedItems : watchlistItems;
+
+  // Per-format counts for the active tab's summary line.
   const counts: Record<string, number> = {};
-  for (const i of lib.items) {
+  for (const i of visibleItems) {
     counts[i.mediaType] = (counts[i.mediaType] ?? 0) + 1;
   }
   const summary = Object.entries(counts)
@@ -116,16 +127,35 @@ export function LibrarySection() {
             />
           </div>
 
+          {/* Tabs — Library (consumed) vs Watchlist (planned). Counts shown
+              per tab so the user knows where their stuff is. */}
+          <nav className="flex gap-1 border-b border-neutral-800">
+            <LibraryTab
+              label="Library"
+              count={consumedItems.length}
+              active={activeTab === "consumed"}
+              onClick={() => setActiveTab("consumed")}
+            />
+            <LibraryTab
+              label="Watchlist"
+              count={watchlistItems.length}
+              active={activeTab === "watchlist"}
+              onClick={() => setActiveTab("watchlist")}
+            />
+          </nav>
+
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-neutral-800 bg-neutral-900 p-3">
             <p className="text-sm text-neutral-300">
-              {lib.items.length === 0
-                ? "Nothing in your library yet."
-                : `${lib.items.length} item${lib.items.length === 1 ? "" : "s"}${summary ? " · " + summary : ""}`}
+              {visibleItems.length === 0
+                ? activeTab === "consumed"
+                  ? "Nothing in your library yet."
+                  : "Nothing on your watchlist yet."
+                : `${visibleItems.length} item${visibleItems.length === 1 ? "" : "s"}${summary ? " · " + summary : ""}`}
             </p>
             <div className="flex flex-wrap gap-2">
               {(["letterboxd", "goodreads"] as const).map(
                 (source) =>
-                  lib.items.some((i) => i.source === source) && (
+                  visibleItems.some((i) => i.source === source) && (
                     <button
                       key={`clear-${source}`}
                       onClick={async () => {
@@ -151,7 +181,7 @@ export function LibrarySection() {
                   onClick={async () => {
                     if (
                       confirm(
-                        `Delete all ${lib.items.length} library items? This can't be undone.`,
+                        `Delete all ${lib.items.length} library items (across both tabs)? This can't be undone.`,
                       )
                     ) {
                       const n = await lib.clear();
@@ -175,40 +205,21 @@ export function LibrarySection() {
             </pre>
           )}
 
-          {lib.items.length > 0 && (
+          {visibleItems.length > 0 && (
             <details className="rounded-md border border-neutral-800 bg-neutral-900">
               <summary className="cursor-pointer px-3 py-2 text-xs text-neutral-400 hover:text-neutral-200">
-                View all ({lib.items.length})
+                View all ({visibleItems.length})
               </summary>
               <ul className="max-h-72 divide-y divide-neutral-800 overflow-y-auto">
-                {lib.items.map((it) => (
-                  <li
+                {visibleItems.map((it) => (
+                  <LibraryRow
                     key={it.id}
-                    className="flex items-center justify-between gap-2 px-3 py-2"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm leading-snug">
-                        {it.title}
-                        {it.year ? (
-                          <span className="ml-1 text-neutral-500">
-                            ({it.year})
-                          </span>
-                        ) : null}
-                      </p>
-                      <p className="text-xs text-neutral-500">
-                        {FORMAT_LABEL[it.mediaType] ?? it.mediaType}
-                        {it.rating != null ? ` · ${it.rating}/5` : ""} ·{" "}
-                        {it.source}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => void lib.remove(it.id)}
-                      className="text-xs text-neutral-500 hover:text-rose-400"
-                      title="Remove from library"
-                    >
-                      ×
-                    </button>
-                  </li>
+                    item={it}
+                    onRemove={() => void lib.remove(it.id)}
+                    onMarkConsumed={() =>
+                      void lib.setItemStatus(it.id, "consumed")
+                    }
+                  />
                 ))}
               </ul>
             </details>
@@ -257,10 +268,13 @@ export function LibrarySection() {
                 <code>goodreads_library_export.csv</code>.
               </li>
               <li>
-                Upload it here. We only ingest books on your{" "}
-                <span className="text-neutral-200">read</span> shelf — to-read
-                and currently-reading entries are skipped so the
-                cross-reference set stays honest.
+                Upload it here. Books on your{" "}
+                <span className="text-neutral-200">read</span> shelf go into
+                your Library (rated entries become cross-references in
+                explanations); books on your{" "}
+                <span className="text-neutral-200">to-read</span> shelf go
+                into your Watchlist (won&apos;t be re-recommended).
+                Currently-reading and custom shelves are skipped.
               </li>
               <li>
                 Your star ratings come along: 4-5 stars become library
@@ -309,5 +323,78 @@ function ImportButton({
         <span className="block text-xs text-neutral-500">{hint}</span>
       </span>
     </button>
+  );
+}
+
+function LibraryTab({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={
+        "relative -mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors " +
+        (active
+          ? "border-white text-white"
+          : "border-transparent text-neutral-400 hover:text-neutral-200")
+      }
+    >
+      {label}
+      <span className="ml-1.5 text-xs text-neutral-500">{count}</span>
+    </button>
+  );
+}
+
+function LibraryRow({
+  item,
+  onRemove,
+  onMarkConsumed,
+}: {
+  item: LibraryItem;
+  onRemove: () => void;
+  onMarkConsumed: () => void;
+}) {
+  const isWatchlist = item.status === "watchlist";
+  return (
+    <li className="flex items-center justify-between gap-2 px-3 py-2">
+      <div className="min-w-0">
+        <p className="text-sm leading-snug">
+          {item.title}
+          {item.year ? (
+            <span className="ml-1 text-neutral-500">({item.year})</span>
+          ) : null}
+        </p>
+        <p className="text-xs text-neutral-500">
+          {FORMAT_LABEL[item.mediaType] ?? item.mediaType}
+          {item.rating != null ? ` · ${item.rating}/5` : ""} · {item.source}
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {isWatchlist && (
+          <button
+            onClick={onMarkConsumed}
+            className="rounded-md border border-emerald-800/70 px-2 py-1 text-xs font-medium text-emerald-300 hover:border-emerald-600 hover:bg-emerald-950/30"
+            title="I've watched / read / played this — move to Library"
+          >
+            Mark consumed
+          </button>
+        )}
+        <button
+          onClick={onRemove}
+          className="text-xs text-neutral-500 hover:text-rose-400"
+          title="Remove"
+        >
+          ×
+        </button>
+      </div>
+    </li>
   );
 }

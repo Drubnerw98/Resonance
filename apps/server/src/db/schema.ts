@@ -36,6 +36,21 @@ export const recommendationStatusEnum = pgEnum("recommendation_status", [
   "saved",
   "skipped",
   "rated",
+  // "I plan to consume this" — adds the rec's media to the user's watchlist
+  // and excludes it from future candidate pools (without treating it as
+  // negative signal).
+  "plan_to",
+]);
+
+// Library items can represent either things the user has actually engaged
+// with ("consumed") or things they intend to engage with ("watchlist"). The
+// recommender pulls cross-references from `consumed` only — watchlist items
+// haven't been experienced, so explanations like "the same X you found in Y"
+// would be wrong. But watchlist items DO contribute to the dedup pool so
+// they aren't re-recommended.
+export const libraryItemStatusEnum = pgEnum("library_item_status", [
+  "consumed",
+  "watchlist",
 ]);
 
 export const mediaSourceEnum = pgEnum("media_source", [
@@ -175,6 +190,10 @@ export const libraryItems = pgTable(
     mediaType: mediaTypeEnum("media_type").notNull(),
     /** "letterboxd" | "goodreads" | "manual" | etc. */
     source: text("source").notNull(),
+    /** "consumed" (default) for things the user has watched/read/played;
+     * "watchlist" for plan-to-consume entries. Default catches every existing
+     * row from before this column existed. */
+    status: libraryItemStatusEnum("status").notNull().default("consumed"),
     /** Optional 1-5 user rating, when the import provides one. */
     rating: integer("rating"),
     /** Optional release year — stored when import provides it; helps

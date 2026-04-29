@@ -12,8 +12,9 @@ services:
     rootDir: .
     # Install pnpm via npm rather than corepack — Render's filesystem makes
     # /usr/bin read-only at runtime, and `corepack enable` tries to symlink
-    # there. `npm install -g` writes to a path corepack doesn't touch.
-    buildCommand: npm install -g pnpm@10.13.1 && pnpm install --frozen-lockfile
+    # there. --force lets npm overwrite stale `pnpx` symlinks left in the
+    # build cache from earlier deploy attempts.
+    buildCommand: npm install -g --force pnpm@10.13.1 && pnpm install --frozen-lockfile
     startCommand: pnpm --filter @resonance/server start
     healthCheckPath: /api/health
     envVars:

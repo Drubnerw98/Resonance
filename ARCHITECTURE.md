@@ -124,7 +124,7 @@ Nine tables. Each has a clear single responsibility.
 | `media_cache`            | Normalized external-API data — the anti-hallucination layer                     |
 | `recommendation_batches` | First-class batch objects (name, prompt, timestamps)                            |
 | `recommendations`        | Every rec ever, joined to a batch + a media_cache row + status/rating           |
-| `library_items`          | Imported (Letterboxd / Goodreads) or manually-added works                       |
+| `library_items`          | Imported (Letterboxd / Goodreads / MyAnimeList / Steam) or manually-added works. `status` enum: `consumed | watchlist`. |
 | `discovery_themes`       | Cached browse-mode entry surfaces, regenerated on profile change                |
 
 **Key constraints worth knowing:**
@@ -137,6 +137,13 @@ Nine tables. Each has a clear single responsibility.
   across all users; cache is shared.
 - `media_type` is a Postgres enum (`movie | tv | anime | manga | game | book`)
   used in five tables — single source of truth.
+- `recommendations.status` is the enum `pending | seen | saved | skipped |
+  rated | plan_to`. `plan_to` was added when watchlist support shipped; it
+  pairs with a corresponding `library_items` row at `status = "watchlist"`.
+- `library_items.status` is the enum `consumed | watchlist`, default
+  `consumed`. Watchlist items contribute to the recommender's dedup pool but
+  NOT to the library cross-reference set (the user hasn't actually engaged
+  with them yet — using them as anchors in explanations would lie).
 
 **Why JSONB for `taste_profiles.profile_data`:** the profile is hierarchical,
 always read/written atomically, and its schema evolves through code rather
@@ -307,6 +314,24 @@ exists when persistence runs).
   me cry")` returns `"movie"` and overrides the breadth rule with an
   ≥80% format-bias instruction. Without this, asking for movies still got
   manga suggestions to satisfy "format spread".
+- **Format enable/disable hard enforcement.** `collectRealCandidates` drops
+  any candidate whose `mediaType` isn't in the user's `mediaAffinities`
+  before it ever reaches scoring. Belt-and-suspenders alongside the prompt
+  rule that lists disabled formats explicitly. Removing a format from the
+  ProfileEditor *literally guarantees* it won't appear in future batches.
+- **Refine flow ("stacked batches").** Each batch on the recommendations
+  page has a Refine button. Click → inline input → submit constructs a new
+  prompt as `"${original}, but also: ${addition}"` and kicks off a brand
+  new batch via the standard pipeline. The original batch is never mutated;
+  refinement is additive — the user ends up with the original AND the
+  refined version, both browsable.
+- **Watchlist + plan-to in dedup.** A rec marked "Plan to" flips its
+  `status` to `plan_to` AND creates a `library_items` row at
+  `status="watchlist"`. Imported watchlists (Goodreads to-read, MAL plan-to,
+  Steam wishlist if it ever returns) take the same shape. All watchlist
+  items canonicalize into `previouslyRecommendedTitles` so they're never
+  re-surfaced as new recs. They do NOT enter the cross-reference library —
+  user hasn't experienced them.
 
 ### Mode 4: Discovery themes
 
@@ -322,6 +347,10 @@ tailored entry surfaces — "Sci-fi favorites" or "Hidden gems" defeats the
 feature. The prompt has an explicit failure test: *"could this description
 appear, unchanged, on someone else's account? if yes, you've failed"*. Worked
 good/bad examples in the prompt show the gap.
+
+The prompt also surfaces the user's **disabled formats** explicitly so
+themes never include those formats in their `formats` list — same
+enforcement as the recommender's candidate prompt.
 
 ### Evaluate mode ("Would I like X?")
 
@@ -343,6 +372,11 @@ chosen this title and is asking "would I like this?" — a "no, here's why"
 is a legitimate answer. The prompt explicitly says: if the title is on
 `dislikedTitles` or matches an avoidance, address it directly, don't pretend
 you didn't see it.
+
+**Format selector is filtered by enabled formats.** The dropdown only
+shows formats the user has in `mediaAffinities` — disabling a format
+removes it from the evaluate dropdown too. Symmetric with how disabled
+formats are excluded from rec batches and theme cards.
 
 ---
 
@@ -393,6 +427,25 @@ adapter calls with cache writes (upsert keyed on `(source, external_id)`).
   study guides, critical companions). `SCHOLARLY_TITLE_PATTERNS` regex
   array filters them in `searchByTitle` and `searchByQuery` before
   normalization.
+
+### Library imports (separate from the recommender's adapters)
+
+User-driven imports go through different code paths than the recommender's
+adapter calls — they're file uploads (CSV/XML) or a dedicated API
+integration, not part of the candidate-collection pipeline.
+
+| Source         | Shape       | Watchlist support           | Notes                                                |
+| -------------- | ----------- | --------------------------- | ---------------------------------------------------- |
+| Letterboxd     | CSV upload  | Deferred (`watchlist.csv`)  | `parseLetterboxdCSV` — ratings.csv/watched.csv       |
+| Goodreads      | CSV upload  | Yes — to-read shelf         | `parseGoodreadsCSV` — read → consumed, to-read → watchlist |
+| MyAnimeList    | XML upload  | Yes — Plan to Watch/Read    | `parseMyAnimeListXML` — anime + manga, score 1-10 → 1-5 |
+| Steam          | Web API     | Deferred (Valve gated wishlist)  | `services/steam.ts` — owned games via SteamID/URL/vanity |
+
+**Steam-specific:** `STEAM_API_KEY` env var is optional; without it the
+import button surfaces a clear error rather than crashing. SteamID input
+accepts a 64-bit ID, a `/profiles/` URL, or a vanity name (resolved via
+`ResolveVanityURL`). Owned games come in as `consumed` with no rating —
+playtime is too noisy to map to a star rating.
 
 ---
 
@@ -450,7 +503,46 @@ loop. So a page reload mid-generation seamlessly resumes.
 
 ---
 
-## 8. Frontend architecture
+## 8. Rate limiting + abuse prevention
+
+`services/rateLimit.ts` enforces per-user daily caps on every AI-bound
+endpoint. Without these, a single authenticated user could hammer the
+Anthropic budget by automating the onboarding chat or the rec generator.
+
+**Caps (per user, UTC day):**
+
+| Endpoint                              | Cap | Kind                       |
+| ------------------------------------- | --- | -------------------------- |
+| `POST /api/onboarding/message`        | 100 | `onboarding.message`       |
+| `POST /api/recommendations/generate`  | 25  | `recommendations.generate` |
+| `POST /api/evaluate/score`            | 100 | `evaluate.score`           |
+| `POST /api/discover/themes/refresh`   | 20  | `discover.refresh`         |
+| `POST /api/profile/refine`            | 10  | `profile.refine`           |
+
+**Mechanics:** in-memory `Map<"userId:kind", { count, resetAt }>`. Reset at
+the next UTC midnight; expired buckets pruned hourly. Over the cap →
+status-coded error with `status: 429` + a clear message; the global
+errorHandler surfaces it as a JSON 429 response.
+
+**Critical placement:** `checkRateLimit()` runs BEFORE the expensive call
+(model invocation, adapter fan-out), not after. For the onboarding SSE
+stream the check happens before the SSE writer is opened so a 429 lands
+as a clean HTTP response rather than mid-stream noise. For
+`/recommendations/generate` the existing job-deduper runs first, so
+re-attaching to an in-flight job doesn't double-count.
+
+**What's NOT rate-limited:** GET endpoints (cheap), evaluate's adapter
+search (no Claude call), library imports (parsing or Steam API which has
+its own quota), feedback PATCH (no Claude call), the discover GET
+auto-generate (one-time per user; the refresh endpoint IS limited).
+
+**Limitation:** in-memory like the job tracker. A multi-instance deploy
+would let a user route around the limit by hitting different replicas.
+Postgres-backed counter would fix it; not built since we're single-instance.
+
+---
+
+## 9. Frontend architecture
 
 **React Router v7** with a `Layout` route wrapping all pages with `Nav`.
 Routes that require auth nest under a `RequireAuth` element.
@@ -488,7 +580,7 @@ revisit.
 
 ---
 
-## 9. Notable design decisions
+## 10. Notable design decisions
 
 The interview-relevant section. Each is a defensible call worth being able to
 articulate.
@@ -550,45 +642,80 @@ occasionally need a manual fix (e.g. backfilling rows before adding an FK
 constraint to an existing column). Editable SQL files made that recoverable
 without abandoning the migration system.
 
+**Watchlist as dedup signal, not cross-reference signal.** A user adding
+*The Bear* to their watchlist means "I'm aware of it, want to watch it
+eventually" — not "I love this and you can use it as an anchor." So
+watchlist items go into `previouslyRecommendedTitles` (dedup) but
+`getUserLibrary` filters them out (no cross-references). This split was
+the central design call when watchlist support shipped; without it, recs
+would explain themselves with works the user has never actually
+experienced.
+
+**Format enable/disable hard-enforced server-side, not just prompted.**
+The candidate prompt tells the model to skip disabled formats; the
+discovery-themes prompt does the same. But `collectRealCandidates` ALSO
+hard-filters by `mediaAffinities` before scoring — even if the model
+violates the prompt rule, the server enforces it. The frontend
+ProfileEditor's "Disable" button has real teeth: removing a format from
+the affinities array literally guarantees no recs in that format ever
+again until re-enabled.
+
+**Refine creates a new batch, never mutates the original.** Stacking
+`"original prompt, but also: ${addition}"` is the user's mental model —
+they want to KEEP the original batch's results AND see how a refinement
+changes things. Mutating the existing batch would force the user to
+choose which version to lose. New-batch refinement preserves both.
+
+**Per-user rate limits live next to the job tracker, not in middleware.**
+`services/rateLimit.ts` is a sibling of `services/jobs.ts`; both are
+in-memory, both have the same multi-instance trade-off. Putting limits in
+middleware would require knowing the route's "kind" enum at registration
+time; a service-level helper at each call site is more local and lets
+each route decide the cap kind. Cost: explicit `try/catch` blocks at each
+route — verbose but unambiguous.
+
 ---
 
-## 10. Known limitations / what's not built
+## 11. Known limitations / what's not built
 
 What's deferred is part of the design. Articulating it shows judgment.
 
 - **No test coverage** beyond a 14-case streaming-filter smoke test
-  (`streaming.test.ts`). For production this would be a P0; for a portfolio
-  piece it's a known gap.
-- **Single-instance only.** The job tracker is in-memory. Multi-instance
-  deployment requires swapping to a Postgres- or Redis-backed jobs table.
-- **MAL + Steam library imports deferred.** Goodreads + Letterboxd shipped
-  (CSV); MAL needs an XML parser, Steam needs the Web API + a SteamID
-  input UX + a `STEAM_API_KEY` env var. Designs sketched, not built.
+  (`streaming.test.ts`) and a few inline media-cache + rate-limiter smoke
+  scripts. For production this would be a P0; for a portfolio piece it's a
+  known gap.
+- **Single-instance only.** Both the job tracker AND the rate-limit counter
+  are in-memory. Multi-instance deployment requires swapping both to
+  Postgres- or Redis-backed storage. A user could currently route around
+  rate limits by hitting different replicas if there were more than one.
 - **No profile version rollback UI.** `profile_versions` stores history
   but there's no viewer/restore interface yet.
-- **Mobile not deeply tested.** Layout is responsive (Tailwind
-  breakpoints, horizontally-scrollable nav, stacked cards on narrow
-  viewports) but no phone-in-hand pass.
 - **No accessibility audit.** No screen-reader testing, no keyboard-nav
-  verification beyond browser defaults.
-- **Not deployed.** Vercel-ready but not live. Required env vars:
-  `ANTHROPIC_API_KEY`, `CLERK_SECRET_KEY`, `DATABASE_URL`, `TMDB_API_KEY`,
-  `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET`.
+  verification beyond browser defaults. Form inputs use semantic HTML
+  (button, label, role="radiogroup" on stars) but no formal pass.
 - **Job results in-memory.** Pruned 1 hour after completion. A user who
   reloads several hours after a generation finished gets a 404 and has to
   re-generate.
+- **No recent-evaluations history.** Verdicts are ephemeral — no
+  persistence layer for the user's evaluate sessions. Could add as a
+  separate table; not in scope yet.
 - **No batch sharing.** A "share this batch" link could let a friend view
   a user's recommendations. Not in scope.
-- **Limited rate-limit recovery.** Adapter 429s have retry-with-backoff,
-  but a sustained outage would silently produce empty batches. Surfacing
-  an "external API is slow" status to the user would be more honest.
+- **Limited rate-limit recovery on adapters.** Adapter 429s have
+  retry-with-backoff, but a sustained outage would silently produce empty
+  batches. Surfacing an "external API is slow" status to the user would
+  be more honest.
 - **Discovery themes blocking on first visit.** First `/explore` GET takes
   3-5s while themes generate. Could be moved to a background job + polling
   pattern, but the trade-off (job complexity for a one-time wait) wasn't
   worth it.
-- **No "rerun this batch" affordance.** If a batch's quality was off, the
-  user has to re-prompt manually. A "rerun with these tweaks" flow would
-  be a natural addition.
+- **Letterboxd watchlist + Steam wishlist deferred.** Letterboxd's
+  `watchlist.csv` parser fits the existing watchlist framework; just not
+  wired. Steam wishlist needs OAuth (Valve gated the JSON endpoint).
+- **Production Clerk + custom domain not set up.** Currently `pk_test_…`
+  on a `vercel.app` subdomain. Cookie quirks on `*.vercel.app` are
+  cosmetic (warnings in console, sign-in still works). Switching to
+  `pk_live_…` requires owning a real domain.
 
 These are deliberate scope boundaries, not unknown bugs. The system's
 cohesion comes partly from saying no to the wrong-shape additions.

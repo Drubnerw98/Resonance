@@ -1,272 +1,141 @@
-# CLAUDE.md — Cross-Media Recommendation Engine
+# CLAUDE.md — working notes for Resonance
 
-## Project overview
+This is the working-rules file: how to work in this repo, what state it's in, and the user's preferences. **Architecture lives in [ARCHITECTURE.md](./ARCHITECTURE.md)** — read that for design decisions and subsystem details. **README.md** is the public-facing front page.
 
-A full-stack web app that provides AI-powered media recommendations across movies, TV, anime, manga, games, and books. The differentiator is a persistent "taste DNA" profile built through an AI-driven onboarding conversation, not just ratings or genre tags. Recommendations come with real media data (images, ratings, descriptions) from external APIs, not just AI text.
+## What this is
 
-Portfolio project targeting dev jobs at startups/agencies.
+Cross-format media recommender (movies, TV, anime, manga, games, books) built around a persistent "taste DNA" profile. Portfolio project targeting dev jobs at startups / agencies. The differentiator from a one-shot Claude session: structured persistence, library cross-references, verification against real metadata APIs, multi-tenancy.
 
-## Stack
+## Current state
 
-- **Frontend:** React 19 + TypeScript, Vite, deployed on Vercel
-- **Backend:** Node.js with Express, Vercel serverless functions
-- **Database:** PostgreSQL on Neon, Drizzle ORM
-- **Auth:** Clerk (Google + GitHub OAuth)
-- **AI:** Anthropic Claude API (claude-sonnet-4-6)
-- **External APIs:** TMDB (movies/TV), IGDB (games), Jikan/MAL (anime/manga), Open Library (books)
-- **Styling:** Tailwind CSS
+**Deployed and live:**
+- Frontend: `https://resonance-client.vercel.app` (Vercel, static SPA)
+- Backend: `https://resonance-server-t4r8.onrender.com` (Render free tier — spins down after 15 min idle, ~30s cold start)
+- DB: Neon Postgres
+- Auth: Clerk (dev instance, `pk_test_…`)
 
-## Project structure
+**Shipped:**
+- All four AI modes (onboarding, extraction + refinement, recommendation pipeline, discovery themes) + evaluate verdicts
+- Persistent batches with name / prompt / refine flow (stack new batches on existing ones with extra constraints)
+- Library imports: Letterboxd CSV, Goodreads CSV, MyAnimeList XML, Steam Web API
+- Watchlist (plan-to-consume) on library_items + plan-to status on rec cards — both feed dedup, neither feeds cross-references
+- Manual profile editor (every field), format enable/disable hard enforcement
+- Per-user daily rate limits on AI-bound endpoints (in-memory, daily UTC reset)
+- Mobile nav (hamburger), iOS Safari focus auto-zoom fix, branded 404, friendly missing-profile empty states
+- Sort dropdown on recommendations (match% / alphabetical / year asc/desc)
+- Auto-refinement banner when feedback PATCH crosses the threshold
+- Save + rate visually independent (rated 4★ + saved coexist)
+- Signed-out landing page (hero / how-it-works / differentiator / format showcase / closing CTA)
+
+**Deferred (intentional):**
+- Postgres-backed jobs (only matters at multi-instance scale)
+- Custom domain + production Clerk instance (`pk_live_…`)
+- Test coverage beyond `streaming.test.ts` smoke test
+- Profile version rollback UI (history is stored)
+- Recent-evaluations history (substantial backend feature)
+- Wishlist via Steam (Valve deprecated the public endpoint; would need user OAuth)
+
+## Working preferences (the user, drub)
+
+These are how the user prefers to collaborate. Honor them by default unless explicitly redirected.
+
+**Communication shape:**
+- Brief responses. State what's about to happen, run the work, summarize what changed. No padding.
+- One clean update at meaningful checkpoints, not running narration.
+- Greenlights are short (`"yeah do it"`, `"send it"`, `"go"`). Don't ask for re-confirmation when you've already laid out the plan.
+- No emojis in regular communication.
+
+**Engineering judgment:**
+- Push back when you disagree. The user explicitly invites it (`"if you disagree feel free, it's not gospel"`). Saying yes to bad ideas is worse than friction.
+- Triage before doing on multi-item lists: what you'll do, what you'll skip, what's already shipped. Catches duplicate work and design-review-from-an-old-screenshot situations.
+- If something feels bigger than the user thinks, say so honestly. The user respects scope honesty over forced optimism.
+- Quality > speed for AI features. When the user says `"don't sacrifice quality"` they mean it — don't propose Haiku swaps for cost savings.
+
+**Workflow rhythm:**
+- Run `pnpm -r typecheck` and (if frontend) `pnpm -r --filter @resonance/client build` before claiming work is done.
+- Commit at meaningful checkpoints with the Co-Authored-By trailer (`Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>`). Existing commits are bare one-liners — match that style.
+- Don't push to remote unless asked OR when the user is mid-deploy debugging and needs the change live.
+- For deploy-time issues: the user has access to Render + Vercel logs and can paste them directly. Ask for them rather than guessing.
+
+**Design review pattern:**
+The user runs the deployed site through Claude.ai (with screenshots) for visual review and pastes the suggestions back. Important caveats:
+- Screenshots may be from before the latest deploy completed. Always check what's *actually* shipped against the suggestion before redoing it. The user has acknowledged this caveat openly.
+- The reviewer doesn't know what was already done in code, so duplicate suggestions are normal. Triage.
+- The user's own additions / pushbacks at the end of a Claude.ai list are signal — pay attention to those specifically.
+
+**Things the user has flagged as principles:**
+- "I want this to be something I'd be enthusiastic to use multiple times" — the product needs to *feel* lived-in, not just functional.
+- "It needs to not just be a chatbot" — the differentiation pillars (persistent profile, library cross-references, verified metadata, persistent batches) are non-negotiable architectural commitments.
+- The user is building this to defend in interviews. Code clarity and decision-articulation matter as much as features.
+
+## Critical conventions specific to this repo
+
+These complement what's in ARCHITECTURE.md, not duplicate it.
+
+- **All AI prompts live in `apps/server/src/services/ai/prompts/`** as exported template functions. Never inline a prompt in a service file.
+- **All AI structured outputs go through `apps/server/src/services/ai/schemas.ts`** (zod v4 — `import { z } from "zod/v4"`). Never construct an `output_config.format` ad-hoc.
+- **Every recommendation must correspond to a real `media_cache` row.** No exceptions. Hallucinated titles silently drop in `collectRealCandidates`. This is the anti-hallucination guarantee.
+- **Status-coded errors:** for user-state errors that aren't server faults (missing profile, rate limit hit, private Steam profile), throw `Error & { status: number }`. The global errorHandler reads `.status` and returns the right HTTP code.
+- **Format enable/disable is server-enforced:** `collectRealCandidates` hard-filters by `profile.mediaAffinities` regardless of what the model proposes. Don't trust the prompt rule alone.
+- **Rate limits are checked BEFORE the expensive call**, not after. See `services/rateLimit.ts` and the call sites in `api/onboarding.ts`, `api/recommendations.ts`, etc.
+- **Profile saves invalidate `discovery_themes` inline.** When you add another derived cache, follow the same pattern.
+
+## Where things live (current, not the original spec)
 
 ```
-src/
-├── client/                 # React frontend
-│   ├── components/
-│   │   ├── onboarding/     # Chat-based onboarding UI
-│   │   ├── recommendations/# Rec feed, media cards, feedback
-│   │   ├── profile/        # Taste profile viewer
-│   │   └── shared/         # Layout, nav, common components
-│   ├── hooks/              # Custom React hooks
-│   ├── lib/                # Client utilities, API client
-│   └── pages/              # Route-level page components
-├── server/
-│   ├── api/                # Express route handlers
-│   │   ├── onboarding.ts   # Onboarding chat endpoints
-│   │   ├── recommendations.ts
-│   │   ├── feedback.ts
-│   │   └── profile.ts
-│   ├── services/
-│   │   ├── ai/             # Anthropic integration layer
-│   │   │   ├── onboarding.ts    # Mode 1: conversational onboarding
-│   │   │   ├── extraction.ts    # Mode 2: profile extraction
-│   │   │   ├── recommender.ts   # Mode 3: recommendation pipeline
-│   │   │   └── prompts/         # System prompt templates
-│   │   ├── media/          # External API integrations
-│   │   │   ├── aggregator.ts    # Unified media search interface
-│   │   │   ├── tmdb.ts
-│   │   │   ├── igdb.ts
-│   │   │   ├── jikan.ts
-│   │   │   └── openlibrary.ts
-│   │   └── profile.ts     # Profile management + versioning
-│   ├── db/
-│   │   ├── schema.ts       # Drizzle schema definitions
-│   │   ├── migrations/
-│   │   └── index.ts        # DB connection
-│   └── middleware/
-│       └── auth.ts         # Clerk JWT verification
-└── shared/
-    └── types/              # Shared TypeScript types
-        ├── media.ts        # MediaItem, MediaType, MediaSource
-        ├── profile.ts      # TasteProfile interface
-        └── recommendation.ts
+apps/
+  client/
+    src/
+      components/
+        marketing/      # signed-out landing page
+        onboarding/     # chat UI
+        profile/        # ProfileView, ProfileEditor, LibrarySection
+        recommendations/# MediaCard + skeleton
+        shared/         # PageHeader, EmptyState, LoadingPulse, Footer, Logo, Layout, Nav
+      hooks/            # useProfile, useRecommendations, useBatches, useLibrary, useThemes, useEvaluate, useOnboarding, useApi
+      lib/              # api.ts, sse.ts (client-side fetch + SSE parser)
+      pages/            # one .tsx per route + NotFoundPage
+      styles/           # globals.css (Tailwind + a few keyframes)
+  server/
+    src/
+      api/              # one .ts per resource (onboarding, recommendations, feedback, profile, library, evaluate, discover, media, me)
+      db/               # schema.ts + migrations/
+      lib/              # rateLimiter.ts (token bucket for adapters), sse.ts (SSE writer)
+      middleware/       # auth.ts, error.ts
+      services/
+        ai/             # one file per AI mode + prompts/ + schemas.ts + aiHelpers.ts + client.ts + streaming.ts
+        media/          # one adapter per source + aggregator.ts
+        # plus: jobs.ts, rateLimit.ts, library.ts, steam.ts, profile.ts, feedback.ts,
+        #       mediaCache.ts, onboardingSessions.ts, users.ts
+packages/
+  shared/               # MediaItem, TasteProfile, DiscoveryTheme, RecommendationStatus, etc.
+ARCHITECTURE.md         # full design reference
+README.md               # public-facing front page
+render.yaml             # Render service blueprint
+vercel.json             # repo-root build config
+apps/client/vercel.json # Vercel routing config (rewrites + outputDirectory)
 ```
 
-## Database schema
+## File-size watch list
 
-Six tables. Use Drizzle ORM for all database access.
+These are getting long but not yet painful. Don't split prematurely. Revisit if any cross 1200 lines or grow independent reusers.
 
-**users** — synced from Clerk on first login
-- `id` uuid PK
-- `clerk_id` string unique — Clerk's user ID
-- `email` string
-- `display_name` string
-- `onboarding_status` enum: `pending | in_progress | complete`
-- `created_at`, `updated_at` timestamps
+| File | Lines |
+| ---- | ----- |
+| `services/ai/recommender.ts` | ~900 |
+| `pages/HomePage.tsx` | ~620 |
+| `components/profile/ProfileEditor.tsx` | ~610 |
+| `pages/RecommendationsPage.tsx` | ~610 |
+| `components/profile/LibrarySection.tsx` | ~550 |
 
-**taste_profiles** — one active profile per user, stores structured JSON
-- `id` uuid PK
-- `user_id` uuid FK → users
-- `current_version` int
-- `profile_data` jsonb — conforms to TasteProfile interface (see below)
-- `created_at`, `updated_at` timestamps
+## Stuff that's documented and easy to forget
 
-**profile_versions** — snapshot on every refinement for rollback and analytics
-- `id` uuid PK
-- `profile_id` uuid FK → taste_profiles
-- `version_number` int
-- `profile_data` jsonb
-- `trigger` string — why it changed: `"onboarding"`, `"feedback_batch"`, `"manual_edit"`
-- `created_at` timestamp
+- **zod v4 cast:** `as unknown as Parameters<typeof zodOutputFormat>[0]` is required because the SDK's `.d.ts` imports zod v3 but its runtime imports zod v4. Documented in `schemas.ts`. Goes away when SDK fixes types.
+- **Vercel reads `apps/client/vercel.json`** (the Root Directory's vercel.json), not the repo root one. Both files exist; the repo-root one is mostly inert. SPA rewrites + outputDirectory must be in the apps/client one.
+- **Render free-tier cold start** is ~30s after 15 min idle. The frontend's fetch has no timeout so it just hangs and resolves; that's expected.
+- **Clerk `pk_test_` instance** doesn't enforce origin allowlist; production `pk_live_` would.
+- **iOS Safari auto-zoom** on focus is prevented by the global CSS rule that bumps `input/textarea/select` to 16px on viewports below 640px. Don't override this on individual inputs.
 
-**onboarding_sessions** — stores the full conversation for profile extraction
-- `id` uuid PK
-- `user_id` uuid FK → users
-- `status` enum: `active | completed | abandoned`
-- `messages` jsonb — array of `{role, content}` for Anthropic API
-- `turn_count` int
-- `created_at`, `completed_at` timestamps
+## Build order is no longer relevant
 
-**recommendations** — every rec ever generated, with feedback state
-- `id` uuid PK
-- `user_id` uuid FK → users
-- `batch_id` uuid — groups recs generated together
-- `media_cache_id` uuid FK → media_cache
-- `match_score` float — 0-1 thematic alignment
-- `explanation` text — personalized reasoning from AI
-- `taste_tags` text[] — which profile themes this matches
-- `status` enum: `pending | seen | saved | skipped | rated`
-- `rating` int nullable — 1-5 if user rated
-- `created_at`, `acted_at` timestamps
-
-**media_cache** — verified external API data, the anti-hallucination layer
-- `id` uuid PK
-- `external_id` string — ID from the source API
-- `source` enum: `tmdb | igdb | jikan | openlibrary`
-- `media_type` enum: `movie | tv | anime | manga | game | book`
-- `title` string
-- `normalized_data` jsonb — conforms to MediaItem interface
-- `fetched_at` timestamp
-- `expires_at` timestamp — refresh stale data
-
-## Core types
-
-### TasteProfile (stored as JSONB, enforced in TypeScript)
-
-```typescript
-interface TasteProfile {
-  themes: {
-    label: string;        // e.g. "earned transformation"
-    weight: number;       // 0-1
-    evidence: string;     // titles/moments that support this
-  }[];
-  archetypes: {
-    label: string;        // e.g. "burden-carrying protagonist"
-    attraction: string;   // why this resonates
-  }[];
-  narrativePrefs: {
-    pacing: "slow-burn" | "propulsive" | "variable";
-    complexity: "layered" | "focused" | "epic";
-    tone: string[];       // ["bittersweet", "darkly comic"]
-    endings: string;      // "ambiguous over neat"
-  };
-  mediaAffinities: {
-    format: MediaType;
-    comfort: number;      // 0-1, openness to this format
-    favorites: string[];  // titles mentioned during onboarding
-  }[];
-  avoidances: string[];   // ["generic chosen-one plots", "fan service"]
-}
-```
-
-### MediaItem (normalized from all external APIs)
-
-```typescript
-interface MediaItem {
-  externalId: string;
-  source: "tmdb" | "igdb" | "jikan" | "openlibrary";
-  mediaType: "movie" | "tv" | "anime" | "manga" | "game" | "book";
-  title: string;
-  description: string;
-  imageUrl: string | null;
-  rating: number | null;       // normalized 0-10
-  year: number | null;
-  genres: string[];
-  externalUrl: string;         // link to TMDB/MAL/etc page
-  metadata: Record<string, unknown>; // source-specific extras
-}
-```
-
-## AI integration layer — three modes
-
-All AI calls use `claude-sonnet-4-6`. Keep system prompts in `/server/services/ai/prompts/` as template strings with interpolation points.
-
-### Mode 1: Onboarding conversation
-
-- **Type:** Multi-turn streaming chat
-- **Endpoint:** `POST /api/onboarding/message` (streaming SSE response)
-- **System prompt persona:** A curious, media-savvy friend. Asks *why* users love what they love, not just *what*. Digs into thematic preferences, character types, narrative structures across all media formats.
-- **Conversation state:** Full message history stored in `onboarding_sessions.messages`, passed to each API call
-- **Hidden analysis:** System prompt instructs Claude to include `<analysis>` tags in responses tracking emerging patterns. Strip these before sending to the frontend.
-- **Completion signal:** Claude includes `<ready/>` when it has enough signal (~5-8 turns). Frontend detects this and triggers profile extraction.
-- **Key instruction in prompt:** Never just ask "what's your favorite movie?" — ask about *moments*, *feelings*, *what kept them up at night thinking about it*.
-
-### Mode 2: Profile extraction
-
-- **Type:** Single non-streaming call
-- **Trigger:** Onboarding complete OR feedback batch accumulated
-- **Input:** Full onboarding transcript (or existing profile + recent feedback)
-- **Output:** TasteProfile JSON conforming to the interface above
-- **System prompt:** Analytical. Instructs Claude to identify patterns across all mentioned media, extract thematic DNA, and output strict JSON. No conversational text.
-- **For refinement:** Send existing profile + array of recent feedback items (title, rating, skip reason). Prompt instructs Claude to evolve the profile, not rebuild it.
-
-### Mode 3: Recommendation generation (hybrid pipeline)
-
-Four steps, backend-orchestrated:
-
-**Step 1 — AI generates candidates:**
-Send the taste profile to Claude. It outputs JSON with two arrays:
-- `titleSuggestions`: ~15-20 specific titles with media type and reason (treated as search hints, not trusted)
-- `discoveryQueries`: genre + keyword combos for broader API search per format
-
-**Step 2 — Backend validates against real APIs:**
-- Title suggestions: fuzzy search each against the appropriate API (TMDB for movies/TV, IGDB for games, etc). Found → pull real data into media_cache. Not found → silently drop.
-- Discovery queries: search each API, pull top results into media_cache.
-- Merge, deduplicate, filter out anything the user has already seen (check recommendations table).
-
-**Step 3 — AI reads synopses for deep thematic match:**
-Send the taste profile + real candidate data (title, synopsis, genres, rating) to Claude. It scores each candidate 0-1 for thematic alignment and explains why. This is the quality filter — surface-level matches get low scores. Returns top 5-8 per format.
-
-**Step 4 — Structured output:**
-Claude outputs an array of recommendation objects: `{ mediaCacheId, matchScore, explanation, tasteTags }`. Backend saves to recommendations table, frontend renders as cards.
-
-**Critical rule:** Every recommendation shown to the user MUST have a corresponding media_cache entry with real API data. If it's not in the cache, it doesn't exist.
-
-## Media API aggregator
-
-Each external API adapter (`tmdb.ts`, `igdb.ts`, `jikan.ts`, `openlibrary.ts`) implements:
-
-```typescript
-interface MediaApiAdapter {
-  searchByTitle(title: string): Promise<MediaItem[]>;
-  searchByQuery(query: MediaSearchQuery): Promise<MediaItem[]>;
-  getById(externalId: string): Promise<MediaItem | null>;
-}
-```
-
-The aggregator (`aggregator.ts`) routes requests to the right adapter based on media type and normalizes all responses into the `MediaItem` shape.
-
-Rate limiting: respect each API's limits. TMDB: 40 req/10s. IGDB: 4 req/s. Jikan: 3 req/s. Open Library: be polite. Implement per-adapter rate limiting with a simple token bucket.
-
-## Auth flow
-
-Clerk handles all auth. The backend verifies JWTs via Clerk middleware on every API route.
-
-1. User signs in via Clerk's React components (Google or GitHub OAuth)
-2. On first sign-in, a webhook or on-demand check creates the `users` row synced from Clerk
-3. Every API request includes the Clerk session token in the Authorization header
-4. `auth.ts` middleware verifies and attaches `userId` to the request
-
-## API routes
-
-All routes require auth except health check.
-
-- `POST /api/onboarding/message` — send a message, get streaming AI response
-- `GET /api/onboarding/session` — get current session state
-- `POST /api/onboarding/complete` — trigger profile extraction
-- `GET /api/profile` — get current taste profile
-- `PUT /api/profile` — manually edit profile
-- `POST /api/recommendations/generate` — trigger new recommendation batch
-- `GET /api/recommendations` — get recommendations (filterable by format, status)
-- `PATCH /api/recommendations/:id/feedback` — update status/rating
-- `GET /api/media/:cacheId` — get cached media details
-
-## Key conventions
-
-- Use Drizzle's query builder, not raw SQL
-- All AI prompts live in `/server/services/ai/prompts/` as exported template functions
-- Error handling: wrap all external API calls in try/catch, never let a single API failure crash a recommendation batch
-- Environment variables: `ANTHROPIC_API_KEY`, `CLERK_SECRET_KEY`, `DATABASE_URL`, `TMDB_API_KEY`, `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET`
-- Use zod for runtime validation of AI JSON outputs — Claude can return malformed JSON, always validate
-- Streaming: use Anthropic SDK's streaming mode for onboarding, forward SSE events to the frontend
-
-## Build order (suggested)
-
-1. Project scaffolding: Vite + React + Express + Drizzle + Clerk
-2. Database schema + migrations
-3. Auth flow (Clerk integration, middleware, user sync)
-4. Onboarding chat UI + streaming endpoint (Mode 1)
-5. Profile extraction (Mode 2) + profile viewer
-6. Media API adapters (start with TMDB, add others incrementally)
-7. Recommendation pipeline (Mode 3) + rec feed UI + media cards
-8. Feedback loop (status updates, profile refinement)
-9. Polish: loading states, error handling, responsive design
+The original CLAUDE.md had a "Build order (suggested)" section — it's all done. Reference [ARCHITECTURE.md](./ARCHITECTURE.md) for the current architecture; reference [README.md](./README.md) for the public feature list.

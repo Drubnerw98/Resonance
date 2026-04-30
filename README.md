@@ -2,6 +2,8 @@
 
 > Cross-format media recommendations grounded in your taste DNA — movies, TV, anime, manga, games, and books — with explanations that cross-reference works you've already loved.
 
+**Live demo: [resonance-client.vercel.app](https://resonance-client.vercel.app)**
+
 A full-stack AI application built around three differentiation pillars that a one-shot Claude session can't match: a **persistent, structured taste profile** that evolves over time, a **library of imported / saved works** the recommender names by title in its explanations, and **persistent batches as reviewable artifacts** that let users return to any prompt-driven generation later.
 
 For the architectural deep-dive — the *why* behind every major decision — see **[ARCHITECTURE.md](./ARCHITECTURE.md)**.
@@ -22,9 +24,15 @@ For the architectural deep-dive — the *why* behind every major decision — se
 - **Cross-format recommendations** — 4-step pipeline: AI proposes candidates → real-API validation against TMDB / IGDB / Jikan / Open Library (every recommendation backed by verified metadata) → AI scores against profile + library → persisted as a named, reviewable batch.
 - **"Would I like X?" verdicts** — type a specific title, get an honest read against your profile. Allowed to give negative answers. Surfaces status flags (already in library / on dislikedTitles / previously recommended).
 - **Browse-mode themed surfaces** — six AI-generated curated entry surfaces tailored to the user's profile, regenerated when the profile changes. Click a theme → standard generation pipeline runs with the theme's prompt.
-- **Library imports** — Letterboxd CSV (movies) and Goodreads CSV (books). 4-5 star ratings become positive cross-references; 1-2 star ratings flow into the avoid set; "read"-only filtering on Goodreads. MAL XML and Steam Web API designed but deferred.
-- **Continuous evolution** — profile evolves via three paths: continued onboarding, automatic refinement after enough feedback accumulates, and manual edit through the profile editor.
+- **Refine flow ("stacked batches")** — every recommendation batch has a Refine button. Submitting an extra constraint kicks off a new batch generated from `original prompt, but also: <addition>`. Original batch sits untouched alongside the refined version.
+- **Library imports across all four formats** — Letterboxd CSV (movies), Goodreads CSV (books, both `read` and `to-read` shelves), MyAnimeList XML (anime + manga, plan-to-watch/read mapped to watchlist), Steam Web API (owned games via SteamID, profile URL, or vanity URL).
+- **Watchlist + plan-to** — mark a rec as "Plan to" or import your plan-to lists from any source. Watchlist items are deduped from future recommendations but don't anchor cross-references (the user hasn't actually engaged with them yet). Mark-as-consumed flips them into the regular library when you finish them.
+- **Sort + filter** — recommendations sortable by match %, alphabetical, or year (asc/desc), per format tab; URL-synced.
+- **Format enable/disable** — disable a medium in your profile and it's hard-filtered out everywhere: rec batches, browse themes, evaluate dropdown, all of it. Server-enforced, not just prompt-suggested.
+- **Continuous evolution** — profile evolves via three paths: continued onboarding, automatic refinement (auto-fires after ≥5 unrefined feedback items), and manual edit through the profile editor. UI shows a banner when an auto-refinement starts in the background.
+- **Per-user rate limits** — daily caps on AI-bound endpoints (onboarding messages, generations, evaluates, theme refreshes, manual refinements) prevent budget burn-through. Returns clean 429s, resets at midnight UTC.
 - **Anti-hallucination layer** — every recommendation surfaced to the user corresponds to a real `media_cache` row. Hallucinated titles silently drop.
+- **Mobile-aware UI** — hamburger nav below 640px viewport, iOS Safari focus auto-zoom prevented, branded 404 page, smooth route transitions.
 
 ## Stack
 
@@ -153,6 +161,7 @@ Resonance is set up for a **split deploy**: frontend on Vercel, backend on Rende
 2. **Set secrets** in the Render dashboard (each shows as "Sync: false" pending):
    - `FRONTEND_ORIGIN` → your Vercel URL, e.g. `https://resonance.vercel.app` (comma-separate to allow preview deploys too)
    - `DATABASE_URL`, `ANTHROPIC_API_KEY`, `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`, `TMDB_API_KEY`, `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET` — same values as your local `.env.local`
+   - `STEAM_API_KEY` (optional, only needed for the Steam library-import feature)
 3. **Deploy.** Render runs `pnpm install` then `pnpm --filter @resonance/server start` (the server uses `tsx` directly to avoid the workspace-deps build dance).
 
 ### Free-tier gotchas
@@ -162,24 +171,31 @@ Resonance is set up for a **split deploy**: frontend on Vercel, backend on Rende
 
 ## Status
 
-**Shipped:**
+**Shipped + deployed:**
 
+- Live at [resonance-client.vercel.app](https://resonance-client.vercel.app) — Vercel frontend + Render backend + Neon Postgres + Clerk auth
 - All four AI modes (onboarding, extraction + refinement, 4-step recommendation pipeline, discovery themes) + evaluate verdicts
-- Persistent batches with rename / delete / per-batch URLs
-- Library imports: Letterboxd, Goodreads
-- Manual profile editor (every field including weights and chip lists)
-- Cross-batch dedup, format-aware prompting, anti-bias prompt section
+- Persistent batches with rename / delete / per-batch URLs / refine flow
+- Library imports across all four formats: Letterboxd, Goodreads, MyAnimeList, Steam
+- Watchlist + plan-to status (per rec + per imported library item)
+- Manual profile editor (every field including weights, chip lists, format enable/disable)
+- Cross-batch dedup, format-aware prompting, anti-bias prompt section, format hard-filter on disabled mediums
+- Sort + filter on recommendations (URL-synced)
+- Per-user daily rate limits on AI-bound endpoints
 - Streaming filter with 14-case smoke test for tag-boundary safety
 - Async job system with mount-time resume on page reload
+- Mobile nav (hamburger), iOS focus auto-zoom fix, branded 404, signed-out landing page
 
-**Deferred:**
+**Deferred (intentional):**
 
-- Library imports: MyAnimeList (XML), Steam (Web API + SteamID input)
-- Profile version rollback UI (history is stored; no viewer)
+- Postgres-backed jobs + rate limiter (only matters at multi-instance scale)
+- Custom domain + production Clerk instance (`pk_live_…`)
 - Test coverage beyond the streaming smoke test
-- Production deployment (Vercel-ready, not yet live)
+- Profile version rollback UI (history is stored)
+- Recent-evaluations history (persistence layer for verdicts)
+- Letterboxd watchlist.csv + Steam wishlist (Valve gated the JSON endpoint)
 
-See **[ARCHITECTURE.md → Known limitations](./ARCHITECTURE.md#10-known-limitations--whats-not-built)** for the full list with rationale.
+See **[ARCHITECTURE.md → Known limitations](./ARCHITECTURE.md#11-known-limitations--whats-not-built)** for the full list with rationale.
 
 ## License
 

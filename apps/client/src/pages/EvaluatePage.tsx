@@ -40,6 +40,26 @@ export function EvaluatePage() {
   const [title, setTitle] = useState("");
   const [mediaType, setMediaType] = useState<MediaType>("book");
 
+  // Restrict the format dropdown to formats the user has enabled in their
+  // profile. Mediums they've disabled don't show up — no point letting
+  // them pick "anime" if they've removed anime from their affinities.
+  // Falls back to all formats if profile is still loading or has no
+  // affinities yet.
+  const enabledFormats = new Set(
+    profile.state.status === "ready"
+      ? profile.state.profile.mediaAffinities.map((a) => a.format)
+      : ["movie", "tv", "anime", "manga", "game", "book"],
+  );
+  const visibleFormats = FORMAT_OPTIONS.filter((opt) =>
+    enabledFormats.has(opt.value),
+  );
+
+  // If the currently-selected format gets disabled (user navigated, profile
+  // changed), snap to the first enabled one.
+  if (visibleFormats.length > 0 && !enabledFormats.has(mediaType)) {
+    setMediaType(visibleFormats[0]!.value);
+  }
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const trimmed = title.trim();
@@ -90,7 +110,7 @@ export function EvaluatePage() {
           onChange={(e) => setMediaType(e.target.value as MediaType)}
           className="rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
         >
-          {FORMAT_OPTIONS.map((opt) => (
+          {visibleFormats.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>

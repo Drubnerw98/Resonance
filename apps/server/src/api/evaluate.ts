@@ -8,6 +8,7 @@ import {
   evaluateCandidate,
   evaluateSearch,
 } from "../services/ai/evaluate.js";
+import { checkRateLimit } from "../services/rateLimit.js";
 
 export const evaluateRouter: Router = Router();
 
@@ -79,6 +80,19 @@ evaluateRouter.post("/score", async (req, res, next) => {
       res
         .status(400)
         .json({ error: "invalid body", issues: parsed.error.issues });
+      return;
+    }
+
+    try {
+      checkRateLimit(req.user!.id, "evaluate.score");
+    } catch (err) {
+      const status =
+        err instanceof Error && "status" in err
+          ? Number((err as { status?: number }).status) || 429
+          : 429;
+      res
+        .status(status)
+        .json({ error: err instanceof Error ? err.message : "rate limited" });
       return;
     }
 

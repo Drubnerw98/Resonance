@@ -9,6 +9,7 @@ import {
 } from "../db/schema.js";
 import { getActiveProfile, saveProfile } from "../services/profile.js";
 import { refineProfile } from "../services/ai/refinement.js";
+import { checkRateLimit } from "../services/rateLimit.js";
 import { TasteProfileSchema } from "../services/ai/schemas.js";
 
 export const profileRouter: Router = Router();
@@ -106,6 +107,18 @@ profileRouter.post("/reset", async (req, res, next) => {
  */
 profileRouter.post("/refine", async (req, res, next) => {
   try {
+    try {
+      checkRateLimit(req.user!.id, "profile.refine");
+    } catch (err) {
+      const status =
+        err instanceof Error && "status" in err
+          ? Number((err as { status?: number }).status) || 429
+          : 429;
+      res
+        .status(status)
+        .json({ error: err instanceof Error ? err.message : "rate limited" });
+      return;
+    }
     const refined = await refineProfile(req.user!.id);
     const row = await getActiveProfile(req.user!.id);
     if (!row) throw new Error("Profile vanished after refinement");

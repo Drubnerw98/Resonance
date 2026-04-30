@@ -4,6 +4,7 @@ import {
   generateThemes,
   getOrGenerateThemes,
 } from "../services/ai/discover.js";
+import { checkRateLimit } from "../services/rateLimit.js";
 
 export const discoverRouter: Router = Router();
 
@@ -33,6 +34,18 @@ discoverRouter.get("/themes", async (req, res, next) => {
  */
 discoverRouter.post("/themes/refresh", async (req, res, next) => {
   try {
+    try {
+      checkRateLimit(req.user!.id, "discover.refresh");
+    } catch (err) {
+      const status =
+        err instanceof Error && "status" in err
+          ? Number((err as { status?: number }).status) || 429
+          : 429;
+      res
+        .status(status)
+        .json({ error: err instanceof Error ? err.message : "rate limited" });
+      return;
+    }
     const row = await generateThemes(req.user!.id);
     res.json({
       themes: row.themes,

@@ -14,6 +14,7 @@ import {
   startJob,
   type JobStatus,
 } from "../services/jobs.js";
+import { checkRateLimit } from "../services/rateLimit.js";
 
 const GENERATE_JOB_KIND = "recommendations.generate";
 
@@ -54,9 +55,24 @@ recommendationsRouter.post("/generate", (req, res) => {
 
   // If the user already has a job in flight, return it instead of starting
   // a duplicate. Prevents accidental double-clicks from queueing two runs.
+  // Note: this returns BEFORE the rate-limit check so resuming a deduped
+  // in-flight job doesn't double-count.
   const existing = findActiveJobForUser(userId, GENERATE_JOB_KIND);
   if (existing) {
     res.status(202).json({ jobId: existing.id, status: existing.status });
+    return;
+  }
+
+  try {
+    checkRateLimit(userId, "recommendations.generate");
+  } catch (err) {
+    const status =
+      err instanceof Error && "status" in err
+        ? Number((err as { status?: number }).status) || 429
+        : 429;
+    res
+      .status(status)
+      .json({ error: err instanceof Error ? err.message : "rate limited" });
     return;
   }
 

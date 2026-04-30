@@ -398,12 +398,24 @@ export async function generateRecommendations(
     `[rec] avoid set (${avoidTitles.size}):`,
     Array.from(avoidTitles).slice(0, 12),
   );
+  // Enabled formats = those the user has in their TasteProfile's
+  // mediaAffinities array. Removing a format from the profile editor is
+  // the user's "disable this medium" toggle.
+  const enabledFormats = new Set<MediaType>(
+    profile.mediaAffinities.map((a) => a.format),
+  );
+  console.log(
+    `[rec] enabled formats:`,
+    Array.from(enabledFormats),
+  );
+
   const candidates = await collectRealCandidates(
     plan,
     seenCacheIds,
     favorites,
     avoidTitles,
     previouslyRecommendedTitles,
+    enabledFormats,
   );
   console.log(
     `[rec] validated: ${candidates.length} cache rows after dedupe + seen-filter — by format:`,
@@ -506,6 +518,20 @@ async function generateCandidatePlan(
     `# Taste profile\n\n${JSON.stringify(profile, null, 2)}`,
   ];
 
+  // Explicit list of formats the user has DISABLED — every format not in
+  // their mediaAffinities. Belt-and-suspenders alongside the prompt rule
+  // ("don't propose titles in formats with comfort < 0.2"). If a format
+  // doesn't appear in mediaAffinities at all, it's been actively disabled
+  // and proposing for it is wrong.
+  const ALL_FORMATS: MediaType[] = ["movie", "tv", "anime", "manga", "game", "book"];
+  const enabledFormats = new Set(profile.mediaAffinities.map((a) => a.format));
+  const disabledFormats = ALL_FORMATS.filter((f) => !enabledFormats.has(f));
+  if (disabledFormats.length > 0) {
+    sections.push(
+      `# Disabled formats (NEVER propose any of these — the user has explicitly turned them off)\n\n${disabledFormats.join(", ")}`,
+    );
+  }
+
   if (library.length > 0) {
     sections.push(
       `# User's library (works they've already loved — do NOT re-propose, but use as anchors)\n\n${formatLibraryBlock(library)}`,
@@ -551,6 +577,7 @@ async function collectRealCandidates(
   favorites: Set<string>,
   avoidTitles: Set<string>,
   previouslyRecommendedTitles: Set<string>,
+  enabledFormats: Set<MediaType>,
 ): Promise<MediaCacheRow[]> {
   const byCacheId = new Map<string, MediaCacheRow>();
   // Canonical titles we've already accepted — both within this batch AND
@@ -562,8 +589,17 @@ async function collectRealCandidates(
   let droppedAsSeen = 0;
   let droppedAsAvoided = 0;
   let droppedAsDup = 0;
+  let droppedAsDisabledFormat = 0;
 
   function consider(r: MediaCacheRow): void {
+    // Hard-filter by enabled formats. The candidate prompt also instructs
+    // the model to skip disabled formats, but server-side enforcement is
+    // the safety net — even if the model proposes a movie when the user
+    // has movies disabled, it never reaches the scoring step.
+    if (!enabledFormats.has(r.mediaType)) {
+      droppedAsDisabledFormat++;
+      return;
+    }
     if (seenCacheIds.has(r.id)) {
       droppedAsSeen++;
       return;
@@ -664,7 +700,7 @@ async function collectRealCandidates(
   console.log(`[rec] raw hits before any filtering — by format:`, rawByFormat);
 
   console.log(
-    `[rec] filtered: ${droppedAsSeen} already-recommended, ${droppedAsFavorite} matched profile favorite, ${droppedAsAvoided} matched negative-feedback title, ${droppedAsDup} canonical-title duplicate`,
+    `[rec] filtered: ${droppedAsDisabledFormat} disabled format, ${droppedAsSeen} already-recommended, ${droppedAsFavorite} matched profile favorite, ${droppedAsAvoided} matched negative-feedback title, ${droppedAsDup} canonical-title duplicate`,
   );
 
   // Cap per format first (so books don't drown out games/anime), then cap the

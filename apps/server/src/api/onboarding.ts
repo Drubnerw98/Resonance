@@ -16,6 +16,7 @@ import {
 } from "../services/ai/extraction.js";
 import { getActiveProfile, saveProfile } from "../services/profile.js";
 import { markOnboardingComplete } from "../services/users.js";
+import { checkRateLimit } from "../services/rateLimit.js";
 import type { OnboardingMessage, ProfileTrigger } from "@resonance/shared";
 
 export const onboardingRouter: Router = Router();
@@ -107,6 +108,21 @@ onboardingRouter.post("/message", async (req, res, next) => {
 
   let sse: SSEWriter | null = null;
   try {
+    // Rate-limit BEFORE opening the SSE stream so a 429 lands as a clean
+    // JSON error rather than mid-stream noise.
+    try {
+      checkRateLimit(req.user!.id, "onboarding.message");
+    } catch (err) {
+      const status =
+        err instanceof Error && "status" in err
+          ? Number((err as { status?: number }).status) || 429
+          : 429;
+      res
+        .status(status)
+        .json({ error: err instanceof Error ? err.message : "rate limited" });
+      return;
+    }
+
     const session = await getOrCreateActiveSession(req.user!.id);
 
     if (session.status !== "active") {

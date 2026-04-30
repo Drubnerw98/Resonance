@@ -99,6 +99,19 @@ async function callModel(
     `# User profile\n\n${JSON.stringify(profile, null, 2)}`,
   ];
 
+  // Explicit disabled-format list, same defense-in-depth as the
+  // recommender's candidate prompt. Any format absent from
+  // mediaAffinities has been actively turned off; a theme with that
+  // format would never produce useful recommendations on click.
+  const ALL_FORMATS = ["movie", "tv", "anime", "manga", "game", "book"] as const;
+  const enabledFormats = new Set(profile.mediaAffinities.map((a) => a.format));
+  const disabledFormats = ALL_FORMATS.filter((f) => !enabledFormats.has(f));
+  if (disabledFormats.length > 0) {
+    sections.push(
+      `# Disabled formats (never include any of these in a theme's \`formats\` list — the user has explicitly turned them off)\n\n${disabledFormats.join(", ")}`,
+    );
+  }
+
   if (library.length > 0) {
     sections.push(
       `# User's library (works they personally loved — REFERENCE these by name in theme descriptions when applicable)\n\n${formatLibraryBlock(library)}`,

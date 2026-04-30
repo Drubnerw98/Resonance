@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { Nav } from "./Nav.tsx";
 import { Footer } from "./Footer.tsx";
+import { SessionExpiredBanner } from "./SessionExpiredBanner.tsx";
 
 export function Layout() {
   // Re-key the main element on pathname change so React remounts the
@@ -10,6 +11,7 @@ export function Layout() {
   const { pathname } = useLocation();
   return (
     <div className="flex min-h-screen flex-col bg-neutral-950 text-neutral-100">
+      <SessionExpiredBanner />
       <Nav />
       <main
         key={pathname}

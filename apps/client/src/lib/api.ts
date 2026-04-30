@@ -37,6 +37,12 @@ export async function apiFetch<T>(
 
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
+    // 401 from a logged-in client = expired Clerk session (the long-idle-tab
+    // case). Fire a global signal so a single banner can prompt re-auth
+    // instead of letting the raw error bubble into N hooks' error states.
+    if (res.status === 401 && typeof window !== "undefined") {
+      window.dispatchEvent(new Event("resonance:session-expired"));
+    }
     throw new ApiError(res.status, text || res.statusText);
   }
 

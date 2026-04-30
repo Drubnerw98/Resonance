@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireUser } from "../middleware/auth.js";
+import { logger } from "../lib/logger.js";
 import { SSEWriter } from "../lib/sse.js";
 import {
   appendMessage,
@@ -156,8 +157,9 @@ onboardingRouter.post("/message", async (req, res, next) => {
     await appendMessage(session.id, { role: "assistant", content: raw });
 
     if (ready && !floorMet) {
-      console.warn(
-        `[onboarding] dropped premature <ready/> for session ${session.id} (turns/words below floor)`,
+      logger.warn(
+        { sessionId: session.id },
+        "onboarding: dropped premature <ready/> (turns/words below floor)",
       );
     }
 
@@ -251,8 +253,9 @@ onboardingRouter.post("/complete", async (req, res, next) => {
         session.messages,
       );
       trigger = "onboarding";
-      console.log(
-        `[onboarding] continued session — evolved profile (was v${existing.currentVersion})`,
+      logger.info(
+        { previousVersion: existing.currentVersion },
+        "onboarding: continued session — evolved profile",
       );
     } else {
       profile = await extractProfile(session.messages);

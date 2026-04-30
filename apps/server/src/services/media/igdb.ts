@@ -1,4 +1,5 @@
 import type { MediaItem, MediaSearchQuery } from "@resonance/shared";
+import { env } from "../../env.js";
 import { createTokenBucket, type RateLimiter } from "../../lib/rateLimiter.js";
 import type { MediaApiAdapter } from "./aggregator.js";
 
@@ -23,14 +24,9 @@ let tokenState: TokenState | null = null;
 let tokenPromise: Promise<string> | null = null;
 
 async function fetchTokenInternal(): Promise<string> {
-  const clientId = process.env.IGDB_CLIENT_ID;
-  const clientSecret = process.env.IGDB_CLIENT_SECRET;
-  if (!clientId || !clientSecret) {
-    throw new Error("IGDB_CLIENT_ID and IGDB_CLIENT_SECRET must be set");
-  }
   const url = new URL(TWITCH_TOKEN_URL);
-  url.searchParams.set("client_id", clientId);
-  url.searchParams.set("client_secret", clientSecret);
+  url.searchParams.set("client_id", env.IGDB_CLIENT_ID);
+  url.searchParams.set("client_secret", env.IGDB_CLIENT_SECRET);
   url.searchParams.set("grant_type", "client_credentials");
   const res = await fetch(url.toString(), { method: "POST" });
   if (!res.ok) {
@@ -90,13 +86,12 @@ function isStandaloneCategory(g: IgdbGame): boolean {
 }
 
 async function igdbFetch<T>(endpoint: string, body: string): Promise<T> {
-  const clientId = process.env.IGDB_CLIENT_ID!;
   const token = await getTwitchToken();
   await igdbLimiter.acquire();
   const res = await fetch(`${IGDB_BASE}${endpoint}`, {
     method: "POST",
     headers: {
-      "Client-ID": clientId,
+      "Client-ID": env.IGDB_CLIENT_ID,
       Authorization: `Bearer ${token}`,
       "Content-Type": "text/plain",
       Accept: "application/json",

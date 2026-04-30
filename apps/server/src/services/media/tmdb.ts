@@ -1,4 +1,5 @@
 import type { MediaItem, MediaSearchQuery, MediaType } from "@resonance/shared";
+import { env } from "../../env.js";
 import { createTokenBucket, type RateLimiter } from "../../lib/rateLimiter.js";
 import type { MediaApiAdapter } from "./aggregator.js";
 
@@ -34,16 +35,13 @@ async function tmdbFetch<T>(
   path: string,
   params: Record<string, string> = {},
 ): Promise<T> {
-  const token = process.env.TMDB_API_KEY;
-  if (!token) throw new Error("TMDB_API_KEY is not set");
-
   const url = new URL(`${TMDB_BASE}${path}`);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
 
   await tmdbLimiter.acquire();
   const res = await fetch(url.toString(), {
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${env.TMDB_API_KEY}`,
       Accept: "application/json",
     },
   });

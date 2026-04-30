@@ -1,3 +1,4 @@
+import { env } from "../env.js";
 import type { NewLibraryItemRow } from "../db/schema.js";
 
 /**
@@ -67,7 +68,7 @@ export async function resolveSteamId(input: string): Promise<string> {
     );
   }
 
-  const apiKey = process.env.STEAM_API_KEY;
+  const apiKey = env.STEAM_API_KEY;
   if (!apiKey) throw new Error("STEAM_API_KEY is not set");
 
   const url = new URL(`${STEAM_API}/ISteamUser/ResolveVanityURL/v0001/`);
@@ -98,7 +99,7 @@ export async function resolveSteamId(input: string): Promise<string> {
 export async function fetchOwnedGames(
   steamId: string,
 ): Promise<NewLibraryItemRow[]> {
-  const apiKey = process.env.STEAM_API_KEY;
+  const apiKey = env.STEAM_API_KEY;
   if (!apiKey) throw new Error("STEAM_API_KEY is not set");
 
   const url = new URL(`${STEAM_API}/IPlayerService/GetOwnedGames/v0001/`);

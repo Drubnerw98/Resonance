@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireUser } from "../middleware/auth.js";
+import { logger } from "../lib/logger.js";
 import { applyFeedback } from "../services/feedback.js";
 import {
   maybeRefineProfile,
@@ -63,7 +64,7 @@ feedbackRouter.patch("/:id/feedback", async (req, res, next) => {
 
     // Fire-and-forget. Errors get logged in the service; never block the user.
     void maybeRefineProfile(userId).catch((err) => {
-      console.error("[refinement] background trigger failed:", err);
+      logger.error({ err }, "refinement background trigger failed");
     });
 
     res.json({

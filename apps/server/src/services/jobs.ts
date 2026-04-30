@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { logger } from "../lib/logger.js";
 
 /**
  * In-memory job tracker for long-running operations the frontend polls.
@@ -68,7 +69,7 @@ export function startJob<TResult>(opts: {
     } catch (err) {
       job.status = "failed";
       job.error = err instanceof Error ? err.message : "unknown error";
-      console.error(`[job ${job.id}] (${job.kind}) failed:`, err);
+      logger.error({ err, jobId: job.id, kind: job.kind }, "job failed");
     } finally {
       job.completedAt = new Date();
     }

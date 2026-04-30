@@ -2,6 +2,7 @@ import { and, desc, eq, gt } from "drizzle-orm";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type { TasteProfile } from "@resonance/shared";
 import { db } from "../../db/index.js";
+import { logger } from "../../lib/logger.js";
 import { recommendations } from "../../db/schema.js";
 import { getActiveProfile, saveProfile } from "../profile.js";
 import { getAnthropic, ONBOARDING_MODEL } from "./client.js";
@@ -69,19 +70,32 @@ export async function maybeRefineProfile(
   // Render logs — even when below threshold ("X / 5 — not yet"). Helps verify
   // the system is wired correctly without needing to instrument the UI.
   if (recentFeedback.length < REFINEMENT_THRESHOLD) {
-    console.log(
-      `[refinement] user=${userId} ${recentFeedback.length}/${REFINEMENT_THRESHOLD} feedback items since v${profileRow.currentVersion} — not refining yet`,
+    logger.info(
+      {
+        userId,
+        feedbackCount: recentFeedback.length,
+        threshold: REFINEMENT_THRESHOLD,
+        sinceVersion: profileRow.currentVersion,
+      },
+      "refinement: below threshold, skipping",
     );
     return null;
   }
 
-  console.log(
-    `[refinement] user=${userId} threshold reached (${recentFeedback.length}/${REFINEMENT_THRESHOLD}) — refining from v${profileRow.currentVersion}`,
+  logger.info(
+    {
+      userId,
+      feedbackCount: recentFeedback.length,
+      threshold: REFINEMENT_THRESHOLD,
+      fromVersion: profileRow.currentVersion,
+    },
+    "refinement: threshold reached, refining",
   );
   const refined = await refineProfile(userId);
   const after = await getActiveProfile(userId);
-  console.log(
-    `[refinement] user=${userId} done — profile now v${after?.currentVersion ?? "?"}`,
+  logger.info(
+    { userId, newVersion: after?.currentVersion },
+    "refinement: done",
   );
   return refined;
 }
@@ -104,8 +118,9 @@ export async function refineProfile(userId: string): Promise<TasteProfile> {
     throw new Error("No feedback yet — react to some recommendations first");
   }
 
-  console.log(
-    `[refinement] refining profile with ${feedback.length} feedback items`,
+  logger.info(
+    { feedbackCount: feedback.length },
+    "refinement: refining profile",
   );
 
   const refined = await callRefinementModel(profileRow.profileData, feedback);

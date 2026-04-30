@@ -1,7 +1,9 @@
 import type { ErrorRequestHandler } from "express";
+import { logger } from "../lib/logger.js";
 
-export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
-  console.error("[resonance] unhandled error", err);
+export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
+  const log = req.log ?? logger;
+  log.error({ err }, "unhandled error");
   const status =
     typeof err === "object" && err !== null && "status" in err
       ? Number((err as { status: unknown }).status) || 500

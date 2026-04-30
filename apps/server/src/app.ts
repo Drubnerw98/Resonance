@@ -5,6 +5,9 @@ import express, {
   type Response,
 } from "express";
 import { clerkMiddleware } from "@clerk/express";
+import { pinoHttp } from "pino-http";
+import { env } from "./env.js";
+import { logger } from "./lib/logger.js";
 import { onboardingRouter } from "./api/onboarding.js";
 import { recommendationsRouter } from "./api/recommendations.js";
 import { feedbackRouter } from "./api/feedback.js";
@@ -26,7 +29,7 @@ import { errorHandler } from "./middleware/error.js";
  * OPTIONS requests by short-circuiting with a 204.
  */
 function corsMiddleware() {
-  const raw = process.env.FRONTEND_ORIGIN;
+  const raw = env.FRONTEND_ORIGIN;
   const allowed = raw
     ? raw
         .split(",")
@@ -60,6 +63,18 @@ function corsMiddleware() {
 
 export function createApp(): Express {
   const app = express();
+
+  // pino-http generates a request id (default: random UUID), attaches a child
+  // logger as req.log, and logs each request/response. Health checks are
+  // skipped to keep noise out of Render's polling.
+  app.use(
+    pinoHttp({
+      logger,
+      autoLogging: {
+        ignore: (req) => req.url === "/api/health",
+      },
+    }),
+  );
 
   app.use(corsMiddleware());
   app.use(express.json({ limit: "1mb" }));

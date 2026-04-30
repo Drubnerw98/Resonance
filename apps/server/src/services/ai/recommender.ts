@@ -6,6 +6,7 @@ import type {
   TasteProfile,
 } from "@resonance/shared";
 import { db } from "../../db/index.js";
+import { logger } from "../../lib/logger.js";
 import {
   libraryItems,
   recommendationBatches,
@@ -320,9 +321,7 @@ export async function generateRecommendations(
     .values({ userId, prompt, name: null })
     .returning();
   if (!batch) throw new Error("Failed to create recommendation batch");
-  console.log(
-    `[rec] batch created: ${batch.id}${prompt ? ` (prompt="${prompt}")` : " (default)"}`,
-  );
+  logger.info({ batchId: batch.id, prompt }, "rec: batch created");
 
   // Pull existing recs once and derive two caches: the set of media_cache
   // UUIDs already recommended (exact-row dedup), AND the set of canonical
@@ -360,9 +359,9 @@ export async function generateRecommendations(
     acc[l.source] = (acc[l.source] ?? 0) + 1;
     return acc;
   }, {});
-  console.log(
-    `[rec] library: ${library.length} items will inform scoring`,
-    librarySources,
+  logger.info(
+    { count: library.length, sources: librarySources },
+    "rec: library will inform scoring",
   );
 
   // Step 1 — AI proposes candidates (prompt + library aware).
@@ -370,22 +369,26 @@ export async function generateRecommendations(
   const formatsInPlan = countByFormat(
     plan.titleSuggestions.map((s) => s.mediaType),
   );
-  console.log(
-    `[rec] plan: ${plan.titleSuggestions.length} titles, ${plan.discoveryQueries.length} queries — by format:`,
-    formatsInPlan,
+  logger.info(
+    {
+      titles: plan.titleSuggestions.length,
+      queries: plan.discoveryQueries.length,
+      byFormat: formatsInPlan,
+    },
+    "rec: plan generated",
   );
 
   // Step 2 — validate against real APIs, deduping and excluding seen items
   // (already-recommended cache rows + profile favorites + avoid-list).
   const favorites = collectFavorites(profile);
   const avoidTitles = await collectAvoidTitles(userId, profile);
-  console.log(
-    `[rec] favorites set (${favorites.size}):`,
-    Array.from(favorites).slice(0, 12),
+  logger.debug(
+    { count: favorites.size, sample: Array.from(favorites).slice(0, 12) },
+    "rec: favorites set",
   );
-  console.log(
-    `[rec] avoid set (${avoidTitles.size}):`,
-    Array.from(avoidTitles).slice(0, 12),
+  logger.debug(
+    { count: avoidTitles.size, sample: Array.from(avoidTitles).slice(0, 12) },
+    "rec: avoid set",
   );
   // Enabled formats = those the user has in their TasteProfile's
   // mediaAffinities array. Removing a format from the profile editor is
@@ -393,7 +396,7 @@ export async function generateRecommendations(
   const enabledFormats = new Set<MediaType>(
     profile.mediaAffinities.map((a) => a.format),
   );
-  console.log(`[rec] enabled formats:`, Array.from(enabledFormats));
+  logger.debug({ formats: Array.from(enabledFormats) }, "rec: enabled formats");
 
   const candidates = await collectRealCandidates(
     plan,
@@ -403,9 +406,12 @@ export async function generateRecommendations(
     previouslyRecommendedTitles,
     enabledFormats,
   );
-  console.log(
-    `[rec] validated: ${candidates.length} cache rows after dedupe + seen-filter — by format:`,
-    countByFormat(candidates.map((c) => c.mediaType)),
+  logger.info(
+    {
+      count: candidates.length,
+      byFormat: countByFormat(candidates.map((c) => c.mediaType)),
+    },
+    "rec: validated cache rows after dedupe + seen-filter",
   );
   if (candidates.length === 0) {
     throw new Error(
@@ -418,8 +424,9 @@ export async function generateRecommendations(
     prompt,
     library,
   });
-  console.log(
-    `[rec] scored: ${scored.recommendations.length} recommendations returned by model`,
+  logger.info(
+    { count: scored.recommendations.length },
+    "rec: scored recommendations returned by model",
   );
 
   // Step 4 — persist scored recs against the batch.
@@ -429,15 +436,19 @@ export async function generateRecommendations(
     candidates,
     scored,
   );
-  console.log(
-    `[rec] persisted: ${saved.length} rows (batch=${batch.id}) — by format:`,
-    countByFormat(
-      saved.map(
-        (r) =>
-          candidates.find((c) => c.id === r.mediaCacheId)?.mediaType ??
-          "unknown",
+  logger.info(
+    {
+      count: saved.length,
+      batchId: batch.id,
+      byFormat: countByFormat(
+        saved.map(
+          (r) =>
+            candidates.find((c) => c.id === r.mediaCacheId)?.mediaType ??
+            "unknown",
+        ),
       ),
-    ),
+    },
+    "rec: persisted",
   );
   return { batch, recs: saved };
 }
@@ -637,11 +648,13 @@ async function collectRealCandidates(
     const settlement = titleSettlements[i]!;
     const sug = plan.titleSuggestions[i]!;
     if (settlement.status === "rejected") {
-      console.warn(
-        `[rec] title search failed for "${sug.title}" (${sug.mediaType}):`,
-        settlement.reason instanceof Error
-          ? settlement.reason.message
-          : settlement.reason,
+      logger.warn(
+        {
+          title: sug.title,
+          mediaType: sug.mediaType,
+          err: settlement.reason,
+        },
+        "rec: title search failed",
       );
       continue;
     }
@@ -649,8 +662,9 @@ async function collectRealCandidates(
     rawByFormat[sug.mediaType] =
       (rawByFormat[sug.mediaType] ?? 0) + hits.length;
     if (hits.length === 0) {
-      console.warn(
-        `[rec] title search returned 0 hits: "${sug.title}" (${sug.mediaType})`,
+      logger.warn(
+        { title: sug.title, mediaType: sug.mediaType },
+        "rec: title search returned 0 hits",
       );
     }
     for (const r of hits) consider(r);
@@ -673,28 +687,33 @@ async function collectRealCandidates(
     const settlement = discoverySettlements[i]!;
     const q = plan.discoveryQueries[i]!;
     if (settlement.status === "rejected") {
-      console.warn(
-        `[rec] discovery query failed (${q.mediaType}):`,
-        settlement.reason instanceof Error
-          ? settlement.reason.message
-          : settlement.reason,
+      logger.warn(
+        { mediaType: q.mediaType, err: settlement.reason },
+        "rec: discovery query failed",
       );
       continue;
     }
     const { hits } = settlement.value;
     rawByFormat[q.mediaType] = (rawByFormat[q.mediaType] ?? 0) + hits.length;
     if (hits.length === 0) {
-      console.warn(
-        `[rec] discovery query returned 0 hits: ${q.mediaType} genres=[${q.genres.join(",")}]`,
+      logger.warn(
+        { mediaType: q.mediaType, genres: q.genres },
+        "rec: discovery query returned 0 hits",
       );
     }
     for (const r of hits) consider(r);
   }
 
-  console.log(`[rec] raw hits before any filtering — by format:`, rawByFormat);
-
-  console.log(
-    `[rec] filtered: ${droppedAsDisabledFormat} disabled format, ${droppedAsSeen} already-recommended, ${droppedAsFavorite} matched profile favorite, ${droppedAsAvoided} matched negative-feedback title, ${droppedAsDup} canonical-title duplicate`,
+  logger.info({ byFormat: rawByFormat }, "rec: raw hits before filtering");
+  logger.info(
+    {
+      droppedAsDisabledFormat,
+      droppedAsSeen,
+      droppedAsFavorite,
+      droppedAsAvoided,
+      droppedAsDup,
+    },
+    "rec: filtered",
   );
 
   // Cap per format first (so books don't drown out games/anime), then cap the
@@ -802,8 +821,9 @@ async function persistRecommendations(
   for (const r of scored.recommendations) {
     const mediaCacheId = cacheIdByIndex.get(r.candidateId);
     if (!mediaCacheId) {
-      console.warn(
-        `[rec] model returned unknown candidateId: ${r.candidateId}`,
+      logger.warn(
+        { candidateId: r.candidateId },
+        "rec: model returned unknown candidateId",
       );
       continue;
     }

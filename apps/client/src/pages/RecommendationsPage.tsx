@@ -490,11 +490,15 @@ function BatchSection({
 
   return (
     <section className="space-y-3">
-      <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-neutral-800 pb-1">
-        <h2 className="line-clamp-2 min-w-0 flex-1 text-base font-semibold leading-snug">
+      {/* Two-row header — full-width batch label on top so long prompts
+          can breathe; Refine button + metadata sit on a quieter second
+          row underneath. Eye lands on the prompt first, controls and
+          counts second. */}
+      <header className="space-y-2 border-b border-neutral-800 pb-2">
+        <h2 className="line-clamp-2 text-base font-semibold leading-snug">
           {batchLabel(batch)}
         </h2>
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex items-center justify-between gap-3">
           <button
             onClick={() => setRefining((v) => !v)}
             disabled={isGenerating}

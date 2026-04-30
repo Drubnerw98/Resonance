@@ -83,7 +83,9 @@ function Dashboard() {
       {/* Tightened hero — smaller gap to the prompt card so the prompt is
           clearly the primary action above the fold. */}
       <header className="space-y-1">
-        <h1 className="bg-gradient-to-br from-white to-neutral-400 bg-clip-text text-3xl font-semibold tracking-tight text-transparent sm:text-4xl">
+        {/* `bg-clip-text` clips descenders (g/y/p/j) when leading is too tight,
+            so use a roomier line-height + a touch of bottom padding here. */}
+        <h1 className="bg-gradient-to-br from-white to-neutral-400 bg-clip-text pb-1 text-3xl font-semibold leading-[1.15] tracking-tight text-transparent sm:text-4xl">
           {greeting}
           {name ? `, ${name}` : ""}.
         </h1>

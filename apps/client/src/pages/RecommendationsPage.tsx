@@ -10,6 +10,7 @@ import { useProfile } from "../hooks/useProfile.ts";
 import { MediaCardSkeleton } from "../components/recommendations/MediaCardSkeleton.tsx";
 import { BatchSection } from "../components/recommendations/BatchSection.tsx";
 import { TabButton } from "../components/recommendations/TabButton.tsx";
+import { InspirationThemes } from "../components/recommendations/InspirationThemes.tsx";
 import { PageHeader } from "../components/shared/PageHeader.tsx";
 import { EmptyState } from "../components/shared/EmptyState.tsx";
 import { LoadingPulse } from "../components/shared/LoadingPulse.tsx";
@@ -185,7 +186,7 @@ export function RecommendationsPage() {
 
   // Gate on profile existence — without a profile, generation throws server-
   // side. Surface the missing-profile state explicitly with a route to
-  // onboarding. Same pattern as ExplorePage / EvaluatePage.
+  // onboarding. Same pattern as EvaluatePage.
   if (profile.state.status === "missing") {
     return (
       <section className="space-y-6">
@@ -324,6 +325,17 @@ export function RecommendationsPage() {
               : "Generate batch"}
         </button>
       </form>
+
+      {/* Inspiration row — themes generated from the user's profile. Clicking
+          a theme submits its promptHint as a regular generate, so the theme
+          flow shares the same polling + batch-naming machinery as a typed
+          prompt. Replaces the standalone /explore page (merged in). */}
+      <InspirationThemes
+        disabled={recs.isGenerating}
+        onPickTheme={(theme) => {
+          void recs.generate(theme.promptHint);
+        }}
+      />
 
       {recs.error && (
         <pre className="rounded border border-red-900 bg-red-950/40 p-3 text-sm text-red-300">

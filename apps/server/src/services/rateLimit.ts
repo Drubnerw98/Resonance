@@ -17,6 +17,7 @@ const LIMITS = {
   "evaluate.score": 100,
   "discover.refresh": 20,
   "profile.refine": 10,
+  "watchlist.decide": 50,
 } as const satisfies Record<string, number>;
 
 export type RateLimitKind = keyof typeof LIMITS;

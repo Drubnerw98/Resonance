@@ -147,3 +147,24 @@ export const DiscoveryThemesOutputSchema = z.object({
 });
 
 export type DiscoveryThemesOutput = z.infer<typeof DiscoveryThemesOutputSchema>;
+
+// === Watchlist decide: rank-from-set ===
+//
+// "I'm in mood X — what on my watchlist should I tackle?". Like recommendScore,
+// the model gets sequential string IDs ("1", "2", ...) for items so it doesn't
+// have to round-trip our DB UUIDs; the orchestrator maps back. Output is a
+// ranked subset (top picks) with one-line explanations tying each pick to the
+// user's mood prompt + their profile/library.
+export const WatchlistDecideOutputSchema = z.object({
+  picks: z
+    .array(
+      z.object({
+        candidateId: z.string().min(1),
+        rank: z.number().int().min(1),
+        explanation: z.string().min(1),
+      }),
+    )
+    .max(10),
+});
+
+export type WatchlistDecideOutput = z.infer<typeof WatchlistDecideOutputSchema>;

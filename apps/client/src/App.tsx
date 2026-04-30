@@ -5,8 +5,8 @@ import { HomePage } from "./pages/HomePage.tsx";
 import { OnboardingPage } from "./pages/OnboardingPage.tsx";
 import { RecommendationsPage } from "./pages/RecommendationsPage.tsx";
 import { EvaluatePage } from "./pages/EvaluatePage.tsx";
-import { ExplorePage } from "./pages/ExplorePage.tsx";
 import { ListsPage } from "./pages/ListsPage.tsx";
+import { WatchlistPage } from "./pages/WatchlistPage.tsx";
 import { ProfilePage } from "./pages/ProfilePage.tsx";
 import { MePage } from "./pages/MePage.tsx";
 import { SignInPage } from "./pages/SignInPage.tsx";
@@ -25,8 +25,8 @@ export function App() {
           <Route path="onboarding" element={<OnboardingPage />} />
           <Route path="recommendations" element={<RecommendationsPage />} />
           <Route path="evaluate" element={<EvaluatePage />} />
-          <Route path="explore" element={<ExplorePage />} />
           <Route path="lists" element={<ListsPage />} />
+          <Route path="watchlist" element={<WatchlistPage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="me" element={<MePage />} />
         </Route>

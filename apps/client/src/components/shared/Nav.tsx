@@ -14,9 +14,9 @@ interface NavItem {
 // not a nav-bar destination. /me is a dev-only debug page (also omitted).
 const links: NavItem[] = [
   { to: "/recommendations", label: "Recommendations", protected: true },
-  { to: "/explore", label: "Browse", protected: true },
-  { to: "/evaluate", label: "Evaluate", protected: true },
+  { to: "/watchlist", label: "Watchlist", protected: true },
   { to: "/lists", label: "Lists", protected: true },
+  { to: "/evaluate", label: "Evaluate", protected: true },
   { to: "/profile", label: "Profile", protected: true },
 ];
 

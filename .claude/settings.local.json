@@ -33,7 +33,8 @@
       "Bash(pnpm add *)",
       "Bash(pnpm lint *)",
       "Bash(pnpm format:check)",
-      "Bash(pnpm format *)"
+      "Bash(pnpm format *)",
+      "Bash(pnpm test *)"
     ]
   }
 }

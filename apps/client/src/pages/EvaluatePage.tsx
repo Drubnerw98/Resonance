@@ -81,7 +81,7 @@ export function EvaluatePage() {
   // Verdicts are scored against the profile + library. Without a profile,
   // the score endpoint throws — surface the missing-profile state up front
   // instead of letting users search and then hit a server error after they
-  // pick a candidate. Same pattern as ExplorePage and RecommendationsPage.
+  // pick a candidate. Same pattern as RecommendationsPage.
   if (profile.state.status === "missing") {
     return (
       <section className="mx-auto max-w-3xl space-y-6">

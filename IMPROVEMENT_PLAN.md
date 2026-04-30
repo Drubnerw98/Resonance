@@ -7,7 +7,7 @@
 > it from "polished portfolio" toward "production-ready engineering reference."
 >
 > This revision adds a contextual layer: it reads Resonance against the owner's
-> *canonical stack* — the conventions captured in `~/.claude/conventions/`
+> _canonical stack_ — the conventions captured in `~/.claude/conventions/`
 > and exemplified in the `crew` and `Recipes` repositories — and reframes
 > recommendations through that lens where useful.
 
@@ -26,23 +26,23 @@ not just present but well-executed and explicitly justified in
 The recommendation engine is the kind of subsystem that would be hard to
 build well even with a senior team and a roadmap; the fact that one developer
 shipped it with this much architectural clarity is the headline. The
-trade-off, as is often the case, is that the *infrastructure around the
-code* — tests, lint configs, CI, observability — hasn't been built yet.
+trade-off, as is often the case, is that the _infrastructure around the
+code_ — tests, lint configs, CI, observability — hasn't been built yet.
 This is fixable cheaply, and the document below maps out where to invest
 first.
 
 **TL;DR rankings, 1 = highest leverage:**
 
-| Priority | Theme                                        | Effort | Risk-of-not-doing      | Aligns canon? |
-| -------- | -------------------------------------------- | ------ | ---------------------- | ------------- |
-| 1        | Add a real test runner (Vitest) + CI         | S      | High (regressions)     | Yes           |
-| 2        | Wire up ESLint + Prettier (configs missing)  | XS     | Medium (drift)         | Yes           |
-| 3        | Sync `CLAUDE.md` with current architecture   | XS     | Medium (AI confusion)  | Partly        |
-| 4        | Refactor 600+ line page components           | M      | Medium (maintainability) | Yes         |
-| 5        | Add structured logging (pino) + error tracking | S    | High in production     | Yes           |
-| 6        | Persist jobs & rate limits (DB-backed)       | M      | Blocks horizontal scale | Neutral      |
-| 7        | Validate env at boot (zod) + secret hygiene  | XS     | Medium                 | Yes (explicit in backend skill) |
-| 8        | Build out the deferred features (rollback, MAL, Steam UI) | M      | Low (already scoped)   | N/A   |
+| Priority | Theme                                                     | Effort | Risk-of-not-doing        | Aligns canon?                   |
+| -------- | --------------------------------------------------------- | ------ | ------------------------ | ------------------------------- |
+| 1        | Add a real test runner (Vitest) + CI                      | S      | High (regressions)       | Yes                             |
+| 2        | Wire up ESLint + Prettier (configs missing)               | XS     | Medium (drift)           | Yes                             |
+| 3        | Sync `CLAUDE.md` with current architecture                | XS     | Medium (AI confusion)    | Partly                          |
+| 4        | Refactor 600+ line page components                        | M      | Medium (maintainability) | Yes                             |
+| 5        | Add structured logging (pino) + error tracking            | S      | High in production       | Yes                             |
+| 6        | Persist jobs & rate limits (DB-backed)                    | M      | Blocks horizontal scale  | Neutral                         |
+| 7        | Validate env at boot (zod) + secret hygiene               | XS     | Medium                   | Yes (explicit in backend skill) |
+| 8        | Build out the deferred features (rollback, MAL, Steam UI) | M      | Low (already scoped)     | N/A                             |
 
 The "Aligns canon?" column flags whether the recommendation also moves
 Resonance toward your established conventions in `crew` and `Recipes`.
@@ -62,28 +62,28 @@ Recipes already do."
 
 ### Stack comparison
 
-| Concern              | Canonical (crew + Recipes)                           | Resonance                                | Comment |
-| -------------------- | ---------------------------------------------------- | ---------------------------------------- | ------- |
-| Package manager      | npm workspaces                                       | pnpm workspaces                           | Coherent local choice; not worth migrating |
-| HTTP framework       | Fastify                                              | Express 4                                 | Pre-canon; Express is fine if layered well |
-| DB query layer       | Kysely (+ Better Auth migrations)                    | Drizzle ORM (+ Drizzle Kit migrations)    | Same architectural reasoning, different lib |
-| Auth                 | Better Auth                                          | Clerk                                     | Different choice; not worth migrating |
-| Validation           | Zod (request bodies, params, env)                    | Zod (request bodies)                      | Match — but env not validated yet |
-| DI                   | `@fastify/awilix`, scoped by request                 | None — services imported as modules       | Resonance is below the "second service" threshold per skill, but is climbing toward it |
-| Error handling       | Typed errors → `setErrorHandler`                     | `next(err)` → middleware that re-throws   | Resonance is functionally OK but doesn't have a typed-error vocabulary |
-| Logging              | `pino` (per backend skill)                           | `console.log` everywhere                  | Diverges from canon |
-| Frontend data        | (Recipes) Vike `+data.ts` loaders / TanStack Query   | Bespoke `useX` hooks owning fetch + state | Resonance has a *coherent* custom convention — works fine, is the project's "established pattern" |
-| Frontend state       | TanStack Query / Zustand / Redux Toolkit             | `useState` + `useRef` inside the `useX` hooks | See above |
-| Forms                | RHF + Zod                                            | Manual `useState` form fields             | Few forms in Resonance; low blast radius |
-| Variants             | `cva`                                                | Inline ternaries (`profile === 'X' ? ...`) | Not many variant systems yet; would benefit if you add a UI library |
-| Styling              | Tailwind utility classes                             | Tailwind utility classes                  | Match |
-| Tests                | Vitest, co-located, real fixtures                    | Hand-runnable scripts                     | Diverges from canon |
-| Lint / format        | flat-config ESLint + typescript-eslint + Prettier    | `eslint .` script with no config; no Prettier | Diverges from canon |
-| Workspaces docs      | `tsconfig.base.json`, root scripts wrapping `--workspaces --if-present` | `tsconfig.base.json` exists, root scripts use `pnpm -r` | Match in spirit |
-| `.gitattributes`     | LF-everywhere baseline                               | No `.gitattributes`                       | Diverges from canon (small fix) |
-| Docs structure       | `docs/plans/`, `docs/tickets/`, `docs/superpowers/`  | None — but excellent `ARCHITECTURE.md`    | Different shape, same end (durable design memory). Good as-is. |
-| Type-only imports    | Enforced via `consistent-type-imports`               | Used by hand consistently                 | Match in practice — the rule would just enforce what's already there |
-| Quote style          | Single quotes (per canonical Prettier config)         | Double quotes everywhere                  | Pure Prettier config decision — flip the switch and reformat |
+| Concern           | Canonical (crew + Recipes)                                              | Resonance                                               | Comment                                                                                           |
+| ----------------- | ----------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Package manager   | npm workspaces                                                          | pnpm workspaces                                         | Coherent local choice; not worth migrating                                                        |
+| HTTP framework    | Fastify                                                                 | Express 4                                               | Pre-canon; Express is fine if layered well                                                        |
+| DB query layer    | Kysely (+ Better Auth migrations)                                       | Drizzle ORM (+ Drizzle Kit migrations)                  | Same architectural reasoning, different lib                                                       |
+| Auth              | Better Auth                                                             | Clerk                                                   | Different choice; not worth migrating                                                             |
+| Validation        | Zod (request bodies, params, env)                                       | Zod (request bodies)                                    | Match — but env not validated yet                                                                 |
+| DI                | `@fastify/awilix`, scoped by request                                    | None — services imported as modules                     | Resonance is below the "second service" threshold per skill, but is climbing toward it            |
+| Error handling    | Typed errors → `setErrorHandler`                                        | `next(err)` → middleware that re-throws                 | Resonance is functionally OK but doesn't have a typed-error vocabulary                            |
+| Logging           | `pino` (per backend skill)                                              | `console.log` everywhere                                | Diverges from canon                                                                               |
+| Frontend data     | (Recipes) Vike `+data.ts` loaders / TanStack Query                      | Bespoke `useX` hooks owning fetch + state               | Resonance has a _coherent_ custom convention — works fine, is the project's "established pattern" |
+| Frontend state    | TanStack Query / Zustand / Redux Toolkit                                | `useState` + `useRef` inside the `useX` hooks           | See above                                                                                         |
+| Forms             | RHF + Zod                                                               | Manual `useState` form fields                           | Few forms in Resonance; low blast radius                                                          |
+| Variants          | `cva`                                                                   | Inline ternaries (`profile === 'X' ? ...`)              | Not many variant systems yet; would benefit if you add a UI library                               |
+| Styling           | Tailwind utility classes                                                | Tailwind utility classes                                | Match                                                                                             |
+| Tests             | Vitest, co-located, real fixtures                                       | Hand-runnable scripts                                   | Diverges from canon                                                                               |
+| Lint / format     | flat-config ESLint + typescript-eslint + Prettier                       | `eslint .` script with no config; no Prettier           | Diverges from canon                                                                               |
+| Workspaces docs   | `tsconfig.base.json`, root scripts wrapping `--workspaces --if-present` | `tsconfig.base.json` exists, root scripts use `pnpm -r` | Match in spirit                                                                                   |
+| `.gitattributes`  | LF-everywhere baseline                                                  | No `.gitattributes`                                     | Diverges from canon (small fix)                                                                   |
+| Docs structure    | `docs/plans/`, `docs/tickets/`, `docs/superpowers/`                     | None — but excellent `ARCHITECTURE.md`                  | Different shape, same end (durable design memory). Good as-is.                                    |
+| Type-only imports | Enforced via `consistent-type-imports`                                  | Used by hand consistently                               | Match in practice — the rule would just enforce what's already there                              |
+| Quote style       | Single quotes (per canonical Prettier config)                           | Double quotes everywhere                                | Pure Prettier config decision — flip the switch and reformat                                      |
 
 ### How to read this
 
@@ -93,14 +93,14 @@ This is **not** a list of "things you got wrong." Three reasons:
    `reaching-for-frontend-libraries` and `reaching-for-backend-patterns`
    tell future-you to follow what's already in the project rather than
    force the canonical libraries on top. So Express, Drizzle, Clerk, and
-   `useX` hooks are all *correctly* the local convention.
+   `useX` hooks are all _correctly_ the local convention.
 2. **Resonance pre-dates much of the canon.** Many of these conventions
    matured in `crew` and `Recipes`; Resonance is the older codebase doing
    the same architectural shape with different library choices.
 3. **The interesting comparison is "polish layer," not "stack layer."**
    Stack-layer differences (Express vs. Fastify) are local commitments.
    Polish-layer gaps (no Vitest, no ESLint config, `console.log`, no env
-   validation) are where canon and Resonance *should* converge — and
+   validation) are where canon and Resonance _should_ converge — and
    where the recommendations in §3 do double duty as "match your own
    established conventions."
 
@@ -108,14 +108,14 @@ This is **not** a list of "things you got wrong." Three reasons:
 
 This is the same priority list, with the canon framing layered in:
 
-- **§3.1 (ESLint + Prettier) and §3.2 (Vitest)** become *much* easier to
+- **§3.1 (ESLint + Prettier) and §3.2 (Vitest)** become _much_ easier to
   justify: the configs in `crew/eslint.config.js` and `Recipes/eslint.config.ts`
   are essentially copy-paste-ready (with one swap for pnpm + the
   appropriate workspace glob). The Prettier config in
   `~/.claude/conventions/node.md` ships with explicit values
   (`semi: true, singleQuote: true, trailingComma: "all", printWidth: 100,
-  tabWidth: 2`). You'd be importing your own canon, not picking new tools.
-- **§3.7 (env at boot via Zod)** is *explicitly* called for in
+tabWidth: 2`). You'd be importing your own canon, not picking new tools.
+- **§3.7 (env at boot via Zod)** is _explicitly_ called for in
   `reaching-for-backend-patterns` ("Config is validated at boot. A Zod
   schema parses `process.env` once on startup."). Skipping it on
   Resonance puts the codebase out of step with a rule the skill states
@@ -130,7 +130,7 @@ This is the same priority list, with the canon framing layered in:
   (`components/shared/`, `components/profile/`, etc.) but the page
   components inline far too much.
 
-### What's *not* worth reaching for
+### What's _not_ worth reaching for
 
 Worth naming explicitly so it doesn't loop back as a follow-up:
 
@@ -143,12 +143,12 @@ Worth naming explicitly so it doesn't loop back as a follow-up:
   fine alternative; not worth the churn.
 - **Migrating Clerk → Better Auth.** Clerk's React components +
   Express middleware are already wired up and working. Better Auth is
-  more *yours* (self-hosted), but the migration cost dominates.
+  more _yours_ (self-hosted), but the migration cost dominates.
 - **Migrating pnpm → npm workspaces.** Both work; the lockfile churn
   isn't worth it.
 - **Adopting TanStack Query.** Resonance's `useX` hooks are a coherent
   custom pattern with optimistic updates, polling, and rollback already
-  baked in. The skill explicitly accepts "the team's pattern *is* the
+  baked in. The skill explicitly accepts "the team's pattern _is_ the
   project's canonical solution." See §6 below for the nuance — adding
   TanStack Query alongside the existing pattern would create two truths.
 
@@ -186,8 +186,8 @@ portfolio project. The architecture doc is structured the way a senior
 review would walk a new hire through the system: stack → data model → AI
 modes → adapters → auth → jobs → frontend → notable design decisions →
 known limitations. Critically, **every section names trade-offs**, not just
-choices. *"JSONB over normalized themes table because the field gained
-`dislikedTitles` mid-project without a DB migration"* is the kind of
+choices. _"JSONB over normalized themes table because the field gained
+`dislikedTitles` mid-project without a DB migration"_ is the kind of
 sentence that signals real engineering judgment. The "Why not Claude with
 Projects?" section in particular is the right level of self-awareness for a
 product that is built around Claude.
@@ -230,7 +230,7 @@ silent runtime mismatch. This is the right shape.
 
 ### 2.5 Defense-in-depth in auth
 
-Every `userId`-scoped query *also* explicitly filters by `user_id` even
+Every `userId`-scoped query _also_ explicitly filters by `user_id` even
 though Clerk middleware + `requireUser` already gate access. This is
 correctly described in the architecture doc as "belt and suspenders" — and
 it would protect you from a future bug in the auth chain. This is the
@@ -282,7 +282,7 @@ state).
 Ordered by leverage. Each item names the file/area, the problem, and a
 recommended fix.
 
-### 3.1 Linting and formatting are advertised but not configured *(quick win)*
+### 3.1 Linting and formatting are advertised but not configured _(quick win)_
 
 `apps/client/package.json` declares `"lint": "eslint ."` but **there is no
 ESLint config file anywhere in the repo** (no `eslint.config.js`,
@@ -311,7 +311,7 @@ the code.
 Time investment: 1-2 hours, plus an initial pass to fix any errors the new
 config surfaces. The codebase is clean enough that this should be small.
 
-### 3.2 No real test infrastructure *(highest leverage of any single change)*
+### 3.2 No real test infrastructure _(highest leverage of any single change)_
 
 The three `*.test.ts` files (`streaming.test.ts`, `rateLimiter.test.ts`,
 `mediaCache.test.ts`) are **hand-runnable scripts**, not test-runner
@@ -330,23 +330,23 @@ streaming filter cases in particular are excellent), but they:
    matchers. Add it as a workspace-root dev dependency.
 2. Add a root-level `vitest.config.ts` and a `pnpm test` script.
 3. Migrate the three existing test files: replace the manual `for (const c
-   of cases)` loop in `streaming.test.ts` with `describe.each(cases)` —
+of cases)` loop in `streaming.test.ts` with `describe.each(cases)` —
    the test cases themselves are kept verbatim. Same for rate limiter
    timing tests.
-4. Consider keeping `mediaCache.test.ts` as a *live integration smoke* (it
+4. Consider keeping `mediaCache.test.ts` as a _live integration smoke_ (it
    hits real APIs) and gate it behind an env check or a separate Vitest
    project so it doesn't run on every CI build.
 
 After Vitest is in place, prioritize coverage for these high-value targets:
 
-| Target                                               | Why                                                                 |
-| ---------------------------------------------------- | ------------------------------------------------------------------- |
-| `canonicalizeTitle` / `matchesKnown` (recommender)   | Core de-dup logic; regex-based, exactly the kind of code that breaks silently |
-| `meetsReadinessFloor` / `stripModelTags` (onboarding)| Logic gates user-visible behavior                                  |
-| `StreamFilter` (already covered, just port)          | Already great cases; just needs the runner                          |
-| `checkRateLimit`                                     | Time-of-day arithmetic is easy to get subtly wrong                  |
-| `parseLetterboxdCSV` / `parseGoodreadsCSV` (library) | Parsing user-supplied data; needs property-style and edge-case coverage |
-| Adapter normalization (TMDB, IGDB, Jikan, OL)        | Test against fixture JSON, not live APIs                            |
+| Target                                                | Why                                                                           |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `canonicalizeTitle` / `matchesKnown` (recommender)    | Core de-dup logic; regex-based, exactly the kind of code that breaks silently |
+| `meetsReadinessFloor` / `stripModelTags` (onboarding) | Logic gates user-visible behavior                                             |
+| `StreamFilter` (already covered, just port)           | Already great cases; just needs the runner                                    |
+| `checkRateLimit`                                      | Time-of-day arithmetic is easy to get subtly wrong                            |
+| `parseLetterboxdCSV` / `parseGoodreadsCSV` (library)  | Parsing user-supplied data; needs property-style and edge-case coverage       |
+| Adapter normalization (TMDB, IGDB, Jikan, OL)         | Test against fixture JSON, not live APIs                                      |
 
 For **API integration tests** consider adding **Supertest** against the
 `createApp()` Express factory — it doesn't need a port, just an app
@@ -368,7 +368,7 @@ For **mocking external HTTP**, **MSW (Mock Service Worker)** is the right
 tool — intercepts at the `fetch` layer in both Node and the browser, so
 the same fixture set covers unit, integration, and E2E.
 
-### 3.3 `CLAUDE.md` has drifted from reality *(quick win, high blast radius)*
+### 3.3 `CLAUDE.md` has drifted from reality _(quick win, high blast radius)_
 
 The repo-level `CLAUDE.md` is a working spec from earlier in the project,
 and it no longer matches what was built. Specific drift:
@@ -386,7 +386,7 @@ and it no longer matches what was built. Specific drift:
   `/api/recommendations/active-job`, `/api/recommendations/:id/rescore`,
   etc.).
 
-This matters because `CLAUDE.md` is *the* file Claude Code (and Cursor,
+This matters because `CLAUDE.md` is _the_ file Claude Code (and Cursor,
 Aider, etc.) reads to orient itself. An out-of-date `CLAUDE.md` will steer
 AI-assisted edits toward the wrong file paths and the wrong table names.
 
@@ -422,14 +422,14 @@ caught before users hit them.
 The page-level components have grown well past the threshold where they're
 easy to reason about:
 
-| File                                | Lines | Notes                                              |
-| ----------------------------------- | ----- | -------------------------------------------------- |
-| `pages/HomePage.tsx`                | 620   | Greeting + dashboard + LandingPage in one file     |
-| `pages/RecommendationsPage.tsx`     | 610   | Batch list + filters + cards + actions             |
-| `pages/EvaluatePage.tsx`            | 444   | Search → pick → score state machine + UI           |
-| `pages/ListsPage.tsx`               | 254   |                                                    |
-| `pages/ExplorePage.tsx`             | 228   |                                                    |
-| `pages/ProfilePage.tsx`             | 200   |                                                    |
+| File                            | Lines | Notes                                          |
+| ------------------------------- | ----- | ---------------------------------------------- |
+| `pages/HomePage.tsx`            | 620   | Greeting + dashboard + LandingPage in one file |
+| `pages/RecommendationsPage.tsx` | 610   | Batch list + filters + cards + actions         |
+| `pages/EvaluatePage.tsx`        | 444   | Search → pick → score state machine + UI       |
+| `pages/ListsPage.tsx`           | 254   |                                                |
+| `pages/ExplorePage.tsx`         | 228   |                                                |
+| `pages/ProfilePage.tsx`         | 200   |                                                |
 
 The hooks pattern (`useRecommendations`, `useBatches`, `useLibrary`, etc.)
 already does the heavy lifting of separating data from UI — the page
@@ -465,7 +465,7 @@ Both swaps preserve the existing module APIs, so the call sites
 (`api/recommendations.ts`, `api/onboarding.ts`, etc.) don't change.
 
 For **medium-term**: I'd argue the job system is the only one of the two
-that *needs* this — daily rate-limit counters in memory are tolerable
+that _needs_ this — daily rate-limit counters in memory are tolerable
 even at small scale, since the worst case is a user getting "extra" calls
 allowed across a deploy. Job-state loss is more disruptive (a
 mid-generation reload after a deploy gives the user a 404).
@@ -491,7 +491,9 @@ const envSchema = z.object({
   STEAM_API_KEY: z.string().optional(),
   PORT: z.coerce.number().default(3001),
   FRONTEND_ORIGIN: z.string().optional(),
-  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  NODE_ENV: z
+    .enum(["development", "production", "test"])
+    .default("development"),
 });
 
 export const env = envSchema.parse(process.env);
@@ -562,7 +564,7 @@ the codebase.
   unit test since chunk encoding is exactly the kind of thing that breaks
   silently.
 - `apps/server/src/api/recommendations.ts:221` — the mounted router has
-  *both* `recommendationsRouter` and `feedbackRouter` under
+  _both_ `recommendationsRouter` and `feedbackRouter` under
   `/api/recommendations`. This works because Express resolves first-match,
   but a developer reading `app.ts` sees two `app.use("/api/recommendations", …)`
   calls and wonders. Either merge them into one router, or mount the
@@ -575,7 +577,7 @@ the codebase.
   to `setInterval` + clearInterval, or AbortController-based cancellation.
 - `tsconfig.base.json` is referenced by the workspaces but I'd verify the
   path-alias setup (`@resonance/shared`) resolves both at typecheck time
-  *and* at runtime — `tsx` honors `package.json` exports, but a future
+  _and_ at runtime — `tsx` honors `package.json` exports, but a future
   `tsc`-built deploy may not.
 - The `console.log` at `apps/server/src/services/ai/recommender.ts:392-395`
   prints "favorites set" + "avoid set" with up to 12 user-supplied titles.
@@ -639,14 +641,14 @@ matches the priority I'd attack them in.
 - **Investment:** 1-2 days to capture fixtures for the major candidate-search
   responses.
 
-### 4.6 Things to *not* prioritize
+### 4.6 Things to _not_ prioritize
 
 - **Storybook** — useful for design systems; this app's components are
   app-specific enough that the maintenance cost outweighs the benefit.
 - **Cypress** — Playwright is the better modern choice; one or the other,
   not both.
 - **Codecov / coverage gating** — get the tests in first, worry about
-  coverage % later. Hard coverage gates discourage *good* tests.
+  coverage % later. Hard coverage gates discourage _good_ tests.
 
 ---
 
@@ -664,7 +666,7 @@ infrastructure in place.
 - **Profile version rollback UI** — the `profile_versions` table is
   populated; you just need a `/profile/history` view that lists snapshots
   and a "restore to this version" button. Maps to a single new endpoint
-  + a small page.
+  - a small page.
 - **MAL XML library import** — Goodreads + Letterboxd already work via
   CSV; MAL needs an XML parser (`fast-xml-parser`) and an upload affordance.
   Mostly mechanical given the existing pattern.
@@ -747,14 +749,14 @@ infrastructure in place.
   replacing the CSV upload with an OAuth flow eliminates user friction.
   Highest UX win, highest implementation cost.
 
-### 5.7 Things I'd *not* prioritize
+### 5.7 Things I'd _not_ prioritize
 
 - **Mobile app.** The web app is responsive enough; a native app is a
   scope explosion.
 - **AI-generated cover art.** Tempting but distracts from the "real
   metadata only" architecture.
 - **Federated/social recommendations.** Multi-tenant is hard to do right;
-  the differentiator is the *individual* taste-DNA story, not the
+  the differentiator is the _individual_ taste-DNA story, not the
   social one.
 
 ---
@@ -776,7 +778,7 @@ keep:
   The format ("Rationalization | Reality") pre-empts the exact
   arguments a future-Claude or future-you will make to skip the canon —
   "single endpoint, not worth React Query," "lead said no service
-  needed," "I'll add it later." Naming the rationalization *and* the
+  needed," "I'll add it later." Naming the rationalization _and_ the
   rebuttal in one row is the right shape.
 - **Red flags** as a skim-target list of code patterns that mean stop.
 - **Spirit vs. letter / Don't use as a hammer** at the end. The
@@ -795,11 +797,11 @@ Two small gaps surface when reading the skills against this codebase:
 
 The current "Don't use as a hammer" carve-out reads:
 
-> *"Framework or project with an established pattern that overlaps the
+> _"Framework or project with an established pattern that overlaps the
 > skill's recommendation. If the project committed to a framework's data
 > layer (Vike `+data.ts`, Next.js / Remix / Astro loaders, server
 > actions), framework-native forms (Remix `<Form>` + actions), or a
-> styling system that already handles variants — follow it."*
+> styling system that already handles variants — follow it."_
 
 Every example here is **framework-native** (Vike, Next.js, Remix,
 Astro). Resonance's pattern is **custom**: a `useApi()` primitive plus
@@ -808,8 +810,8 @@ domain hooks (`useRecommendations`, `useBatches`, `useLibrary`,
 fetch + state + polling + optimistic updates + rollback. This is a
 **coherent, committed convention** and it's the one a contributor
 should follow when adding a new domain — but a literal read of the
-skill's carve-out leaves room to argue *"it's not Vike, so the carve-out
-doesn't apply, so I should reach for TanStack Query."*
+skill's carve-out leaves room to argue _"it's not Vike, so the carve-out
+doesn't apply, so I should reach for TanStack Query."_
 
 That would be the wrong call (it'd create two parallel data layers in
 the same codebase). Tightening the carve-out wording would close the
@@ -830,17 +832,17 @@ ambiguity.
 
 The body of `reaching-for-backend-patterns` teaches Fastify + Zod +
 Kysely + Awilix as a tightly-coupled set. The "Don't use as a hammer"
-section *does* carve out alt-stacks (mentions Express + Joi + Sequelize
+section _does_ carve out alt-stacks (mentions Express + Joi + Sequelize
 explicitly), but a future-Claude reading the skill in Resonance might
 default to one of two failure modes:
 
 - **"This skill doesn't apply, we're on Express"** — and skip the
   layering pattern entirely.
 - **"The skill says use Awilix, let me introduce it"** — even though
-  Resonance doesn't have the second-service threshold yet *and* would
+  Resonance doesn't have the second-service threshold yet _and_ would
   mix conventions if Awilix appeared in some files but not others.
 
-The skill *could* land cleaner with a short "Principles travel further
+The skill _could_ land cleaner with a short "Principles travel further
 than libraries" section that explicitly translates the layering pattern
 to a non-canonical stack. Concretely:
 
@@ -869,7 +871,7 @@ pattern" and "When to reach for Awilix"):
 > layer because the framework isn't Fastify, and don't paste the
 > canonical libraries onto a project that committed to alternatives.
 
-This makes the skill clearly *applicable* to Resonance without watering
+This makes the skill clearly _applicable_ to Resonance without watering
 down its prescriptions for greenfield work.
 
 ### Skills changes I would actually make
@@ -897,7 +899,7 @@ I would **not** change:
 
 Both edits are additive and should leave the skills' authoritative tone
 intact for greenfield work. The Resonance-side benefit is that a future
-Claude reading the skills *while editing Resonance code* gets less
+Claude reading the skills _while editing Resonance code_ gets less
 ambiguity about whether Resonance's idioms are skill-violating or
 skill-respecting.
 

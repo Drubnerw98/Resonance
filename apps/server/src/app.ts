@@ -17,6 +17,7 @@ import { meRouter } from "./api/me.js";
 import { libraryRouter } from "./api/library.js";
 import { evaluateRouter } from "./api/evaluate.js";
 import { discoverRouter } from "./api/discover.js";
+import { watchlistRouter } from "./api/watchlist.js";
 import { errorHandler } from "./middleware/error.js";
 
 /**
@@ -97,6 +98,7 @@ export function createApp(): Express {
   app.use("/api/library", libraryRouter);
   app.use("/api/evaluate", evaluateRouter);
   app.use("/api/discover", discoverRouter);
+  app.use("/api/watchlist", watchlistRouter);
 
   app.use(errorHandler);
 

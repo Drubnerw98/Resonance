@@ -4,9 +4,9 @@ export function QuickLinks() {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <QuickLink
-        to="/explore"
-        title="Browse"
-        description="Curated themes for your taste."
+        to="/watchlist"
+        title="Watchlist"
+        description="Your plan-to list, sortable by mood."
         icon={
           <svg
             viewBox="0 0 24 24"
@@ -16,10 +16,7 @@ export function QuickLinks() {
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <circle cx="12" cy="12" r="9" />
-            <path d="M3 12h18" />
-            <path d="M12 3a14 14 0 0 1 0 18" />
-            <path d="M12 3a14 14 0 0 0 0 18" />
+            <path d="M5 3h14a1 1 0 0 1 1 1v17l-8-5-8 5V4a1 1 0 0 1 1-1Z" />
           </svg>
         }
       />

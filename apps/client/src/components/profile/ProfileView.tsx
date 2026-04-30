@@ -20,16 +20,50 @@ const FORMAT_LABEL: Record<string, string> = {
   book: "Books",
 };
 
-function WeightBar({ value }: { value: number }) {
+function WeightBar({
+  value,
+  colorClass = "bg-emerald-500",
+}: {
+  value: number;
+  colorClass?: string;
+}) {
   const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
   return (
     <div className="h-1.5 w-24 overflow-hidden rounded-full bg-neutral-800">
       <div
-        className="h-full rounded-full bg-emerald-500"
+        className={`h-full rounded-full ${colorClass}`}
         style={{ width: `${pct}%` }}
       />
     </div>
   );
+}
+
+// Accent palette per theme — left-border + bar use the same hue family so
+// each theme reads as its own visual entity rather than three identical
+// progress bars stacked.
+const THEME_ACCENTS: { border: string; bar: string }[] = [
+  { border: "border-l-emerald-500", bar: "bg-emerald-500" },
+  { border: "border-l-teal-500", bar: "bg-teal-500" },
+  { border: "border-l-amber-500", bar: "bg-amber-500" },
+  { border: "border-l-rose-500", bar: "bg-rose-500" },
+  { border: "border-l-sky-500", bar: "bg-sky-500" },
+  { border: "border-l-fuchsia-500", bar: "bg-fuchsia-500" },
+];
+
+/** Best-effort relative-time string — "just now", "2 hours ago", "3 days
+ * ago", or fallback to a short locale date for older timestamps. */
+function humanizeAge(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "recently";
+  const diffMs = Date.now() - then;
+  const min = Math.floor(diffMs / 60_000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min} minute${min === 1 ? "" : "s"} ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr} hour${hr === 1 ? "" : "s"} ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 14) return `${day} day${day === 1 ? "" : "s"} ago`;
+  return new Date(iso).toLocaleDateString();
 }
 
 export function ProfileView({
@@ -41,11 +75,22 @@ export function ProfileView({
   isRefining,
   isStartingSession,
 }: Props) {
+  // Friendlier wording than "Version N · updated TIMESTAMP". Treats the
+  // version as a count of refinements (which is what it actually is —
+  // every save bumps it by one) and surfaces the timestamp as a human
+  // relative-time descriptor.
+  const refinedCount = version - 1; // version 1 = initial extraction, 0 refinements
+  const updatedRelative = humanizeAge(updatedAt);
+  const subtitle =
+    refinedCount === 0
+      ? `Initial extraction · ${updatedRelative}`
+      : `Refined ${refinedCount}${refinedCount === 1 ? " time" : " times"} · last updated ${updatedRelative}`;
+
   return (
     <div className="space-y-8">
       <PageHeader
         title="Your taste DNA"
-        subtitle={`Version ${version} · updated ${new Date(updatedAt).toLocaleString()}`}
+        subtitle={subtitle}
         action={
           (onContinueOnboarding || onRefine) && (
             <div className="flex flex-wrap gap-2">
@@ -76,18 +121,21 @@ export function ProfileView({
 
       <Section title="Themes" hint="What stories resonate with you and why">
         <ul className="space-y-3">
-          {profile.themes.map((t, i) => (
-            <li
-              key={i}
-              className="rounded-md border border-neutral-800 bg-neutral-900 p-3"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <span className="font-medium">{t.label}</span>
-                <WeightBar value={t.weight} />
-              </div>
-              <p className="mt-1 text-sm text-neutral-400">{t.evidence}</p>
-            </li>
-          ))}
+          {profile.themes.map((t, i) => {
+            const accent = THEME_ACCENTS[i % THEME_ACCENTS.length]!;
+            return (
+              <li
+                key={i}
+                className={`rounded-md border border-l-4 border-neutral-800 bg-neutral-900 p-3 ${accent.border}`}
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <span className="font-medium">{t.label}</span>
+                  <WeightBar value={t.weight} colorClass={accent.bar} />
+                </div>
+                <p className="mt-1 text-sm text-neutral-400">{t.evidence}</p>
+              </li>
+            );
+          })}
         </ul>
       </Section>
 
@@ -106,16 +154,35 @@ export function ProfileView({
       </Section>
 
       <Section title="Narrative preferences" hint="The shape of stories that fit">
-        <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[max-content_1fr]">
-          <dt className="text-neutral-500">Pacing</dt>
-          <dd>{profile.narrativePrefs.pacing}</dd>
-          <dt className="text-neutral-500">Complexity</dt>
-          <dd>{profile.narrativePrefs.complexity}</dd>
-          <dt className="text-neutral-500">Tone</dt>
-          <dd>{profile.narrativePrefs.tone.join(", ")}</dd>
-          <dt className="text-neutral-500">Endings</dt>
-          <dd>{profile.narrativePrefs.endings}</dd>
-        </dl>
+        <div className="space-y-3 rounded-md border border-neutral-800 bg-neutral-900 p-4">
+          <NarrativePill label="Pacing">
+            <span className="rounded-full border border-emerald-900/50 bg-emerald-950/30 px-2.5 py-0.5 text-xs text-emerald-200">
+              {profile.narrativePrefs.pacing}
+            </span>
+          </NarrativePill>
+          <NarrativePill label="Complexity">
+            <span className="rounded-full border border-sky-900/50 bg-sky-950/30 px-2.5 py-0.5 text-xs text-sky-200">
+              {profile.narrativePrefs.complexity}
+            </span>
+          </NarrativePill>
+          <NarrativePill label="Tone">
+            <div className="flex flex-wrap gap-1.5">
+              {profile.narrativePrefs.tone.map((t, i) => (
+                <span
+                  key={i}
+                  className="rounded-full border border-amber-900/50 bg-amber-950/30 px-2.5 py-0.5 text-xs text-amber-200"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          </NarrativePill>
+          <NarrativePill label="Endings">
+            <span className="text-sm text-neutral-200">
+              {profile.narrativePrefs.endings}
+            </span>
+          </NarrativePill>
+        </div>
       </Section>
 
       <Section title="Media affinities" hint="Formats you've engaged with">
@@ -201,5 +268,22 @@ function Section({
       </div>
       {children}
     </section>
+  );
+}
+
+function NarrativePill({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="w-20 text-xs uppercase tracking-wide text-neutral-500">
+        {label}
+      </span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
   );
 }

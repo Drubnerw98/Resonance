@@ -108,7 +108,7 @@ export function MediaCard({
           {tasteTags.map((tag, i) => (
             <li
               key={i}
-              className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-neutral-300"
+              className="rounded-full border border-emerald-900/50 bg-emerald-950/30 px-2.5 py-0.5 text-xs text-emerald-200/90"
             >
               {tag}
             </li>
@@ -213,12 +213,12 @@ function FeedbackRow({
         className={
           "rounded-md px-2 py-1 text-xs font-medium transition-colors disabled:cursor-default " +
           (isPlanTo
-            ? "bg-sky-800 text-white"
+            ? "bg-amber-700 text-white"
             : "border border-neutral-700 text-neutral-300 hover:bg-neutral-800")
         }
         aria-pressed={isPlanTo}
       >
-        {isPlanTo ? "✓ On watchlist" : "Plan to"}
+        {isPlanTo ? "★ On watchlist" : "Plan to"}
       </button>
       <button
         onClick={toggleSkip}

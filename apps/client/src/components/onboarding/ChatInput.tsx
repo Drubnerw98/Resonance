@@ -69,7 +69,7 @@ export function ChatInput({ onSend, disabled }: Props) {
         placeholder={
           disabled
             ? "Waiting for reply…"
-            : "Tell me about it… (Shift+Enter for newline)"
+            : "Talk about a story that stuck with you… (Shift+Enter for newline)"
         }
         rows={MIN_ROWS}
         disabled={disabled}

@@ -22,6 +22,17 @@ const FORMAT_OPTIONS: { value: MediaType; label: string }[] = [
   { value: "book", label: "Book" },
 ];
 
+// Suggestions for users staring at a blank input — same pattern as the
+// home dashboard's prompt chips. Mix across formats so the page advertises
+// its cross-format reach.
+const STARTER_TITLES: { format: MediaType; title: string }[] = [
+  { format: "movie", title: "Severance" },
+  { format: "game", title: "Hollow Knight" },
+  { format: "book", title: "The Brothers Karamazov" },
+  { format: "tv", title: "Mad Men" },
+  { format: "anime", title: "Mushishi" },
+];
+
 /**
  * "Would I like X?" — type a title, pick a format, get a personalized verdict.
  *
@@ -140,6 +151,36 @@ export function EvaluatePage() {
         <pre className="whitespace-pre-wrap rounded border border-red-900 bg-red-950/40 p-3 text-xs text-red-300">
           {evaluate.error}
         </pre>
+      )}
+
+      {/* Starter chips — only when the page is fresh (no search ever run).
+          Helps people staring at the blank input figure out what to try.
+          Only suggest titles in formats the user has enabled. */}
+      {evaluate.searchStatus === "idle" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs uppercase tracking-wide text-neutral-500">
+            Try
+          </span>
+          {STARTER_TITLES.filter((s) => enabledFormats.has(s.format)).map(
+            (s) => (
+              <button
+                key={s.title}
+                type="button"
+                onClick={() => {
+                  setTitle(s.title);
+                  setMediaType(s.format);
+                  void evaluate.search({
+                    title: s.title,
+                    mediaType: s.format,
+                  });
+                }}
+                className="rounded-full border border-neutral-700 bg-neutral-900/80 px-3 py-1.5 text-sm text-neutral-200 transition-colors hover:border-emerald-700 hover:bg-emerald-950/30 hover:text-emerald-100"
+              >
+                {s.title}
+              </button>
+            ),
+          )}
+        </div>
       )}
 
       {evaluate.searchStatus === "ready" && evaluate.matches.length === 0 && (

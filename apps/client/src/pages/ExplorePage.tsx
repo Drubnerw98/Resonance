@@ -144,6 +144,7 @@ export function ExplorePage() {
             <li key={i}>
               <ThemeCard
                 theme={theme}
+                accentIndex={i}
                 onGenerate={() => void handleGenerate(theme)}
                 isGenerating={generatingPromptHint === theme.promptHint}
                 disabled={generatingPromptHint != null}
@@ -156,19 +157,36 @@ export function ExplorePage() {
   );
 }
 
+// Per-card accent palette — cycles through 6 hues so each theme card on a
+// 6-grid has its own visual identity. Used as a left-border accent and a
+// subtle title-hover tint.
+const THEME_ACCENTS = [
+  "border-l-emerald-500",
+  "border-l-amber-500",
+  "border-l-rose-500",
+  "border-l-sky-500",
+  "border-l-fuchsia-500",
+  "border-l-teal-500",
+];
+
 function ThemeCard({
   theme,
+  accentIndex,
   onGenerate,
   isGenerating,
   disabled,
 }: {
   theme: DiscoveryTheme;
+  accentIndex: number;
   onGenerate: () => void;
   isGenerating: boolean;
   disabled: boolean;
 }) {
+  const accent = THEME_ACCENTS[accentIndex % THEME_ACCENTS.length];
   return (
-    <article className="flex h-full flex-col gap-3 rounded-xl border border-neutral-800 bg-gradient-to-br from-neutral-900 to-neutral-950 p-5 transition-colors hover:border-neutral-600">
+    <article
+      className={`flex h-full flex-col gap-3 rounded-xl border border-l-4 border-neutral-800 bg-gradient-to-br from-neutral-900 to-neutral-950 p-5 transition-all hover:-translate-y-0.5 hover:border-neutral-600 ${accent}`}
+    >
       <header className="space-y-2">
         <h2 className="text-base font-semibold leading-snug text-neutral-100">
           {theme.title}
@@ -197,10 +215,10 @@ function ThemeCard({
         onClick={onGenerate}
         disabled={disabled}
         className={
-          "self-start rounded-md px-3 py-1.5 text-sm font-medium transition-colors " +
+          "self-start rounded-md px-4 py-2 text-sm font-semibold transition-colors " +
           (isGenerating
             ? "bg-emerald-700 text-white"
-            : "bg-white text-neutral-950 hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-50")
+            : "bg-emerald-600 text-neutral-950 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500")
         }
       >
         {isGenerating ? "Starting…" : "Show me these →"}

@@ -138,12 +138,14 @@ function Dashboard() {
   }
 
   return (
-    <div className="space-y-8 py-6">
-      <header className="space-y-2">
-        <h1 className="bg-gradient-to-br from-white to-neutral-400 bg-clip-text text-4xl font-semibold tracking-tight text-transparent sm:text-5xl">
+    <div className="space-y-6 py-2 sm:py-4">
+      {/* Tightened hero — smaller gap to the prompt card so the prompt is
+          clearly the primary action above the fold. */}
+      <header className="space-y-1">
+        <h1 className="bg-gradient-to-br from-white to-neutral-400 bg-clip-text text-3xl font-semibold tracking-tight text-transparent sm:text-4xl">
           {greeting}{name ? `, ${name}` : ""}.
         </h1>
-        <p className="text-base text-neutral-400 sm:text-lg">
+        <p className="text-sm text-neutral-400 sm:text-base">
           What are you in the mood for?
         </p>
       </header>
@@ -237,7 +239,7 @@ function PromptCard() {
           </button>
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs uppercase tracking-wide text-neutral-500">
             Try
           </span>
@@ -250,7 +252,7 @@ function PromptCard() {
                 textareaRef.current?.focus();
               }}
               disabled={submitting}
-              className="rounded-full border border-neutral-700 bg-neutral-900 px-2.5 py-0.5 text-xs text-neutral-300 hover:border-neutral-500 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-full border border-neutral-700 bg-neutral-900/80 px-3 py-1.5 text-sm text-neutral-200 transition-colors hover:border-emerald-700 hover:bg-emerald-950/30 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {p}
             </button>
@@ -276,8 +278,8 @@ function LatestBatchCard() {
   if (recs.status === "loading" || batches.status === "loading") {
     return (
       <SectionCard title="Latest batch">
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="aspect-[2/3] w-full rounded-md" />
           ))}
         </div>
@@ -301,7 +303,7 @@ function LatestBatchCard() {
   );
   const topPicks = [...latestBatchRecs]
     .sort((a, b) => b.matchScore - a.matchScore)
-    .slice(0, 5);
+    .slice(0, 4);
   const batchMeta =
     batches.batches.find((b) => b.id === latestBatchId) ?? null;
 
@@ -318,7 +320,7 @@ function LatestBatchCard() {
         </Link>
       }
     >
-      <ul className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {topPicks.map((rec) => (
           <li key={rec.id}>
             <PosterCard rec={rec} />
@@ -459,6 +461,15 @@ function countByFormat(items: LibraryItem[]): Record<MediaType, number> {
 
 /** Themes card — shows top 3 themes as filled weight bars. Visual proxy for
  * "your strongest signals". */
+// Distinct hue per top theme, in display order. Emerald → teal → amber.
+// Makes each theme bar feel like its own thing rather than three identical
+// progress bars stacked.
+const THEME_BAR_COLORS = [
+  "bg-emerald-500",
+  "bg-teal-500",
+  "bg-amber-500",
+];
+
 function ProfileCard({ themes }: { themes: TasteTheme[] }) {
   const top = [...themes].sort((a, b) => b.weight - a.weight).slice(0, 3);
 
@@ -481,7 +492,7 @@ function ProfileCard({ themes }: { themes: TasteTheme[] }) {
         </p>
       ) : (
         <ul className="space-y-3">
-          {top.map((theme) => (
+          {top.map((theme, i) => (
             <li key={theme.label} className="space-y-1">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-sm font-medium leading-snug text-neutral-200">
@@ -494,7 +505,7 @@ function ProfileCard({ themes }: { themes: TasteTheme[] }) {
               <div className="h-1.5 overflow-hidden rounded-full bg-neutral-800">
                 <div
                   style={{ width: `${theme.weight * 100}%` }}
-                  className="h-full bg-emerald-500"
+                  className={`h-full ${THEME_BAR_COLORS[i] ?? "bg-emerald-500"}`}
                 />
               </div>
             </li>
@@ -512,21 +523,53 @@ function QuickLinks() {
         to="/explore"
         title="Browse"
         description="Curated themes for your taste."
+        icon={
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3 12h18" />
+            <path d="M12 3a14 14 0 0 1 0 18" />
+            <path d="M12 3a14 14 0 0 0 0 18" />
+          </svg>
+        }
       />
       <QuickLink
         to="/evaluate"
         title="Would I like…?"
         description="Honest verdict on a specific title."
+        icon={
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-4.3-4.3" />
+          </svg>
+        }
       />
       <QuickLink
         to="/recommendations"
         title="All recommendations"
         description="Every batch, filterable by format."
+        icon={
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
+          </svg>
+        }
       />
       <QuickLink
         to="/lists"
         title="Lists"
         description="Rename and organize your batches."
+        icon={
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 6h13" />
+            <path d="M8 12h13" />
+            <path d="M8 18h13" />
+            <circle cx="3.5" cy="6" r="1" />
+            <circle cx="3.5" cy="12" r="1" />
+            <circle cx="3.5" cy="18" r="1" />
+          </svg>
+        }
       />
     </div>
   );
@@ -536,20 +579,32 @@ function QuickLink({
   to,
   title,
   description,
+  icon,
 }: {
   to: string;
   title: string;
   description: string;
+  icon: React.ReactNode;
 }) {
   return (
     <Link
       to={to}
-      className="group block rounded-lg border border-neutral-800 bg-neutral-900 p-4 transition-colors hover:border-emerald-700 hover:bg-emerald-950/10"
+      className="group flex items-start gap-3 rounded-lg border border-neutral-800 bg-neutral-900 p-4 transition-all hover:-translate-y-0.5 hover:border-emerald-700 hover:bg-emerald-950/10"
     >
-      <p className="text-sm font-medium text-neutral-100 group-hover:text-white">
-        {title}
-      </p>
-      <p className="mt-1 text-xs text-neutral-500">{description}</p>
+      <span
+        aria-hidden
+        className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-neutral-700 bg-neutral-950 text-neutral-300 group-hover:border-emerald-700 group-hover:text-emerald-300"
+      >
+        <span className="block h-4 w-4">{icon}</span>
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-neutral-100 group-hover:text-white">
+          {title}
+        </span>
+        <span className="mt-1 block text-xs text-neutral-500">
+          {description}
+        </span>
+      </span>
     </Link>
   );
 }

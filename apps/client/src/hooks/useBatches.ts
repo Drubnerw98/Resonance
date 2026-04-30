@@ -8,6 +8,9 @@ export interface BatchSummary {
   createdAt: string;
   updatedAt: string;
   count: number;
+  /** Per-format breakdown: { movie: 3, book: 2, ... }. Sparse — only
+   * formats with at least one rec appear. */
+  formatCounts: Record<string, number>;
 }
 
 interface BatchesResponse {

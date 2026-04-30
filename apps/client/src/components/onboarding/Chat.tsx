@@ -93,17 +93,47 @@ export function Chat() {
   const showStarter =
     onboarding.messages.length === 0 && !onboarding.isSending;
 
+  // Cheap progress hint — onboarding readiness ~6+ user turns. We can
+  // expose where the user is in that arc without surfacing the exact
+  // criteria. After ready fires, hide the indicator.
+  const userTurns = onboarding.messages.filter((m) => m.role === "user").length;
+  const showProgress = !onboarding.ready && onboarding.messages.length > 0;
+  const progressPct = Math.min(100, Math.round((userTurns / 6) * 100));
+
   return (
     <div className="flex h-[70vh] flex-col gap-4">
+      {showProgress && (
+        <div className="flex items-center gap-3 text-xs text-neutral-500">
+          <span>Building your taste profile · turn {userTurns}</span>
+          <div className="h-1 flex-1 overflow-hidden rounded-full bg-neutral-800">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       <div
         ref={scrollRef}
         className="flex-1 space-y-3 overflow-y-auto rounded-md border border-neutral-800 bg-neutral-950 p-4"
       >
         {showStarter && (
-          <p className="text-sm text-neutral-500">
-            Say hi to kick things off — or jump straight into a story that's
-            been on your mind.
-          </p>
+          <div className="space-y-3 rounded-md border border-emerald-900/40 bg-gradient-to-br from-emerald-950/20 to-neutral-900 p-4">
+            <p className="text-sm text-neutral-200">
+              <span className="font-medium text-emerald-300">
+                Hey, glad you're here.
+              </span>{" "}
+              Don't list favorites — talk about <em>moments</em>. A scene
+              that stuck. A line you keep thinking about. A story that
+              wrecked you. The more specific, the better the profile we
+              build.
+            </p>
+            <p className="text-xs text-neutral-500">
+              Type something below to start. Usually 6-9 turns to get a
+              real profile.
+            </p>
+          </div>
         )}
 
         {onboarding.messages.map((m, i) => (

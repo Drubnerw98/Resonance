@@ -8,9 +8,38 @@ import { Skeleton } from "../components/shared/Skeleton.tsx";
 import { PageHeader } from "../components/shared/PageHeader.tsx";
 import { EmptyState } from "../components/shared/EmptyState.tsx";
 
+const FORMAT_PLURAL: Record<string, [string, string]> = {
+  movie: ["movie", "movies"],
+  tv: ["TV show", "TV shows"],
+  anime: ["anime", "anime"],
+  manga: ["manga", "manga"],
+  game: ["game", "games"],
+  book: ["book", "books"],
+};
+
+function formatCountsToString(counts: Record<string, number>): string {
+  const entries = Object.entries(counts).sort(([, a], [, b]) => b - a);
+  if (entries.length === 0) return "";
+  return entries
+    .map(([format, n]) => {
+      const [sing, plur] = FORMAT_PLURAL[format] ?? [format, format];
+      return `${n} ${n === 1 ? sing : plur}`;
+    })
+    .join(" · ");
+}
+
 function deriveLabel(b: BatchSummary): string {
   if (b.name) return b.name;
-  if (b.prompt) return `"${b.prompt}"`;
+  if (b.prompt) {
+    // First clause of the prompt makes a much better list label than the
+    // full string. Cuts on common separators ("but also:", "·", em dash,
+    // colon, comma) so a refined batch like
+    //   "movies that earn their endings, but also: set in the 70s"
+    // becomes a clean "movies that earn their endings".
+    const first = b.prompt.split(/(?:,? but also:|·|—|: | - )/)[0]!.trim();
+    // Cap to ~60 chars in case the first clause itself is long.
+    return first.length > 60 ? `${first.slice(0, 57).trimEnd()}…` : first;
+  }
   return `Default · ${new Date(b.createdAt).toLocaleDateString()}`;
 }
 
@@ -112,31 +141,44 @@ function BatchRow({
     setEditing(false);
   }
 
+  // Compose a "3 movies · 2 games · 1 book" line from the batch's format
+  // breakdown. Skipped when there are zero recs (shouldn't happen in
+  // practice but defensive).
+  const formatLine = formatCountsToString(batch.formatCounts);
+
   return (
-    <li className="rounded-md border border-neutral-800 bg-neutral-900 p-3">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <Link
-          to={`/recommendations?batch=${batch.id}`}
-          className="min-w-0 flex-1 text-base font-medium leading-snug hover:underline"
-        >
-          {deriveLabel(batch)}
-        </Link>
-        <span className="shrink-0 text-xs text-neutral-500">
-          {new Date(batch.createdAt).toLocaleDateString()} · {batch.count}{" "}
-          {batch.count === 1 ? "pick" : "picks"}
-        </span>
-        <div className="flex shrink-0 gap-1">
+    <li className="rounded-md border border-neutral-800 bg-neutral-900 p-3 transition-colors hover:border-neutral-600">
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <Link
+            to={`/recommendations?batch=${batch.id}`}
+            className="block text-base font-medium leading-snug hover:underline"
+          >
+            {deriveLabel(batch)}
+          </Link>
+          <p className="text-xs text-neutral-500">
+            {new Date(batch.createdAt).toLocaleDateString()} · {batch.count}{" "}
+            {batch.count === 1 ? "pick" : "picks"}
+            {formatLine ? ` · ${formatLine}` : ""}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
           <button
             onClick={() => setEditing(!editing)}
             className="rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-800"
           >
             {editing ? "Cancel" : "Rename"}
           </button>
+          {/* Delete is a quieter affordance than Rename — text-only with a
+              rose hover. Reduces accidental clicks; the destruction is
+              still one click + a confirm() dialog away. */}
           <button
             onClick={onDelete}
-            className="rounded-md border border-rose-900 px-2 py-1 text-xs text-rose-300 hover:bg-rose-950/40"
+            aria-label="Delete batch"
+            title="Delete batch"
+            className="rounded-md px-1.5 py-1 text-xs text-neutral-500 hover:text-rose-400"
           >
-            Delete
+            ×
           </button>
         </div>
       </div>

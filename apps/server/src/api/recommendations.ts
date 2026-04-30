@@ -156,17 +156,33 @@ recommendationsRouter.get("/batches", async (req, res, next) => {
     const rows = await db.query.recommendationBatches.findMany({
       where: eq(recommendationBatches.userId, req.user!.id),
       orderBy: [desc(recommendationBatches.createdAt)],
-      with: { recommendations: { columns: { id: true } } },
+      // Pull mediaType through the rec→media relation so the response
+      // includes per-format counts. Lets the frontend show "3 movies · 2
+      // games · 1 book" on each batch row without a separate request.
+      with: {
+        recommendations: {
+          columns: { id: true },
+          with: { media: { columns: { mediaType: true } } },
+        },
+      },
     });
     res.json({
-      batches: rows.map((b) => ({
-        id: b.id,
-        prompt: b.prompt,
-        name: b.name,
-        createdAt: b.createdAt,
-        updatedAt: b.updatedAt,
-        count: b.recommendations.length,
-      })),
+      batches: rows.map((b) => {
+        const formatCounts: Record<string, number> = {};
+        for (const r of b.recommendations) {
+          const f = r.media.mediaType;
+          formatCounts[f] = (formatCounts[f] ?? 0) + 1;
+        }
+        return {
+          id: b.id,
+          prompt: b.prompt,
+          name: b.name,
+          createdAt: b.createdAt,
+          updatedAt: b.updatedAt,
+          count: b.recommendations.length,
+          formatCounts,
+        };
+      }),
     });
   } catch (err) {
     next(err);

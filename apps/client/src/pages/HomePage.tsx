@@ -18,6 +18,7 @@ import {
 } from "../hooks/useRecommendations.ts";
 import { useLibrary, type LibraryItem } from "../hooks/useLibrary.ts";
 import { Skeleton } from "../components/shared/Skeleton.tsx";
+import { LandingPage } from "../components/marketing/LandingPage.tsx";
 
 const FORMAT_LABEL: Record<MediaType, string> = {
   movie: "Movies",
@@ -52,34 +53,12 @@ export function HomePage() {
   return (
     <div>
       <SignedOut>
-        <MarketingHero />
+        <LandingPage />
       </SignedOut>
       <SignedIn>
         <Dashboard />
       </SignedIn>
     </div>
-  );
-}
-
-function MarketingHero() {
-  return (
-    <section className="space-y-8 py-6">
-      <div className="space-y-4">
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-          Resonance
-        </h1>
-        <p className="max-w-prose text-lg text-neutral-300">
-          Cross-media recommendations grounded in your taste DNA — movies, TV,
-          anime, manga, games, and books.
-        </p>
-      </div>
-      <Link
-        to="/sign-in"
-        className="inline-block rounded-md bg-white px-5 py-2.5 text-sm font-medium text-neutral-950 hover:bg-neutral-200"
-      >
-        Sign in to start
-      </Link>
-    </section>
   );
 }
 

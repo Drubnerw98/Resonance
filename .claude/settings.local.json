@@ -39,7 +39,10 @@
       "Bash(pkill -f \"tsx watch\")",
       "Bash(pkill -f \"vite\")",
       "Bash(kill 2432036 2432037)",
-      "Bash(kill 2012536 2012559 2432043)"
+      "Bash(kill 2012536 2012559 2432043)",
+      "Bash(pkill -f \"pnpm.*dev\")",
+      "Bash(kill 2441166 2441187 2441199 2441200 2441212)",
+      "Bash(kill -9 2441213 2441219 2441253)"
     ]
   }
 }

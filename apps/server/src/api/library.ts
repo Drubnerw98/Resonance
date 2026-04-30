@@ -11,6 +11,7 @@ import {
   listLibraryItems,
   parseGoodreadsCSV,
   parseLetterboxdCSV,
+  parseLetterboxdWatchlistCSV,
   parseMyAnimeListXML,
 } from "../services/library.js";
 import { fetchOwnedGames, resolveSteamId } from "../services/steam.js";
@@ -130,7 +131,15 @@ libraryRouter.patch("/:id", async (req, res, next) => {
 
 const importBodySchema = z
   .object({
-    source: z.enum(["letterboxd", "goodreads", "myanimelist"]),
+    // "letterboxd-watchlist" is a dispatch label, not a row source — items
+    // imported via this path still land with source="letterboxd"; only their
+    // status differs (watchlist vs. consumed).
+    source: z.enum([
+      "letterboxd",
+      "letterboxd-watchlist",
+      "goodreads",
+      "myanimelist",
+    ]),
     // Reused for CSV (Letterboxd, Goodreads) and XML (MyAnimeList) — same
     // upload mechanism, parser dispatches by source.
     csv: z.string().min(1).max(5_000_000), // 5MB cap (MAL XML can be large)
@@ -158,6 +167,8 @@ libraryRouter.post("/import", async (req, res, next) => {
     try {
       if (source === "letterboxd") {
         items = parseLetterboxdCSV(csv);
+      } else if (source === "letterboxd-watchlist") {
+        items = parseLetterboxdWatchlistCSV(csv);
       } else if (source === "goodreads") {
         items = parseGoodreadsCSV(csv);
       } else if (source === "myanimelist") {

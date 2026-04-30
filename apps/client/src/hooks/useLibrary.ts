@@ -26,7 +26,11 @@ interface ImportResult {
   duplicates: number;
 }
 
-export type ImportSource = "letterboxd" | "goodreads" | "myanimelist";
+export type ImportSource =
+  | "letterboxd"
+  | "letterboxd-watchlist"
+  | "goodreads"
+  | "myanimelist";
 
 export interface UseLibrary {
   status: "loading" | "ready" | "error";

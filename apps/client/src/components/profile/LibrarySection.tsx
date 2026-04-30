@@ -24,6 +24,7 @@ const FORMAT_LABEL: Record<string, string> = {
  */
 const SOURCE_LABEL: Record<ImportSource, string> = {
   letterboxd: "Letterboxd",
+  "letterboxd-watchlist": "Letterboxd watchlist",
   goodreads: "Goodreads",
   myanimelist: "MyAnimeList",
 };
@@ -148,6 +149,13 @@ export function LibrarySection() {
               busy={lib.importing && pendingSource === "letterboxd"}
               disabled={lib.importing}
               onClick={() => startImport("letterboxd")}
+            />
+            <ImportButton
+              label="Import Letterboxd watchlist"
+              hint="Movies you plan to watch (watchlist.csv)"
+              busy={lib.importing && pendingSource === "letterboxd-watchlist"}
+              disabled={lib.importing}
+              onClick={() => startImport("letterboxd-watchlist")}
             />
             <ImportButton
               label="Import Goodreads CSV"

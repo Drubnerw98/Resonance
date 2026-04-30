@@ -72,6 +72,24 @@ export function parseCSV(text: string): string[][] {
 }
 
 /**
+ * Parse a Letterboxd watchlist.csv export. Same column shape as the
+ * watched/diary exports, but every row maps to status="watchlist" and any
+ * rating data is dropped (a watchlist entry, by definition, hasn't been
+ * watched yet).
+ *
+ * Source field stays "letterboxd" — the status column is what distinguishes
+ * watched from to-watch in our schema, so a single source label keeps the
+ * "clear all my Letterboxd entries" wipe path simple.
+ */
+export function parseLetterboxdWatchlistCSV(text: string): NewLibraryItemRow[] {
+  return parseLetterboxdCSV(text).map((item) => ({
+    ...item,
+    status: "watchlist",
+    rating: null,
+  }));
+}
+
+/**
  * Parse a Letterboxd CSV export into library item rows. Letterboxd's
  * watched/diary/watchlist exports all share the columns:
  *   Date, Name, Year, Letterboxd URI[, Rating]

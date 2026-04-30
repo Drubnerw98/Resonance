@@ -119,7 +119,8 @@ export function EvaluatePage() {
         <select
           value={mediaType}
           onChange={(e) => setMediaType(e.target.value as MediaType)}
-          className="rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+          aria-label="Format"
+          className="rounded-md border border-transparent bg-neutral-800/60 px-3 py-2 text-sm text-neutral-300 transition-colors focus:border-neutral-500 focus:bg-neutral-800 focus:outline-none"
         >
           {visibleFormats.map((opt) => (
             <option key={opt.value} value={opt.value}>

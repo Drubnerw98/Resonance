@@ -53,7 +53,7 @@ export function MediaCard({
     isSaved
       ? "border-emerald-700 bg-emerald-950/20"
       : "border-neutral-800 bg-neutral-900 hover:border-neutral-600 hover:bg-neutral-900/80",
-    isSkipped ? "opacity-60" : "opacity-100",
+    isSkipped ? "opacity-40 saturate-50" : "opacity-100",
     pulse ? "animate-feedback-pulse" : "",
   ].join(" ");
 
@@ -225,7 +225,7 @@ function FeedbackRow({
         className={
           "rounded-md px-2 py-1 text-xs font-medium transition-colors " +
           (isSkipped
-            ? "bg-rose-900 text-white"
+            ? "border border-neutral-700 bg-neutral-800 text-neutral-400"
             : "border border-neutral-700 text-neutral-300 hover:bg-neutral-800")
         }
         aria-pressed={isSkipped}

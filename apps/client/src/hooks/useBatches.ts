@@ -11,6 +11,12 @@ export interface BatchSummary {
   /** Per-format breakdown: { movie: 3, book: 2, ... }. Sparse — only
    * formats with at least one rec appear. */
   formatCounts: Record<string, number>;
+  /** Top 3 most-common taste tags across the batch's recs. Used as the
+   * fallback smart label when the user hasn't set a name. */
+  topTags: string[];
+  /** Up to 4 cover image URLs from the batch's highest-scoring recs.
+   * Rendered as small thumbnails on the lists page for visual identity. */
+  coverUrls: string[];
 }
 
 interface BatchesResponse {

@@ -6,6 +6,14 @@ body,
   height: 100%;
 }
 
+/* Smooth-scroll for in-page anchor links (e.g. landing page's
+   "See how it works" → #how-it-works). Without this, anchor jumps
+   are instant which feels jarring after the polished animations
+   elsewhere. */
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,

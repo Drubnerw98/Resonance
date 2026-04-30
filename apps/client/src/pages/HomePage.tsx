@@ -607,7 +607,7 @@ function SectionCard({
             {title}
           </h2>
           {subtitle && (
-            <p className="mt-0.5 text-sm leading-snug text-neutral-200">
+            <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-neutral-200">
               {subtitle}
             </p>
           )}

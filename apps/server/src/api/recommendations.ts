@@ -156,23 +156,48 @@ recommendationsRouter.get("/batches", async (req, res, next) => {
     const rows = await db.query.recommendationBatches.findMany({
       where: eq(recommendationBatches.userId, req.user!.id),
       orderBy: [desc(recommendationBatches.createdAt)],
-      // Pull mediaType through the rec→media relation so the response
-      // includes per-format counts. Lets the frontend show "3 movies · 2
-      // games · 1 book" on each batch row without a separate request.
+      // Pull through the rec→media relation. Returns enough data per rec
+      // so the lists page can:
+      //   - count per-format ("3 movies · 2 games")
+      //   - derive a smart batch label from the most-common taste tags
+      //   - show 4 cover thumbnails (top by match score)
       with: {
         recommendations: {
-          columns: { id: true },
-          with: { media: { columns: { mediaType: true } } },
+          columns: { id: true, tasteTags: true, matchScore: true },
+          with: {
+            media: { columns: { mediaType: true, normalizedData: true } },
+          },
         },
       },
     });
     res.json({
       batches: rows.map((b) => {
         const formatCounts: Record<string, number> = {};
+        const tagCounts: Record<string, number> = {};
         for (const r of b.recommendations) {
-          const f = r.media.mediaType;
-          formatCounts[f] = (formatCounts[f] ?? 0) + 1;
+          formatCounts[r.media.mediaType] =
+            (formatCounts[r.media.mediaType] ?? 0) + 1;
+          for (const t of r.tasteTags ?? []) {
+            tagCounts[t] = (tagCounts[t] ?? 0) + 1;
+          }
         }
+        // Top 3 covers by match score — visual identity for the list.
+        const sortedByScore = [...b.recommendations].sort(
+          (a, b2) => b2.matchScore - a.matchScore,
+        );
+        const coverUrls: string[] = [];
+        for (const r of sortedByScore) {
+          const url = r.media.normalizedData?.imageUrl;
+          if (typeof url === "string" && url.length > 0) {
+            coverUrls.push(url);
+            if (coverUrls.length >= 4) break;
+          }
+        }
+        // Top 3 most-common taste tags — used for smart default label.
+        const topTags = Object.entries(tagCounts)
+          .sort(([, a], [, c]) => c - a)
+          .slice(0, 3)
+          .map(([t]) => t);
         return {
           id: b.id,
           prompt: b.prompt,
@@ -181,6 +206,8 @@ recommendationsRouter.get("/batches", async (req, res, next) => {
           updatedAt: b.updatedAt,
           count: b.recommendations.length,
           formatCounts,
+          topTags,
+          coverUrls,
         };
       }),
     });

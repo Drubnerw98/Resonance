@@ -29,17 +29,26 @@ function formatCountsToString(counts: Record<string, number>): string {
 }
 
 function deriveLabel(b: BatchSummary): string {
+  // Manual rename always wins.
   if (b.name) return b.name;
-  if (b.prompt) {
-    // First clause of the prompt makes a much better list label than the
-    // full string. Cuts on common separators ("but also:", "·", em dash,
-    // colon, comma) so a refined batch like
-    //   "movies that earn their endings, but also: set in the 70s"
-    // becomes a clean "movies that earn their endings".
-    const first = b.prompt.split(/(?:,? but also:|·|—|: | - )/)[0]!.trim();
-    // Cap to ~60 chars in case the first clause itself is long.
-    return first.length > 60 ? `${first.slice(0, 57).trimEnd()}…` : first;
+
+  // Smart default: the most-common taste tags across the batch's recs are
+  // a much better summary than raw prompt text. Tags are concise concepts
+  // ("burden-carrying protagonist") rather than verbose user requests.
+  // Combine the top 2 — gives "burden-carrying protagonist · earned
+  // sacrifice" style labels.
+  if (b.topTags && b.topTags.length > 0) {
+    const top = b.topTags.slice(0, 2);
+    return top.join(" · ");
   }
+
+  // Fallback: trim the prompt to its first clause + cap to ~50 chars.
+  // Hits when a brand-new batch is still generating (no recs → no tags).
+  if (b.prompt) {
+    const first = b.prompt.split(/(?:,? but also:|·|—|: | - )/)[0]!.trim();
+    return first.length > 50 ? `${first.slice(0, 47).trimEnd()}…` : first;
+  }
+
   return `Default · ${new Date(b.createdAt).toLocaleDateString()}`;
 }
 
@@ -148,7 +157,33 @@ function BatchRow({
 
   return (
     <li className="rounded-md border border-neutral-800 bg-neutral-900 p-3 transition-colors hover:border-neutral-600">
-      <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+      <div className="flex flex-wrap items-start gap-3 sm:flex-nowrap">
+        {batch.coverUrls.length > 0 && (
+          <Link
+            to={`/recommendations?batch=${batch.id}`}
+            aria-label={`View ${deriveLabel(batch)}`}
+            className="shrink-0"
+          >
+            {/* Stacked cover thumbnails — visual identity for the list.
+                Negative margin overlap creates a deck effect; rotated
+                slightly for warmth. */}
+            <div className="flex">
+              {batch.coverUrls.slice(0, 4).map((url, i) => (
+                <img
+                  key={i}
+                  src={url}
+                  alt=""
+                  loading="lazy"
+                  className={
+                    "h-14 w-10 rounded-sm border border-neutral-800 object-cover shadow-sm sm:h-16 sm:w-12 " +
+                    (i > 0 ? "-ml-3" : "")
+                  }
+                  style={{ zIndex: 4 - i }}
+                />
+              ))}
+            </div>
+          </Link>
+        )}
         <div className="min-w-0 flex-1 space-y-0.5">
           <Link
             to={`/recommendations?batch=${batch.id}`}
@@ -161,6 +196,11 @@ function BatchRow({
             {batch.count === 1 ? "pick" : "picks"}
             {formatLine ? ` · ${formatLine}` : ""}
           </p>
+          {batch.prompt && (
+            <p className="line-clamp-1 text-xs italic text-neutral-600">
+              {batch.prompt}
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <button

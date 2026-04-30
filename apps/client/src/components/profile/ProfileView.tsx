@@ -20,6 +20,18 @@ const FORMAT_LABEL: Record<string, string> = {
   book: "Books",
 };
 
+// Color per format — same palette used on the Browse page format chips
+// and the home dashboard's library bar. Distinct hues make the affinities
+// scannable at a glance instead of all-emerald.
+const FORMAT_BAR_COLOR: Record<string, string> = {
+  movie: "bg-rose-600",
+  tv: "bg-amber-500",
+  anime: "bg-fuchsia-600",
+  manga: "bg-violet-600",
+  game: "bg-emerald-600",
+  book: "bg-sky-600",
+};
+
 function WeightBar({
   value,
   colorClass = "bg-emerald-500",
@@ -193,12 +205,19 @@ export function ProfileView({
               className="rounded-md border border-neutral-800 bg-neutral-900 p-3"
             >
               <div className="flex items-center justify-between gap-4">
-                <span className="font-medium">
+                <span className="flex items-center gap-2 font-medium">
+                  <span
+                    className={`h-2 w-2 rounded-full ${FORMAT_BAR_COLOR[m.format] ?? "bg-emerald-500"}`}
+                    aria-hidden
+                  />
                   {FORMAT_LABEL[m.format] ?? m.format}
                 </span>
                 <div className="flex items-center gap-2 text-xs text-neutral-500">
                   <span>comfort</span>
-                  <WeightBar value={m.comfort} />
+                  <WeightBar
+                    value={m.comfort}
+                    colorClass={FORMAT_BAR_COLOR[m.format] ?? "bg-emerald-500"}
+                  />
                 </div>
               </div>
               {m.favorites.length > 0 && (

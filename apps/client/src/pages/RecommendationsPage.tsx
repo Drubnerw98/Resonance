@@ -425,7 +425,7 @@ export function RecommendationsPage() {
         {recs.isGenerating && (
           <section className="space-y-3">
             <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-neutral-800 pb-1">
-              <h2 className="min-w-0 flex-1 text-base font-semibold leading-snug text-neutral-400">
+              <h2 className="line-clamp-2 min-w-0 flex-1 text-base font-semibold leading-snug text-neutral-400">
                 {promptDraft.trim()
                   ? `"${promptDraft.trim()}"`
                   : "New batch"}
@@ -491,7 +491,7 @@ function BatchSection({
   return (
     <section className="space-y-3">
       <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-neutral-800 pb-1">
-        <h2 className="min-w-0 flex-1 text-base font-semibold leading-snug">
+        <h2 className="line-clamp-2 min-w-0 flex-1 text-base font-semibold leading-snug">
           {batchLabel(batch)}
         </h2>
         <div className="flex shrink-0 items-center gap-3">
@@ -586,12 +586,21 @@ function TabButton({
       className={
         "relative -mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors " +
         (active
-          ? "border-white text-white"
+          ? "border-emerald-500 text-white"
           : "border-transparent text-neutral-400 hover:text-neutral-200")
       }
     >
       {label}
-      <span className="ml-1.5 text-xs text-neutral-500">{count}</span>
+      <span
+        className={
+          "ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium " +
+          (active
+            ? "bg-emerald-950/40 text-emerald-300"
+            : "bg-neutral-800 text-neutral-400")
+        }
+      >
+        {count}
+      </span>
     </button>
   );
 }

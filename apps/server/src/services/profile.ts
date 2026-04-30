@@ -53,9 +53,7 @@ export async function saveProfile(
   // profile and may now misrepresent the user. Next /discover/themes GET
   // regenerates fresh against the current profile. Inline the delete to avoid
   // a circular import (services/ai/discover.ts → services/profile.ts).
-  await db
-    .delete(discoveryThemes)
-    .where(eq(discoveryThemes.userId, userId));
+  await db.delete(discoveryThemes).where(eq(discoveryThemes.userId, userId));
 
   return row;
 }

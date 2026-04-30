@@ -14,9 +14,7 @@ async function run(): Promise<void> {
   // the next 6 require ~250ms each → total ~1500ms.
   const limiter = createTokenBucket({ capacity: 4, intervalMs: 1000 });
   const elapsed = await timed("10 acquires on 4/s bucket", async () => {
-    await Promise.all(
-      Array.from({ length: 10 }, () => limiter.acquire()),
-    );
+    await Promise.all(Array.from({ length: 10 }, () => limiter.acquire()));
   });
 
   if (elapsed < 1300 || elapsed > 1900) {
@@ -27,9 +25,7 @@ async function run(): Promise<void> {
   const fifoLimiter = createTokenBucket({ capacity: 1, intervalMs: 100 });
   const order: number[] = [];
   await Promise.all(
-    [0, 1, 2, 3, 4].map((i) =>
-      fifoLimiter.acquire().then(() => order.push(i)),
-    ),
+    [0, 1, 2, 3, 4].map((i) => fifoLimiter.acquire().then(() => order.push(i))),
   );
   if (order.join(",") !== "0,1,2,3,4") {
     throw new Error(`FIFO violated: ${order.join(",")}`);

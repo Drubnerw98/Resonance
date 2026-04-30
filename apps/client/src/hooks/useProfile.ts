@@ -13,7 +13,12 @@ interface ProfileResponse {
 
 export type ProfileStatus =
   | { status: "loading" }
-  | { status: "ready"; profile: TasteProfile; version: number; updatedAt: string }
+  | {
+      status: "ready";
+      profile: TasteProfile;
+      version: number;
+      updatedAt: string;
+    }
   | { status: "missing" }
   | { status: "error"; message: string };
 

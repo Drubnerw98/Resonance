@@ -10,7 +10,7 @@ export function useApi() {
   const { getToken } = useAuth();
 
   return useCallback(
-    <T,>(path: string, options: ApiFetchOptions = {}) =>
+    <T>(path: string, options: ApiFetchOptions = {}) =>
       apiFetch<T>(path, { ...options, getToken: () => getToken() }),
     [getToken],
   );

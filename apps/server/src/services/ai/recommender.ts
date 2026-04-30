@@ -15,10 +15,7 @@ import {
   type RecommendationBatchRow,
   type RecommendationRow,
 } from "../../db/schema.js";
-import {
-  searchAndCacheByQuery,
-  searchAndCacheByTitle,
-} from "../mediaCache.js";
+import { searchAndCacheByQuery, searchAndCacheByTitle } from "../mediaCache.js";
 import { getActiveProfile } from "../profile.js";
 import { getAnthropic, ONBOARDING_MODEL } from "./client.js";
 import { recommendCandidatesSystemPrompt } from "./prompts/recommendCandidates.js";
@@ -88,7 +85,10 @@ export function canonicalizeTitle(s: string): string {
  * "Planescape Torment" and "Planescape: Torment" to the same shape after
  * suffixes are stripped — they're the same work formatted differently. */
 function looseShape(s: string): string {
-  return s.replace(/[:\-_]/g, " ").replace(/\s+/g, " ").trim();
+  return s
+    .replace(/[:\-_]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 // Two separator regexes for the prefix-match check:
@@ -135,9 +135,7 @@ function matchesKnown(candidate: string, known: Set<string>): boolean {
 
 function collectFavorites(profile: TasteProfile): Set<string> {
   return new Set(
-    profile.mediaAffinities
-      .flatMap((a) => a.favorites)
-      .map(canonicalizeTitle),
+    profile.mediaAffinities.flatMap((a) => a.favorites).map(canonicalizeTitle),
   );
 }
 
@@ -161,10 +159,7 @@ export async function collectAvoidTitles(
       eq(recommendations.userId, userId),
       or(
         eq(recommendations.status, "skipped"),
-        and(
-          eq(recommendations.status, "rated"),
-          lt(recommendations.rating, 3),
-        ),
+        and(eq(recommendations.status, "rated"), lt(recommendations.rating, 3)),
       ),
     ),
     with: { media: true },
@@ -172,10 +167,7 @@ export async function collectAvoidTitles(
   // From library imports: any item rated 1-2 stars is treated as
   // user-flagged "I watched this and didn't like it".
   const fromLibrary = await db.query.libraryItems.findMany({
-    where: and(
-      eq(libraryItems.userId, userId),
-      lt(libraryItems.rating, 3),
-    ),
+    where: and(eq(libraryItems.userId, userId), lt(libraryItems.rating, 3)),
   });
   const set = new Set<string>();
   for (const r of fromRecs) set.add(canonicalizeTitle(r.media.title));
@@ -247,10 +239,7 @@ export async function getUserLibrary(
         eq(libraryItems.userId, userId),
         eq(libraryItems.status, "consumed"),
         // Only items with no rating OR rating >= 3 count as positive library.
-        or(
-          isNull(libraryItems.rating),
-          gt(libraryItems.rating, 2),
-        ),
+        or(isNull(libraryItems.rating), gt(libraryItems.rating, 2)),
       ),
       orderBy: [desc(libraryItems.createdAt)],
       limit: 200,
@@ -404,10 +393,7 @@ export async function generateRecommendations(
   const enabledFormats = new Set<MediaType>(
     profile.mediaAffinities.map((a) => a.format),
   );
-  console.log(
-    `[rec] enabled formats:`,
-    Array.from(enabledFormats),
-  );
+  console.log(`[rec] enabled formats:`, Array.from(enabledFormats));
 
   const candidates = await collectRealCandidates(
     plan,
@@ -523,7 +509,14 @@ async function generateCandidatePlan(
   // ("don't propose titles in formats with comfort < 0.2"). If a format
   // doesn't appear in mediaAffinities at all, it's been actively disabled
   // and proposing for it is wrong.
-  const ALL_FORMATS: MediaType[] = ["movie", "tv", "anime", "manga", "game", "book"];
+  const ALL_FORMATS: MediaType[] = [
+    "movie",
+    "tv",
+    "anime",
+    "manga",
+    "game",
+    "book",
+  ];
   const enabledFormats = new Set(profile.mediaAffinities.map((a) => a.format));
   const disabledFormats = ALL_FORMATS.filter((f) => !enabledFormats.has(f));
   if (disabledFormats.length > 0) {
@@ -653,7 +646,8 @@ async function collectRealCandidates(
       continue;
     }
     const { hits } = settlement.value;
-    rawByFormat[sug.mediaType] = (rawByFormat[sug.mediaType] ?? 0) + hits.length;
+    rawByFormat[sug.mediaType] =
+      (rawByFormat[sug.mediaType] ?? 0) + hits.length;
     if (hits.length === 0) {
       console.warn(
         `[rec] title search returned 0 hits: "${sug.title}" (${sug.mediaType})`,
@@ -789,9 +783,7 @@ synopsis: ${truncate(item.description, 600)}`;
   });
 
   if (!response.parsed_output) {
-    throw new Error(
-      `Scoring failed (stop_reason=${response.stop_reason})`,
-    );
+    throw new Error(`Scoring failed (stop_reason=${response.stop_reason})`);
   }
   return ScoredCandidatesOutputSchema.parse(response.parsed_output);
 }
@@ -810,7 +802,9 @@ async function persistRecommendations(
   for (const r of scored.recommendations) {
     const mediaCacheId = cacheIdByIndex.get(r.candidateId);
     if (!mediaCacheId) {
-      console.warn(`[rec] model returned unknown candidateId: ${r.candidateId}`);
+      console.warn(
+        `[rec] model returned unknown candidateId: ${r.candidateId}`,
+      );
       continue;
     }
     rows.push({

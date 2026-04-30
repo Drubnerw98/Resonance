@@ -269,7 +269,9 @@ export function useRecommendations(): UseRecommendations {
         }
       } catch (err) {
         setRecommendations(snapshot);
-        setError(err instanceof Error ? err.message : "Failed to save feedback");
+        setError(
+          err instanceof Error ? err.message : "Failed to save feedback",
+        );
       }
     },
     [api],
@@ -283,7 +285,11 @@ export function useRecommendations(): UseRecommendations {
         snapshot = prev;
         return prev.map((r) =>
           r.id === rec.id
-            ? { ...r, status: "plan_to" as const, actedAt: new Date().toISOString() }
+            ? {
+                ...r,
+                status: "plan_to" as const,
+                actedAt: new Date().toISOString(),
+              }
             : r,
         );
       });

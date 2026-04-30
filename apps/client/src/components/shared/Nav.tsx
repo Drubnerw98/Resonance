@@ -139,9 +139,7 @@ function DesktopLink({ to, label }: { to: string; label: string }) {
       to={to}
       className={({ isActive }) =>
         "relative block whitespace-nowrap py-1 transition-colors " +
-        (isActive
-          ? "text-white"
-          : "text-neutral-400 hover:text-neutral-100")
+        (isActive ? "text-white" : "text-neutral-400 hover:text-neutral-100")
       }
     >
       {({ isActive }) => (

@@ -2,10 +2,7 @@ import { eq } from "drizzle-orm";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type { DiscoveryTheme, TasteProfile } from "@resonance/shared";
 import { db } from "../../db/index.js";
-import {
-  discoveryThemes,
-  type DiscoveryThemesRow,
-} from "../../db/schema.js";
+import { discoveryThemes, type DiscoveryThemesRow } from "../../db/schema.js";
 import { getActiveProfile } from "../profile.js";
 import { getAnthropic, ONBOARDING_MODEL } from "./client.js";
 import { discoverThemesSystemPrompt } from "./prompts/discoverThemes.js";
@@ -103,7 +100,14 @@ async function callModel(
   // recommender's candidate prompt. Any format absent from
   // mediaAffinities has been actively turned off; a theme with that
   // format would never produce useful recommendations on click.
-  const ALL_FORMATS = ["movie", "tv", "anime", "manga", "game", "book"] as const;
+  const ALL_FORMATS = [
+    "movie",
+    "tv",
+    "anime",
+    "manga",
+    "game",
+    "book",
+  ] as const;
   const enabledFormats = new Set(profile.mediaAffinities.map((a) => a.format));
   const disabledFormats = ALL_FORMATS.filter((f) => !enabledFormats.has(f));
   if (disabledFormats.length > 0) {

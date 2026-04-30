@@ -18,9 +18,7 @@ const REFINEMENT_THRESHOLD = 5;
  * banner. Evaluated synchronously (one quick count query) so the PATCH
  * response doesn't have to wait for the actual model call.
  */
-export async function wouldTriggerRefinement(
-  userId: string,
-): Promise<boolean> {
+export async function wouldTriggerRefinement(userId: string): Promise<boolean> {
   const profileRow = await getActiveProfile(userId);
   if (!profileRow) return false;
   const recentFeedback = await db.query.recommendations.findMany({
@@ -172,9 +170,7 @@ Evolve the profile.`;
     messages: [{ role: "user", content: userMessage }],
     output_config: {
       format: zodOutputFormat(
-        TasteProfileSchema as unknown as Parameters<
-          typeof zodOutputFormat
-        >[0],
+        TasteProfileSchema as unknown as Parameters<typeof zodOutputFormat>[0],
       ),
     },
   });

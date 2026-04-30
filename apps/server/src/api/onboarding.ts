@@ -71,12 +71,10 @@ onboardingRouter.get("/session", async (req, res, next) => {
     const modelSignaledReady = session.messages.some(
       (m) => m.role === "assistant" && m.content.includes("<ready/>"),
     );
-    const ready =
-      modelSignaledReady && meetsReadinessFloor(session.messages);
+    const ready = modelSignaledReady && meetsReadinessFloor(session.messages);
     const visibleMessages = session.messages.map((m) => ({
       role: m.role,
-      content:
-        m.role === "assistant" ? stripModelTags(m.content) : m.content,
+      content: m.role === "assistant" ? stripModelTags(m.content) : m.content,
     }));
     res.json({
       id: session.id,

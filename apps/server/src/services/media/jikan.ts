@@ -99,9 +99,7 @@ function cleanResults(items: MediaItem[], rawItems: JikanItem[]): MediaItem[] {
     if (r.type && PROMO_TYPES.has(r.type)) dropIds.add(r.mal_id);
     if ((r.members ?? 0) < MIN_MEMBERS_FOR_TITLE_HIT) dropIds.add(r.mal_id);
   }
-  const filtered = items.filter(
-    (i) => !dropIds.has(Number(i.externalId)),
-  );
+  const filtered = items.filter((i) => !dropIds.has(Number(i.externalId)));
 
   const byKey = new Map<string, MediaItem>();
   for (const item of filtered) {
@@ -127,14 +125,17 @@ function normalize(item: JikanItem, mediaType: "anime" | "manga"): MediaItem {
     rating: item.score ?? null,
     year: yearFromDate(dateStr),
     genres: (item.genres ?? []).map((g) => g.name),
-    externalUrl: item.url ?? `https://myanimelist.net/${mediaType}/${item.mal_id}`,
+    externalUrl:
+      item.url ?? `https://myanimelist.net/${mediaType}/${item.mal_id}`,
     metadata: {},
   };
 }
 
 // Genre IDs are stable, so we cache the lookup on first use.
-let cachedGenres: { anime: Map<string, number>; manga: Map<string, number> } | null =
-  null;
+let cachedGenres: {
+  anime: Map<string, number>;
+  manga: Map<string, number>;
+} | null = null;
 
 async function loadGenres(): Promise<{
   anime: Map<string, number>;
@@ -150,12 +151,8 @@ async function loadGenres(): Promise<{
     ),
   ]);
   cachedGenres = {
-    anime: new Map(
-      a.data.map((g) => [g.name.toLowerCase(), g.mal_id]),
-    ),
-    manga: new Map(
-      m.data.map((g) => [g.name.toLowerCase(), g.mal_id]),
-    ),
+    anime: new Map(a.data.map((g) => [g.name.toLowerCase(), g.mal_id])),
+    manga: new Map(m.data.map((g) => [g.name.toLowerCase(), g.mal_id])),
   };
   return cachedGenres;
 }

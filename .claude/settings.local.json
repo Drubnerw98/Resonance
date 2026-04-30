@@ -29,7 +29,11 @@
       "Bash(git push *)",
       "Bash(pnpm db:generate)",
       "Bash(pnpm db:migrate)",
-      "Bash(pnpm --filter @resonance/server tsx -e ' *)"
+      "Bash(pnpm --filter @resonance/server tsx -e ' *)",
+      "Bash(pnpm add *)",
+      "Bash(pnpm lint *)",
+      "Bash(pnpm format:check)",
+      "Bash(pnpm format *)"
     ]
   }
 }

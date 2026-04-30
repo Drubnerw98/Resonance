@@ -1,0 +1,11 @@
+# Build outputs
+**/dist/
+**/.vercel/
+**/node_modules/
+
+# Generated SQL migrations — formatter would reflow them away from how
+# drizzle-kit emits them.
+apps/server/src/db/migrations/
+
+# Lockfile
+pnpm-lock.yaml

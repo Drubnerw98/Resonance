@@ -33,7 +33,10 @@ export interface UseLibrary {
   items: LibraryItem[];
   error: string | null;
   importing: boolean;
-  importCsv: (source: ImportSource, csv: string) => Promise<ImportResult | null>;
+  importCsv: (
+    source: ImportSource,
+    csv: string,
+  ) => Promise<ImportResult | null>;
   /** Import owned games from Steam by SteamID, profile URL, or vanity URL.
    * Different shape from importCsv (no file upload), so it's its own method. */
   importSteam: (steamIdOrUrl: string) => Promise<ImportResult | null>;
@@ -168,9 +171,7 @@ export function useLibrary(): UseLibrary {
     async (id: string, status: LibraryItemStatus) => {
       // Optimistic flip — UI moves the item between tabs immediately.
       const snapshot = items;
-      setItems((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, status } : i)),
-      );
+      setItems((prev) => prev.map((i) => (i.id === id ? { ...i, status } : i)));
       try {
         await api(`/library/${id}`, {
           method: "PATCH",

@@ -58,10 +58,13 @@ export function useEvaluate(): UseEvaluate {
       setResult(null);
       setScoreStatus("idle");
       try {
-        const res = await api<{ matches: EvaluateMatch[] }>("/evaluate/search", {
-          method: "POST",
-          body: { title, mediaType },
-        });
+        const res = await api<{ matches: EvaluateMatch[] }>(
+          "/evaluate/search",
+          {
+            method: "POST",
+            body: { title, mediaType },
+          },
+        );
         setMatches(res.matches);
         setSearchStatus("ready");
       } catch (err) {

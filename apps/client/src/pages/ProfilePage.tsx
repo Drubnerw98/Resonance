@@ -81,9 +81,7 @@ export function ProfilePage() {
       await api("/profile/reset", { method: "POST" });
       navigate("/onboarding");
     } catch (err) {
-      setContinueError(
-        err instanceof Error ? err.message : "Failed to reset",
-      );
+      setContinueError(err instanceof Error ? err.message : "Failed to reset");
     } finally {
       setIsStartingSession(false);
     }

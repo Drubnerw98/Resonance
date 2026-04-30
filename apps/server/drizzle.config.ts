@@ -15,7 +15,8 @@ loadEnv({ path: resolve(repoRoot, ".env") });
 // database (`migrate`, `push`, `studio`) will fail loudly downstream if the
 // real DATABASE_URL isn't set.
 const databaseUrl =
-  process.env.DATABASE_URL ?? "postgres://placeholder:placeholder@localhost/placeholder";
+  process.env.DATABASE_URL ??
+  "postgres://placeholder:placeholder@localhost/placeholder";
 
 export default defineConfig({
   schema: "./src/db/schema.ts",

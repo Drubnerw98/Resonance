@@ -90,8 +90,7 @@ export function Chat() {
     );
   }
 
-  const showStarter =
-    onboarding.messages.length === 0 && !onboarding.isSending;
+  const showStarter = onboarding.messages.length === 0 && !onboarding.isSending;
 
   // Cheap progress hint — onboarding readiness ~6+ user turns. We can
   // expose where the user is in that arc without surfacing the exact
@@ -124,14 +123,13 @@ export function Chat() {
               <span className="font-medium text-emerald-300">
                 Hey, glad you're here.
               </span>{" "}
-              Don't list favorites — talk about <em>moments</em>. A scene
-              that stuck. A line you keep thinking about. A story that
-              wrecked you. The more specific, the better the profile we
-              build.
+              Don't list favorites — talk about <em>moments</em>. A scene that
+              stuck. A line you keep thinking about. A story that wrecked you.
+              The more specific, the better the profile we build.
             </p>
             <p className="text-xs text-neutral-500">
-              Type something below to start. Usually 6-9 turns to get a
-              real profile.
+              Type something below to start. Usually 6-9 turns to get a real
+              profile.
             </p>
           </div>
         )}

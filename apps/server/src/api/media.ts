@@ -13,14 +13,7 @@ export const mediaRouter: Router = Router();
 
 mediaRouter.use(requireUser);
 
-const mediaTypeEnum = z.enum([
-  "movie",
-  "tv",
-  "anime",
-  "manga",
-  "game",
-  "book",
-]);
+const mediaTypeEnum = z.enum(["movie", "tv", "anime", "manga", "game", "book"]);
 
 const searchSchema = z
   .object({
@@ -53,11 +46,17 @@ mediaRouter.get("/search", async (req, res, next) => {
       title: req.query.title,
       genres:
         typeof req.query.genres === "string"
-          ? req.query.genres.split(",").map((s) => s.trim()).filter(Boolean)
+          ? req.query.genres
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
           : undefined,
       keywords:
         typeof req.query.keywords === "string"
-          ? req.query.keywords.split(",").map((s) => s.trim()).filter(Boolean)
+          ? req.query.keywords
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
           : undefined,
       yearFrom: req.query.yearFrom,
       yearTo: req.query.yearTo,

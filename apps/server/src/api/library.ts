@@ -19,14 +19,7 @@ export const libraryRouter: Router = Router();
 
 libraryRouter.use(requireUser);
 
-const mediaTypeEnum = z.enum([
-  "movie",
-  "tv",
-  "anime",
-  "manga",
-  "game",
-  "book",
-]);
+const mediaTypeEnum = z.enum(["movie", "tv", "anime", "manga", "game", "book"]);
 
 /**
  * GET /api/library
@@ -108,7 +101,10 @@ libraryRouter.patch("/:id", async (req, res, next) => {
         .json({ error: "invalid body", issues: parsed.error.issues });
       return;
     }
-    const updates: { status?: "consumed" | "watchlist"; rating?: number | null } = {};
+    const updates: {
+      status?: "consumed" | "watchlist";
+      rating?: number | null;
+    } = {};
     if (parsed.data.status !== undefined) updates.status = parsed.data.status;
     if (parsed.data.rating !== undefined) updates.rating = parsed.data.rating;
     if (Object.keys(updates).length === 0) {
@@ -119,10 +115,7 @@ libraryRouter.patch("/:id", async (req, res, next) => {
       .update(libraryItems)
       .set(updates)
       .where(
-        and(
-          eq(libraryItems.id, id),
-          eq(libraryItems.userId, req.user!.id),
-        ),
+        and(eq(libraryItems.id, id), eq(libraryItems.userId, req.user!.id)),
       )
       .returning();
     if (!updated) {
@@ -226,9 +219,9 @@ libraryRouter.post("/import-steam", async (req, res, next) => {
       // Steam-side errors (private profile, vanity not found, etc.) are
       // user-facing — surface as 400 with the helpful message we already
       // crafted in the service.
-      res
-        .status(400)
-        .json({ error: err instanceof Error ? err.message : "Steam fetch failed" });
+      res.status(400).json({
+        error: err instanceof Error ? err.message : "Steam fetch failed",
+      });
       return;
     }
 
@@ -251,7 +244,8 @@ libraryRouter.post("/import-steam", async (req, res, next) => {
  */
 libraryRouter.delete("/", async (req, res, next) => {
   try {
-    const source = typeof req.query.source === "string" ? req.query.source : null;
+    const source =
+      typeof req.query.source === "string" ? req.query.source : null;
     const where = source
       ? and(
           eq(libraryItems.userId, req.user!.id),

@@ -201,21 +201,15 @@ async function searchByQuery(query: MediaSearchQuery): Promise<MediaItem[]> {
   // Filter path: where-clause on genre.name and release-date range.
   const wheres: string[] = [];
   if (query.genres && query.genres.length > 0) {
-    const list = query.genres
-      .map((g) => `"${escapeApicalypse(g)}"`)
-      .join(",");
+    const list = query.genres.map((g) => `"${escapeApicalypse(g)}"`).join(",");
     wheres.push(`genres.name = (${list})`);
   }
   if (query.yearFrom) {
-    const ts = Math.floor(
-      new Date(`${query.yearFrom}-01-01`).getTime() / 1000,
-    );
+    const ts = Math.floor(new Date(`${query.yearFrom}-01-01`).getTime() / 1000);
     wheres.push(`first_release_date >= ${ts}`);
   }
   if (query.yearTo) {
-    const ts = Math.floor(
-      new Date(`${query.yearTo}-12-31`).getTime() / 1000,
-    );
+    const ts = Math.floor(new Date(`${query.yearTo}-12-31`).getTime() / 1000);
     wheres.push(`first_release_date <= ${ts}`);
   }
   if (wheres.length === 0) return [];
@@ -232,10 +226,7 @@ async function searchByQuery(query: MediaSearchQuery): Promise<MediaItem[]> {
   // code is reliable and uses the same allowlist as title search.
   const body = `fields ${FIELDS}; where ${wheres.join(" & ")}; sort total_rating desc; limit ${limit * 2};`;
   const games = await igdbFetch<IgdbGame[]>("/games", body);
-  return games
-    .filter(isStandaloneCategory)
-    .slice(0, limit)
-    .map(normalize);
+  return games.filter(isStandaloneCategory).slice(0, limit).map(normalize);
 }
 
 async function getById(externalId: string): Promise<MediaItem | null> {

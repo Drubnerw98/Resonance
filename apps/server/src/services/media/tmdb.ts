@@ -25,10 +25,15 @@ interface TmdbMovieRow {
   genres?: { id: number; name: string }[];
 }
 
-let cachedGenres: { movie: Map<number, string>; tv: Map<number, string> } | null =
-  null;
+let cachedGenres: {
+  movie: Map<number, string>;
+  tv: Map<number, string>;
+} | null = null;
 
-async function tmdbFetch<T>(path: string, params: Record<string, string> = {}): Promise<T> {
+async function tmdbFetch<T>(
+  path: string,
+  params: Record<string, string> = {},
+): Promise<T> {
   const token = process.env.TMDB_API_KEY;
   if (!token) throw new Error("TMDB_API_KEY is not set");
 
@@ -124,7 +129,9 @@ async function searchByTitle(title: string): Promise<MediaItem[]> {
   ]);
 
   return [
-    ...movies.results.slice(0, 5).map((r) => normalize(r, "movie", genreLookup.movie)),
+    ...movies.results
+      .slice(0, 5)
+      .map((r) => normalize(r, "movie", genreLookup.movie)),
     ...tv.results.slice(0, 5).map((r) => normalize(r, "tv", genreLookup.tv)),
   ];
 }
@@ -177,11 +184,13 @@ async function searchByQuery(query: MediaSearchQuery): Promise<MediaItem[]> {
     if (ids.length > 0) params.with_genres = ids.join(",");
   }
   if (query.yearFrom)
-    params[sub === "movie" ? "primary_release_date.gte" : "first_air_date.gte"] =
-      `${query.yearFrom}-01-01`;
+    params[
+      sub === "movie" ? "primary_release_date.gte" : "first_air_date.gte"
+    ] = `${query.yearFrom}-01-01`;
   if (query.yearTo)
-    params[sub === "movie" ? "primary_release_date.lte" : "first_air_date.lte"] =
-      `${query.yearTo}-12-31`;
+    params[
+      sub === "movie" ? "primary_release_date.lte" : "first_air_date.lte"
+    ] = `${query.yearTo}-12-31`;
 
   const res = await tmdbFetch<{ results: TmdbMovieRow[] }>(
     `/discover/${sub}`,

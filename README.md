@@ -6,7 +6,7 @@
 
 A full-stack AI application built around three differentiation pillars that a one-shot Claude session can't match: a **persistent, structured taste profile** that evolves over time, a **library of imported / saved works** the recommender names by title in its explanations, and **persistent batches as reviewable artifacts** that let users return to any prompt-driven generation later.
 
-For the architectural deep-dive — the *why* behind every major decision — see **[ARCHITECTURE.md](./ARCHITECTURE.md)**.
+For the architectural deep-dive — the _why_ behind every major decision — see **[ARCHITECTURE.md](./ARCHITECTURE.md)**.
 
 <!--
   Screenshots go here once captured. Suggested order:
@@ -19,7 +19,7 @@ For the architectural deep-dive — the *why* behind every major decision — se
 
 ## Features
 
-- **AI-driven onboarding** — multi-turn streaming chat that probes for *moments* and *feelings*, not "favorite movie" lists. Server-side reasoning-tag stripping; deterministic readiness floor on top of the model's `<ready/>` self-judgment; adaptive scaffolding for users who don't naturally introspect.
+- **AI-driven onboarding** — multi-turn streaming chat that probes for _moments_ and _feelings_, not "favorite movie" lists. Server-side reasoning-tag stripping; deterministic readiness floor on top of the model's `<ready/>` self-judgment; adaptive scaffolding for users who don't naturally introspect.
 - **Structured taste profile** — JSONB document with versioned history. Themes, archetypes, narrative preferences, format affinities, abstract avoidances, and specific dislikedTitles. Manually editable through the UI.
 - **Cross-format recommendations** — 4-step pipeline: AI proposes candidates → real-API validation against TMDB / IGDB / Jikan / Open Library (every recommendation backed by verified metadata) → AI scores against profile + library → persisted as a named, reviewable batch.
 - **"Would I like X?" verdicts** — type a specific title, get an honest read against your profile. Allowed to give negative answers. Surfaces status flags (already in library / on dislikedTitles / previously recommended).
@@ -36,15 +36,15 @@ For the architectural deep-dive — the *why* behind every major decision — se
 
 ## Stack
 
-| Layer        | Choice                                                       |
-| ------------ | ------------------------------------------------------------ |
-| Frontend     | React 19 + TypeScript, Vite 6, Tailwind v4, react-router-dom v7 |
-| Backend      | Node + Express 4 (Vercel-ready)                              |
-| Database     | PostgreSQL on Neon, Drizzle ORM                              |
-| Auth         | Clerk (Google + GitHub OAuth)                                |
-| AI           | Anthropic Claude (`claude-sonnet-4-6`), structured outputs via zod v4 |
-| External APIs | TMDB, IGDB+Twitch, Jikan, Open Library                      |
-| Build        | pnpm monorepo (`apps/client`, `apps/server`, `packages/shared`) |
+| Layer         | Choice                                                                |
+| ------------- | --------------------------------------------------------------------- |
+| Frontend      | React 19 + TypeScript, Vite 6, Tailwind v4, react-router-dom v7       |
+| Backend       | Node + Express 4 (Vercel-ready)                                       |
+| Database      | PostgreSQL on Neon, Drizzle ORM                                       |
+| Auth          | Clerk (Google + GitHub OAuth)                                         |
+| AI            | Anthropic Claude (`claude-sonnet-4-6`), structured outputs via zod v4 |
+| External APIs | TMDB, IGDB+Twitch, Jikan, Open Library                                |
+| Build         | pnpm monorepo (`apps/client`, `apps/server`, `packages/shared`)       |
 
 ## Layout
 
@@ -101,7 +101,7 @@ Incurs usage cost. Onboarding turns are prompt-cached after turn 3-4 (~10% of no
 
 1. Create an account at [themoviedb.org](https://www.themoviedb.org).
 2. **Profile → Settings → API → Create**.
-3. Copy the **API Read Access Token** (the long JWT, *not* the v3 API key).
+3. Copy the **API Read Access Token** (the long JWT, _not_ the v3 API key).
 4. Paste into `TMDB_API_KEY`.
 
 Free, 40 req / 10 s.

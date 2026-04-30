@@ -4,24 +4,14 @@ import { eq } from "drizzle-orm";
 import { requireUser } from "../middleware/auth.js";
 import { db } from "../db/index.js";
 import { mediaCache } from "../db/schema.js";
-import {
-  evaluateCandidate,
-  evaluateSearch,
-} from "../services/ai/evaluate.js";
+import { evaluateCandidate, evaluateSearch } from "../services/ai/evaluate.js";
 import { checkRateLimit } from "../services/rateLimit.js";
 
 export const evaluateRouter: Router = Router();
 
 evaluateRouter.use(requireUser);
 
-const mediaTypeEnum = z.enum([
-  "movie",
-  "tv",
-  "anime",
-  "manga",
-  "game",
-  "book",
-]);
+const mediaTypeEnum = z.enum(["movie", "tv", "anime", "manga", "game", "book"]);
 
 const searchBodySchema = z
   .object({
@@ -63,9 +53,7 @@ evaluateRouter.post("/search", async (req, res, next) => {
   }
 });
 
-const scoreBodySchema = z
-  .object({ mediaCacheId: z.string().uuid() })
-  .strict();
+const scoreBodySchema = z.object({ mediaCacheId: z.string().uuid() }).strict();
 
 /**
  * POST /api/evaluate/score

@@ -3,7 +3,5 @@
   "outputDirectory": "dist",
   "trailingSlash": false,
   "cleanUrls": false,
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

@@ -40,7 +40,10 @@ interface OpenLibraryWork {
   authors?: { author?: { key: string } }[];
 }
 
-async function olFetch<T>(path: string, params: Record<string, string> = {}): Promise<T> {
+async function olFetch<T>(
+  path: string,
+  params: Record<string, string> = {},
+): Promise<T> {
   const url = new URL(`${OPENLIBRARY_BASE}${path}`);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
 
@@ -170,7 +173,8 @@ async function getById(externalId: string): Promise<MediaItem | null> {
   // externalId is the work key suffix (e.g. "OL45804W").
   try {
     const work = await olFetch<OpenLibraryWork>(`/works/${externalId}.json`);
-    const cover = work.covers && work.covers.length > 0 ? work.covers[0] : undefined;
+    const cover =
+      work.covers && work.covers.length > 0 ? work.covers[0] : undefined;
     const yearStr = work.first_publish_date?.match(/\d{4}/)?.[0];
     return {
       externalId,

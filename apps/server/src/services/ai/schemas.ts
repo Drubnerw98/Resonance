@@ -15,14 +15,7 @@ import type { TasteProfile } from "@resonance/shared";
 // JSON Schema sent to the model and validates them client-side, so .min(0)
 // and .max(1) here are guard rails on our end, not model constraints.
 
-const MediaTypeEnum = z.enum([
-  "movie",
-  "tv",
-  "anime",
-  "manga",
-  "game",
-  "book",
-]);
+const MediaTypeEnum = z.enum(["movie", "tv", "anime", "manga", "game", "book"]);
 
 const ThemeSchema = z.object({
   label: z.string().min(1),
@@ -119,7 +112,9 @@ export const ScoredCandidatesOutputSchema = z.object({
     .max(40),
 });
 
-export type ScoredCandidatesOutput = z.infer<typeof ScoredCandidatesOutputSchema>;
+export type ScoredCandidatesOutput = z.infer<
+  typeof ScoredCandidatesOutputSchema
+>;
 
 // === Evaluate mode: single-item verdict ===
 //

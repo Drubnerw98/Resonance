@@ -8,10 +8,7 @@
 // Not part of the typecheck/build — purely a hand-runnable script.
 
 import "../env.js";
-import {
-  searchAndCacheByQuery,
-  searchAndCacheByTitle,
-} from "./mediaCache.js";
+import { searchAndCacheByQuery, searchAndCacheByTitle } from "./mediaCache.js";
 import type { MediaCacheRow } from "../db/schema.js";
 
 function summarize(label: string, rows: MediaCacheRow[]): void {

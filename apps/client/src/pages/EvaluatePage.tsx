@@ -268,7 +268,9 @@ function Picker({
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium leading-snug">{m.item.title}</p>
+                  <p className="text-sm font-medium leading-snug">
+                    {m.item.title}
+                  </p>
                   <p className="text-xs text-neutral-500">
                     {m.item.year ?? "—"}
                     {m.item.rating != null
@@ -301,11 +303,12 @@ function VerdictCard({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(isAlreadyInLibrary);
   const scorePct = Math.round(verdict.matchScore * 100);
-  const scoreColor = verdict.matchScore >= 0.6
-    ? "text-emerald-400"
-    : verdict.matchScore >= 0.4
-      ? "text-amber-400"
-      : "text-rose-400";
+  const scoreColor =
+    verdict.matchScore >= 0.6
+      ? "text-emerald-400"
+      : verdict.matchScore >= 0.4
+        ? "text-amber-400"
+        : "text-rose-400";
 
   async function handleSave() {
     if (saving || saved) return;
@@ -413,7 +416,11 @@ function StatusFlags({ status }: { status: EvaluateStatus }) {
     flags.push({ label: "You already saved this", tone: "ok" });
   else if (status.inLibrary)
     flags.push({ label: "Already in your library", tone: "ok" });
-  if (status.previouslyRecommended && !status.inSavedRecs && !status.rejectedBefore)
+  if (
+    status.previouslyRecommended &&
+    !status.inSavedRecs &&
+    !status.rejectedBefore
+  )
     flags.push({
       label: "We recommended this in an earlier batch",
       tone: "info",
@@ -431,10 +438,7 @@ function StatusFlags({ status }: { status: EvaluateStatus }) {
               ? "border-emerald-800 bg-emerald-950/30 text-emerald-300"
               : "border-neutral-700 bg-neutral-900 text-neutral-300";
         return (
-          <li
-            key={i}
-            className={`rounded-md border px-2 py-1 text-xs ${cls}`}
-          >
+          <li key={i} className={`rounded-md border px-2 py-1 text-xs ${cls}`}>
             {f.label}
           </li>
         );

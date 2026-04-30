@@ -76,28 +76,23 @@ export function useOnboarding(): UseOnboarding {
 
       try {
         const token = await getToken();
-        await postSSE(
-          "/onboarding/message",
-          { content: trimmed },
-          token,
-          {
-            onEvent: (event, data) => {
-              if (event === "token" && data && typeof data === "object") {
-                const text = (data as { text?: string }).text ?? "";
-                streamingRef.current += text;
-                setStreamingText(streamingRef.current);
-              } else if (event === "ready") {
-                setReady(true);
-              } else if (event === "error") {
-                const msg =
-                  data && typeof data === "object" && "message" in data
-                    ? String((data as { message: unknown }).message)
-                    : "stream error";
-                setError(msg);
-              }
-            },
+        await postSSE("/onboarding/message", { content: trimmed }, token, {
+          onEvent: (event, data) => {
+            if (event === "token" && data && typeof data === "object") {
+              const text = (data as { text?: string }).text ?? "";
+              streamingRef.current += text;
+              setStreamingText(streamingRef.current);
+            } else if (event === "ready") {
+              setReady(true);
+            } else if (event === "error") {
+              const msg =
+                data && typeof data === "object" && "message" in data
+                  ? String((data as { message: unknown }).message)
+                  : "stream error";
+              setError(msg);
+            }
           },
-        );
+        });
 
         const finalText = streamingRef.current;
         if (finalText) {
@@ -114,7 +109,7 @@ export function useOnboarding(): UseOnboarding {
         setIsSending(false);
       }
     },
-    [api, getToken, isSending],
+    [getToken, isSending],
   );
 
   const complete = useCallback(async () => {
@@ -125,7 +120,8 @@ export function useOnboarding(): UseOnboarding {
       await api("/onboarding/complete", { method: "POST" });
       setSessionStatus("completed");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to extract profile";
+      const msg =
+        err instanceof Error ? err.message : "Failed to extract profile";
       setError(msg);
       throw err;
     } finally {

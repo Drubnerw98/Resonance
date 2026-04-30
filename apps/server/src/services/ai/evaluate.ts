@@ -137,17 +137,13 @@ export async function evaluateCandidate(
     messages: [{ role: "user", content: sections.join("\n\n") }],
     output_config: {
       format: zodOutputFormat(
-        VerdictOutputSchema as unknown as Parameters<
-          typeof zodOutputFormat
-        >[0],
+        VerdictOutputSchema as unknown as Parameters<typeof zodOutputFormat>[0],
       ),
     },
   });
 
   if (!response.parsed_output) {
-    throw new Error(
-      `Evaluate failed (stop_reason=${response.stop_reason})`,
-    );
+    throw new Error(`Evaluate failed (stop_reason=${response.stop_reason})`);
   }
 
   const verdict = VerdictOutputSchema.parse(response.parsed_output);
@@ -161,8 +157,13 @@ function computeStatus(args: {
   avoidTitles: Set<string>;
   dislikedTitles: string[];
 }): EvaluateStatus {
-  const { cacheRow, existingRec, existingLibraryRow, avoidTitles, dislikedTitles } =
-    args;
+  const {
+    cacheRow,
+    existingRec,
+    existingLibraryRow,
+    avoidTitles,
+    dislikedTitles,
+  } = args;
 
   const titleCanonical = canonicalizeTitle(cacheRow.normalizedData.title);
   const inDislikedTitles = dislikedTitles.some(

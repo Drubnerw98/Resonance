@@ -1,7 +1,7 @@
 # Architecture
 
-This is the architecture reference for Resonance — the *why* behind decisions,
-not just the *what*. Walks every subsystem, its role in the larger pipeline,
+This is the architecture reference for Resonance — the _why_ behind decisions,
+not just the _what_. Walks every subsystem, its role in the larger pipeline,
 and the trade-offs that drove the choice. Read top-to-bottom on the first pass;
 later sections assume the earlier vocabulary.
 
@@ -21,9 +21,9 @@ that genuinely accumulate value over time:
 1. **Persistent profile** that evolves through onboarding, manual feedback, and
    continued chats — not regenerated from scratch on every session.
 2. **Library cross-references** — recommendations name specific works the user
-   has saved or imported, e.g. *"the same fractured-interior-concealed-by-
+   has saved or imported, e.g. _"the same fractured-interior-concealed-by-
    performance architecture you found in No Longer Human and Goodnight
-   Punpun"*. This is the differentiation moment.
+   Punpun"_. This is the differentiation moment.
 3. **Persistent batches as artifacts** — every prompt-driven generation
    becomes a named, reviewable object the user can revisit, rename, and
    organize.
@@ -45,7 +45,7 @@ falls short:
 
 - **Verification.** Every recommendation in Resonance corresponds to a real
   `media_cache` row pulled from TMDB, IGDB, Jikan, or Open Library. The
-  model *proposes*, the system *verifies*. Hallucinated titles silently
+  model _proposes_, the system _verifies_. Hallucinated titles silently
   drop. Claude has confidently recommended books that don't exist and
   fabricated years/directors. A real metadata layer is non-negotiable for
   trust.
@@ -65,8 +65,8 @@ falls short:
   own prompt, schema, fallback rules. Claude.ai is one-prompt-one-response;
   pipelines need code.
 - **Multi-tenancy + product surface.** This is the real point. Resonance is
-  *an application* — multiple users, isolated profiles, isolated libraries,
-  shareable URLs, auth. Claude.ai is a tool *you* use repeatedly. Different
+  _an application_ — multiple users, isolated profiles, isolated libraries,
+  shareable URLs, auth. Claude.ai is a tool _you_ use repeatedly. Different
   shape, different problem.
 
 The senior take is: AI is a component, not the whole system. Models do what
@@ -74,22 +74,22 @@ models are great at — reading taste, finding creative connections, scoring
 novel candidates. Traditional engineering — adapters, deduplication, schema
 validation, rate limiting, persistence, workflow orchestration — does what
 it's good at. The product is in how those layers compose. This codebase is
-partly an exercise in finding *exactly* where that boundary sits.
+partly an exercise in finding _exactly_ where that boundary sits.
 
 ---
 
 ## 2. Stack
 
-| Layer            | Choice                                                                |
-| ---------------- | --------------------------------------------------------------------- |
-| Frontend         | React 19 + TypeScript, Vite 6, Tailwind v4, react-router-dom v7       |
-| Backend          | Node + Express 4, Vercel-ready serverless                             |
-| Database         | PostgreSQL on Neon (HTTP driver), Drizzle ORM 0.38                    |
-| Auth             | Clerk (`@clerk/express`, `@clerk/clerk-react`)                        |
-| AI               | `@anthropic-ai/sdk`, `claude-sonnet-4-6`                              |
-| External APIs    | TMDB (movies/TV), IGDB+Twitch (games), Jikan (anime/manga), Open Library (books) |
-| Validation       | zod v4 (via `import { z } from "zod/v4"`)                             |
-| Build / repo     | pnpm monorepo: `apps/client`, `apps/server`, `packages/shared`        |
+| Layer         | Choice                                                                           |
+| ------------- | -------------------------------------------------------------------------------- |
+| Frontend      | React 19 + TypeScript, Vite 6, Tailwind v4, react-router-dom v7                  |
+| Backend       | Node + Express 4, Vercel-ready serverless                                        |
+| Database      | PostgreSQL on Neon (HTTP driver), Drizzle ORM 0.38                               |
+| Auth          | Clerk (`@clerk/express`, `@clerk/clerk-react`)                                   |
+| AI            | `@anthropic-ai/sdk`, `claude-sonnet-4-6`                                         |
+| External APIs | TMDB (movies/TV), IGDB+Twitch (games), Jikan (anime/manga), Open Library (books) |
+| Validation    | zod v4 (via `import { z } from "zod/v4"`)                                        |
+| Build / repo  | pnpm monorepo: `apps/client`, `apps/server`, `packages/shared`                   |
 
 A few decisions worth pulling out:
 
@@ -115,17 +115,17 @@ A few decisions worth pulling out:
 
 Nine tables. Each has a clear single responsibility.
 
-| Table                    | Stores                                                                          |
-| ------------------------ | ------------------------------------------------------------------------------- |
-| `users`                  | Clerk-synced user rows (clerk_id, email, onboarding_status)                     |
-| `taste_profiles`         | Current profile per user (one row per user, JSONB profile_data)                 |
-| `profile_versions`       | Historical profile snapshots, `trigger` enum (onboarding/feedback_batch/manual_edit) |
-| `onboarding_sessions`    | Full chat transcripts, JSONB `messages` array                                   |
-| `media_cache`            | Normalized external-API data — the anti-hallucination layer                     |
-| `recommendation_batches` | First-class batch objects (name, prompt, timestamps)                            |
-| `recommendations`        | Every rec ever, joined to a batch + a media_cache row + status/rating           |
+| Table                    | Stores                                                                                                    |
+| ------------------------ | --------------------------------------------------------------------------------------------------------- | ----------- |
+| `users`                  | Clerk-synced user rows (clerk_id, email, onboarding_status)                                               |
+| `taste_profiles`         | Current profile per user (one row per user, JSONB profile_data)                                           |
+| `profile_versions`       | Historical profile snapshots, `trigger` enum (onboarding/feedback_batch/manual_edit)                      |
+| `onboarding_sessions`    | Full chat transcripts, JSONB `messages` array                                                             |
+| `media_cache`            | Normalized external-API data — the anti-hallucination layer                                               |
+| `recommendation_batches` | First-class batch objects (name, prompt, timestamps)                                                      |
+| `recommendations`        | Every rec ever, joined to a batch + a media_cache row + status/rating                                     |
 | `library_items`          | Imported (Letterboxd / Goodreads / MyAnimeList / Steam) or manually-added works. `status` enum: `consumed | watchlist`. |
-| `discovery_themes`       | Cached browse-mode entry surfaces, regenerated on profile change                |
+| `discovery_themes`       | Cached browse-mode entry surfaces, regenerated on profile change                                          |
 
 **Key constraints worth knowing:**
 
@@ -138,7 +138,7 @@ Nine tables. Each has a clear single responsibility.
 - `media_type` is a Postgres enum (`movie | tv | anime | manga | game | book`)
   used in five tables — single source of truth.
 - `recommendations.status` is the enum `pending | seen | saved | skipped |
-  rated | plan_to`. `plan_to` was added when watchlist support shipped; it
+rated | plan_to`. `plan_to` was added when watchlist support shipped; it
   pairs with a corresponding `library_items` row at `status = "watchlist"`.
 - `library_items.status` is the enum `consumed | watchlist`, default
   `consumed`. Watchlist items contribute to the recommender's dedup pool but
@@ -248,11 +248,12 @@ The most elaborate of the four. Four steps, kicked off as a background job
 the frontend polls.
 
 **Step 1 — Candidate generation** (Claude call). The model gets the profile
-+ library, returns a `CandidatesOutput`:
 
-- `titleSuggestions`: ~15-20 specific titles with `mediaType` + `reason`.
+- library, returns a `CandidatesOutput`:
+
+* `titleSuggestions`: ~15-20 specific titles with `mediaType` + `reason`.
   Treated as fuzzy search hints; misses dropped silently.
-- `discoveryQueries`: 3-8 genre-based queries per format.
+* `discoveryQueries`: 3-8 genre-based queries per format.
 
 **Two prompt-level safeguards** address Sonnet's training biases:
 
@@ -311,14 +312,14 @@ exists when persistence runs).
   1-2, and `profile.dislikedTitles` all flow into the candidate filter
   before scoring.
 - **Format-aware prompting.** `detectExplicitFormat("a movie that'll make
-  me cry")` returns `"movie"` and overrides the breadth rule with an
+me cry")` returns `"movie"` and overrides the breadth rule with an
   ≥80% format-bias instruction. Without this, asking for movies still got
   manga suggestions to satisfy "format spread".
 - **Format enable/disable hard enforcement.** `collectRealCandidates` drops
   any candidate whose `mediaType` isn't in the user's `mediaAffinities`
   before it ever reaches scoring. Belt-and-suspenders alongside the prompt
   rule that lists disabled formats explicitly. Removing a format from the
-  ProfileEditor *literally guarantees* it won't appear in future batches.
+  ProfileEditor _literally guarantees_ it won't appear in future batches.
 - **Refine flow ("stacked batches").** Each batch on the recommendations
   page has a Refine button. Click → inline input → submit constructs a new
   prompt as `"${original}, but also: ${addition}"` and kicks off a brand
@@ -344,8 +345,8 @@ standard async generation pipeline runs with `promptHint` as the prompt.
 
 **The hard part of this prompt is fighting genericity.** The whole point is
 tailored entry surfaces — "Sci-fi favorites" or "Hidden gems" defeats the
-feature. The prompt has an explicit failure test: *"could this description
-appear, unchanged, on someone else's account? if yes, you've failed"*. Worked
+feature. The prompt has an explicit failure test: _"could this description
+appear, unchanged, on someone else's account? if yes, you've failed"_. Worked
 good/bad examples in the prompt show the gap.
 
 The prompt also surfaces the user's **disabled formats** explicitly so
@@ -384,12 +385,12 @@ formats are excluded from rec batches and theme cards.
 
 Four adapters under `services/media/`:
 
-| Adapter            | Source         | Media types     |
-| ------------------ | -------------- | --------------- |
-| `tmdbAdapter`      | TMDB           | movie, tv       |
-| `igdbAdapter`      | IGDB + Twitch  | game            |
-| `jikanAdapter`     | Jikan (MAL)    | anime, manga    |
-| `openLibraryAdapter` | Open Library | book            |
+| Adapter              | Source        | Media types  |
+| -------------------- | ------------- | ------------ |
+| `tmdbAdapter`        | TMDB          | movie, tv    |
+| `igdbAdapter`        | IGDB + Twitch | game         |
+| `jikanAdapter`       | Jikan (MAL)   | anime, manga |
+| `openLibraryAdapter` | Open Library  | book         |
 
 **Common interface:**
 
@@ -407,19 +408,19 @@ adapter calls with cache writes (upsert keyed on `(source, external_id)`).
 
 **Per-adapter rate limiting** via token bucket (`lib/rateLimiter.ts`):
 
-| Adapter      | Limit            | Notes                                                |
-| ------------ | ---------------- | ---------------------------------------------------- |
-| TMDB         | 40 req / 10s     | Generous; rarely hit                                  |
-| IGDB         | 4 req / s        | Combined with Twitch OAuth tokens                     |
-| Jikan        | 1 req / 500ms    | Aggressive; retries on 429 with `Retry-After` backoff |
-| Open Library | 5 req / s        | Self-imposed; they don't publish a hard limit         |
+| Adapter      | Limit         | Notes                                                 |
+| ------------ | ------------- | ----------------------------------------------------- |
+| TMDB         | 40 req / 10s  | Generous; rarely hit                                  |
+| IGDB         | 4 req / s     | Combined with Twitch OAuth tokens                     |
+| Jikan        | 1 req / 500ms | Aggressive; retries on 429 with `Retry-After` backoff |
+| Open Library | 5 req / s     | Self-imposed; they don't publish a hard limit         |
 
 **Adapter-specific quirks worth knowing:**
 
-- TMDB title search returns mixed types ("dune" matches movies *and* TV);
+- TMDB title search returns mixed types ("dune" matches movies _and_ TV);
   filter to `query.mediaType` before caching.
 - IGDB uses Apicalypse query language. Combining `search` with `where
-  category in (...)` returns zero results — filter category client-side
+category in (...)` returns zero results — filter category client-side
   via `isStandaloneCategory` instead.
 - Jikan rate limiting is the strictest of the four; aggressive retry-with-
   backoff keeps the pipeline alive without bursting.
@@ -434,12 +435,12 @@ User-driven imports go through different code paths than the recommender's
 adapter calls — they're file uploads (CSV/XML) or a dedicated API
 integration, not part of the candidate-collection pipeline.
 
-| Source         | Shape       | Watchlist support           | Notes                                                |
-| -------------- | ----------- | --------------------------- | ---------------------------------------------------- |
-| Letterboxd     | CSV upload  | Deferred (`watchlist.csv`)  | `parseLetterboxdCSV` — ratings.csv/watched.csv       |
-| Goodreads      | CSV upload  | Yes — to-read shelf         | `parseGoodreadsCSV` — read → consumed, to-read → watchlist |
-| MyAnimeList    | XML upload  | Yes — Plan to Watch/Read    | `parseMyAnimeListXML` — anime + manga, score 1-10 → 1-5 |
-| Steam          | Web API     | Deferred (Valve gated wishlist)  | `services/steam.ts` — owned games via SteamID/URL/vanity |
+| Source      | Shape      | Watchlist support               | Notes                                                      |
+| ----------- | ---------- | ------------------------------- | ---------------------------------------------------------- |
+| Letterboxd  | CSV upload | Deferred (`watchlist.csv`)      | `parseLetterboxdCSV` — ratings.csv/watched.csv             |
+| Goodreads   | CSV upload | Yes — to-read shelf             | `parseGoodreadsCSV` — read → consumed, to-read → watchlist |
+| MyAnimeList | XML upload | Yes — Plan to Watch/Read        | `parseMyAnimeListXML` — anime + manga, score 1-10 → 1-5    |
+| Steam       | Web API    | Deferred (Valve gated wishlist) | `services/steam.ts` — owned games via SteamID/URL/vanity   |
 
 **Steam-specific:** `STEAM_API_KEY` env var is optional; without it the
 import button surfaces a clear error rather than crashing. SteamID input
@@ -469,7 +470,7 @@ request is simpler than a Clerk webhook handler and has no extra moving
 parts. Trade-off: the first request after sign-up costs an extra Clerk API
 call.
 
-**Defense in depth.** Every userId-scoped query *also* explicitly filters by
+**Defense in depth.** Every userId-scoped query _also_ explicitly filters by
 `user_id` even though Clerk + middleware already gate access. Belt and
 suspenders against a future bug in the auth chain.
 
@@ -511,13 +512,13 @@ Anthropic budget by automating the onboarding chat or the rec generator.
 
 **Caps (per user, UTC day):**
 
-| Endpoint                              | Cap | Kind                       |
-| ------------------------------------- | --- | -------------------------- |
-| `POST /api/onboarding/message`        | 100 | `onboarding.message`       |
-| `POST /api/recommendations/generate`  | 25  | `recommendations.generate` |
-| `POST /api/evaluate/score`            | 100 | `evaluate.score`           |
-| `POST /api/discover/themes/refresh`   | 20  | `discover.refresh`         |
-| `POST /api/profile/refine`            | 10  | `profile.refine`           |
+| Endpoint                             | Cap | Kind                       |
+| ------------------------------------ | --- | -------------------------- |
+| `POST /api/onboarding/message`       | 100 | `onboarding.message`       |
+| `POST /api/recommendations/generate` | 25  | `recommendations.generate` |
+| `POST /api/evaluate/score`           | 100 | `evaluate.score`           |
+| `POST /api/discover/themes/refresh`  | 20  | `discover.refresh`         |
+| `POST /api/profile/refine`           | 10  | `profile.refine`           |
 
 **Mechanics:** in-memory `Map<"userId:kind", { count, resetAt }>`. Reset at
 the next UTC midnight; expired buckets pruned hourly. Over the cap →
@@ -550,15 +551,15 @@ Routes that require auth nest under a `RequireAuth` element.
 **Hook pattern.** Every major data domain has a `useX` hook that owns its
 state, API calls, and optimistic updates. Components stay presentational.
 
-| Hook                  | Responsibility                                         |
-| --------------------- | ------------------------------------------------------ |
-| `useProfile`          | Fetch profile, refine, update (manual edits)           |
-| `useRecommendations`  | List recs, generate (poll), feedback, rescore         |
-| `useBatches`          | List, rename, delete batches                          |
-| `useLibrary`          | List, add, remove, import-CSV, clear                  |
-| `useThemes`           | Fetch + refresh discovery themes                      |
-| `useEvaluate`         | Search → pick → score state machine                   |
-| `useOnboarding`       | Streaming chat state, send, complete                  |
+| Hook                 | Responsibility                                |
+| -------------------- | --------------------------------------------- |
+| `useProfile`         | Fetch profile, refine, update (manual edits)  |
+| `useRecommendations` | List recs, generate (poll), feedback, rescore |
+| `useBatches`         | List, rename, delete batches                  |
+| `useLibrary`         | List, add, remove, import-CSV, clear          |
+| `useThemes`          | Fetch + refresh discovery themes              |
+| `useEvaluate`        | Search → pick → score state machine           |
+| `useOnboarding`      | Streaming chat state, send, complete          |
 
 **Why hooks not Redux/Zustand.** Each hook's domain is well-bounded; no
 cross-domain shared state needed. Hooks colocate state with the API they
@@ -628,7 +629,7 @@ matching leaks `"<analy"` to the user. Filter buffers the longest possible
 partial-tag suffix and only emits the safe prefix. 14 hand-runnable tests.
 
 **Drop-rules-beat-volume-rule in scoring.** Earlier prompt produced
-explanations like *"included only to meet volume requirement"* against
+explanations like _"included only to meet volume requirement"_ against
 profile-violating candidates. Reframed scoring around two ordered rules
 with that exact phrase named as a diagnostic. Failure-mode-by-name in
 prompts prevents regression.
@@ -643,7 +644,7 @@ constraint to an existing column). Editable SQL files made that recoverable
 without abandoning the migration system.
 
 **Watchlist as dedup signal, not cross-reference signal.** A user adding
-*The Bear* to their watchlist means "I'm aware of it, want to watch it
+_The Bear_ to their watchlist means "I'm aware of it, want to watch it
 eventually" — not "I love this and you can use it as an anchor." So
 watchlist items go into `previouslyRecommendedTitles` (dedup) but
 `getUserLibrary` filters them out (no cross-references). This split was

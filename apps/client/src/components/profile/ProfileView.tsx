@@ -165,7 +165,10 @@ export function ProfileView({
         </ul>
       </Section>
 
-      <Section title="Narrative preferences" hint="The shape of stories that fit">
+      <Section
+        title="Narrative preferences"
+        hint="The shape of stories that fit"
+      >
         <div className="space-y-3 rounded-md border border-neutral-800 bg-neutral-900 p-4">
           <NarrativePill label="Pacing">
             <span className="rounded-full border border-emerald-900/50 bg-emerald-950/30 px-2.5 py-0.5 text-xs text-emerald-200">

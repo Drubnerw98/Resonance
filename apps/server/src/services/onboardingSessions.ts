@@ -1,10 +1,7 @@
 import { and, eq, gt } from "drizzle-orm";
 import type { OnboardingMessage } from "@resonance/shared";
 import { db } from "../db/index.js";
-import {
-  onboardingSessions,
-  type OnboardingSession,
-} from "../db/schema.js";
+import { onboardingSessions, type OnboardingSession } from "../db/schema.js";
 
 /**
  * Returns the user's most relevant onboarding session.

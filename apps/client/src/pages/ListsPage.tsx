@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  useBatches,
-  type BatchSummary,
-} from "../hooks/useBatches.ts";
+import { useBatches, type BatchSummary } from "../hooks/useBatches.ts";
 import { Skeleton } from "../components/shared/Skeleton.tsx";
 import { PageHeader } from "../components/shared/PageHeader.tsx";
 import { EmptyState } from "../components/shared/EmptyState.tsx";
@@ -120,7 +117,9 @@ export function ListsPage() {
               batch={b}
               onRename={(name) => void rename(b.id, name)}
               onDelete={() => {
-                if (confirm(`Delete "${deriveLabel(b)}"? This can't be undone.`)) {
+                if (
+                  confirm(`Delete "${deriveLabel(b)}"? This can't be undone.`)
+                ) {
                   void remove(b.id);
                 }
               }}

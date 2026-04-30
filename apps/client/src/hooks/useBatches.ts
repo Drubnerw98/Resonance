@@ -56,9 +56,7 @@ export function useBatches(): UseBatches {
   const rename = useCallback(
     async (id: string, name: string | null) => {
       // Optimistic update.
-      setBatches((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, name } : b)),
-      );
+      setBatches((prev) => prev.map((b) => (b.id === id ? { ...b, name } : b)));
       try {
         await api(`/recommendations/batches/${id}`, {
           method: "PATCH",

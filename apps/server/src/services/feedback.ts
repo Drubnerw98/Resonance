@@ -1,9 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import {
-  recommendations,
-  type RecommendationRow,
-} from "../db/schema.js";
+import { recommendations, type RecommendationRow } from "../db/schema.js";
 import type { RecommendationStatus } from "@resonance/shared";
 
 export interface FeedbackInput {
@@ -28,7 +25,11 @@ export async function applyFeedback(
   recommendationId: string,
   input: FeedbackInput,
 ): Promise<RecommendationRow | null> {
-  const updates: { status: typeof input.status; rating?: number | null; actedAt: Date } = {
+  const updates: {
+    status: typeof input.status;
+    rating?: number | null;
+    actedAt: Date;
+  } = {
     status: input.status,
     actedAt: new Date(),
   };

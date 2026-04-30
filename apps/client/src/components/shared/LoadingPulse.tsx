@@ -35,9 +35,7 @@ export function LoadingPulse({ message, size = 64 }: Props) {
         />
       </div>
       {message && (
-        <p className="mx-auto max-w-md text-sm text-neutral-300">
-          {message}
-        </p>
+        <p className="mx-auto max-w-md text-sm text-neutral-300">{message}</p>
       )}
     </div>
   );

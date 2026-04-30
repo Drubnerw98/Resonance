@@ -2,11 +2,7 @@ import { Router } from "express";
 import { eq } from "drizzle-orm";
 import { requireUser } from "../middleware/auth.js";
 import { db } from "../db/index.js";
-import {
-  onboardingSessions,
-  tasteProfiles,
-  users,
-} from "../db/schema.js";
+import { onboardingSessions, tasteProfiles, users } from "../db/schema.js";
 import { getActiveProfile, saveProfile } from "../services/profile.js";
 import { refineProfile } from "../services/ai/refinement.js";
 import { checkRateLimit } from "../services/rateLimit.js";

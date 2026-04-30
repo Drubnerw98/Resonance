@@ -36,9 +36,7 @@ export function PageHeader({ title, subtitle, action }: Props) {
           </h1>
         </div>
         {subtitle && (
-          <p className="mt-2 text-sm text-neutral-400 sm:ml-4">
-            {subtitle}
-          </p>
+          <p className="mt-2 text-sm text-neutral-400 sm:ml-4">{subtitle}</p>
         )}
       </div>
       {action && <div className="shrink-0">{action}</div>}

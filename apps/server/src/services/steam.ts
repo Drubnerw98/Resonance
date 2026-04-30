@@ -77,7 +77,9 @@ export async function resolveSteamId(input: string): Promise<string> {
 
   const res = await fetch(url.toString());
   if (!res.ok) {
-    throw new Error(`Steam vanity URL lookup failed: ${res.status} ${res.statusText}`);
+    throw new Error(
+      `Steam vanity URL lookup failed: ${res.status} ${res.statusText}`,
+    );
   }
   const json = (await res.json()) as VanityResolveResponse;
   if (json.response?.success === 1 && json.response.steamid) {
@@ -108,7 +110,9 @@ export async function fetchOwnedGames(
 
   const res = await fetch(url.toString());
   if (!res.ok) {
-    throw new Error(`Steam GetOwnedGames failed: ${res.status} ${res.statusText}`);
+    throw new Error(
+      `Steam GetOwnedGames failed: ${res.status} ${res.statusText}`,
+    );
   }
 
   const json = (await res.json()) as OwnedGamesResponse;

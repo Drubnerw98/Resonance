@@ -69,24 +69,21 @@ export const mediaTypeEnum = pgEnum("media_type", [
   "book",
 ]);
 
-export const users = pgTable(
-  "users",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    clerkId: text("clerk_id").notNull().unique(),
-    email: text("email").notNull(),
-    displayName: text("display_name").notNull(),
-    onboardingStatus: onboardingStatusEnum("onboarding_status")
-      .notNull()
-      .default("pending"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-);
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clerkId: text("clerk_id").notNull().unique(),
+  email: text("email").notNull(),
+  displayName: text("display_name").notNull(),
+  onboardingStatus: onboardingStatusEnum("onboarding_status")
+    .notNull()
+    .default("pending"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
 
 export const tasteProfiles = pgTable(
   "taste_profiles",
@@ -312,12 +309,15 @@ export const tasteProfilesRelations = relations(
   }),
 );
 
-export const profileVersionsRelations = relations(profileVersions, ({ one }) => ({
-  profile: one(tasteProfiles, {
-    fields: [profileVersions.profileId],
-    references: [tasteProfiles.id],
+export const profileVersionsRelations = relations(
+  profileVersions,
+  ({ one }) => ({
+    profile: one(tasteProfiles, {
+      fields: [profileVersions.profileId],
+      references: [tasteProfiles.id],
+    }),
   }),
-}));
+);
 
 export const onboardingSessionsRelations = relations(
   onboardingSessions,
@@ -333,20 +333,23 @@ export const mediaCacheRelations = relations(mediaCache, ({ many }) => ({
   recommendations: many(recommendations),
 }));
 
-export const recommendationsRelations = relations(recommendations, ({ one }) => ({
-  user: one(users, {
-    fields: [recommendations.userId],
-    references: [users.id],
+export const recommendationsRelations = relations(
+  recommendations,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [recommendations.userId],
+      references: [users.id],
+    }),
+    media: one(mediaCache, {
+      fields: [recommendations.mediaCacheId],
+      references: [mediaCache.id],
+    }),
+    batch: one(recommendationBatches, {
+      fields: [recommendations.batchId],
+      references: [recommendationBatches.id],
+    }),
   }),
-  media: one(mediaCache, {
-    fields: [recommendations.mediaCacheId],
-    references: [mediaCache.id],
-  }),
-  batch: one(recommendationBatches, {
-    fields: [recommendations.batchId],
-    references: [recommendationBatches.id],
-  }),
-}));
+);
 
 export const recommendationBatchesRelations = relations(
   recommendationBatches,
@@ -372,7 +375,8 @@ export type NewMediaCacheRow = typeof mediaCache.$inferInsert;
 export type RecommendationRow = typeof recommendations.$inferSelect;
 export type NewRecommendationRow = typeof recommendations.$inferInsert;
 export type RecommendationBatchRow = typeof recommendationBatches.$inferSelect;
-export type NewRecommendationBatchRow = typeof recommendationBatches.$inferInsert;
+export type NewRecommendationBatchRow =
+  typeof recommendationBatches.$inferInsert;
 export type LibraryItemRow = typeof libraryItems.$inferSelect;
 export type NewLibraryItemRow = typeof libraryItems.$inferInsert;
 export type DiscoveryThemesRow = typeof discoveryThemes.$inferSelect;

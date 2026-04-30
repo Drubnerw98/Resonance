@@ -27,7 +27,12 @@ import { errorHandler } from "./middleware/error.js";
  */
 function corsMiddleware() {
   const raw = process.env.FRONTEND_ORIGIN;
-  const allowed = raw ? raw.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  const allowed = raw
+    ? raw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
   return (req: Request, res: Response, next: NextFunction) => {
     if (allowed.length > 0) {
       const origin = req.headers.origin;

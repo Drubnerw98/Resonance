@@ -9,12 +9,14 @@ Cross-format media recommender (movies, TV, anime, manga, games, books) built ar
 ## Current state
 
 **Deployed and live:**
+
 - Frontend: `https://resonance-client.vercel.app` (Vercel, static SPA)
 - Backend: `https://resonance-server-t4r8.onrender.com` (Render free tier — spins down after 15 min idle, ~30s cold start)
 - DB: Neon Postgres
 - Auth: Clerk (dev instance, `pk_test_…`)
 
 **Shipped:**
+
 - All four AI modes (onboarding, extraction + refinement, recommendation pipeline, discovery themes) + evaluate verdicts
 - Persistent batches with name / prompt / refine flow (stack new batches on existing ones with extra constraints)
 - Library imports: Letterboxd CSV, Goodreads CSV, MyAnimeList XML, Steam Web API
@@ -28,6 +30,7 @@ Cross-format media recommender (movies, TV, anime, manga, games, books) built ar
 - Signed-out landing page (hero / how-it-works / differentiator / format showcase / closing CTA)
 
 **Deferred (intentional):**
+
 - Postgres-backed jobs (only matters at multi-instance scale)
 - Custom domain + production Clerk instance (`pk_live_…`)
 - Test coverage beyond `streaming.test.ts` smoke test
@@ -40,18 +43,21 @@ Cross-format media recommender (movies, TV, anime, manga, games, books) built ar
 These are how the user prefers to collaborate. Honor them by default unless explicitly redirected.
 
 **Communication shape:**
+
 - Brief responses. State what's about to happen, run the work, summarize what changed. No padding.
 - One clean update at meaningful checkpoints, not running narration.
 - Greenlights are short (`"yeah do it"`, `"send it"`, `"go"`). Don't ask for re-confirmation when you've already laid out the plan.
 - No emojis in regular communication.
 
 **Engineering judgment:**
+
 - Push back when you disagree. The user explicitly invites it (`"if you disagree feel free, it's not gospel"`). Saying yes to bad ideas is worse than friction.
 - Triage before doing on multi-item lists: what you'll do, what you'll skip, what's already shipped. Catches duplicate work and design-review-from-an-old-screenshot situations.
 - If something feels bigger than the user thinks, say so honestly. The user respects scope honesty over forced optimism.
 - Quality > speed for AI features. When the user says `"don't sacrifice quality"` they mean it — don't propose Haiku swaps for cost savings.
 
 **Workflow rhythm:**
+
 - Run `pnpm -r typecheck` and (if frontend) `pnpm -r --filter @resonance/client build` before claiming work is done.
 - Commit at meaningful checkpoints with the Co-Authored-By trailer (`Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>`). Existing commits are bare one-liners — match that style.
 - Don't push to remote unless asked OR when the user is mid-deploy debugging and needs the change live.
@@ -59,12 +65,14 @@ These are how the user prefers to collaborate. Honor them by default unless expl
 
 **Design review pattern:**
 The user runs the deployed site through Claude.ai (with screenshots) for visual review and pastes the suggestions back. Important caveats:
-- Screenshots may be from before the latest deploy completed. Always check what's *actually* shipped against the suggestion before redoing it. The user has acknowledged this caveat openly.
+
+- Screenshots may be from before the latest deploy completed. Always check what's _actually_ shipped against the suggestion before redoing it. The user has acknowledged this caveat openly.
 - The reviewer doesn't know what was already done in code, so duplicate suggestions are normal. Triage.
 - The user's own additions / pushbacks at the end of a Claude.ai list are signal — pay attention to those specifically.
 
 **Things the user has flagged as principles:**
-- "I want this to be something I'd be enthusiastic to use multiple times" — the product needs to *feel* lived-in, not just functional.
+
+- "I want this to be something I'd be enthusiastic to use multiple times" — the product needs to _feel_ lived-in, not just functional.
 - "It needs to not just be a chatbot" — the differentiation pillars (persistent profile, library cross-references, verified metadata, persistent batches) are non-negotiable architectural commitments.
 - The user is building this to defend in interviews. Code clarity and decision-articulation matter as much as features.
 
@@ -120,13 +128,13 @@ apps/client/vercel.json # Vercel routing config (rewrites + outputDirectory)
 
 These are getting long but not yet painful. Don't split prematurely. Revisit if any cross 1200 lines or grow independent reusers.
 
-| File | Lines |
-| ---- | ----- |
-| `services/ai/recommender.ts` | ~900 |
-| `pages/HomePage.tsx` | ~620 |
-| `components/profile/ProfileEditor.tsx` | ~610 |
-| `pages/RecommendationsPage.tsx` | ~610 |
-| `components/profile/LibrarySection.tsx` | ~550 |
+| File                                    | Lines |
+| --------------------------------------- | ----- |
+| `services/ai/recommender.ts`            | ~900  |
+| `pages/HomePage.tsx`                    | ~620  |
+| `components/profile/ProfileEditor.tsx`  | ~610  |
+| `pages/RecommendationsPage.tsx`         | ~610  |
+| `components/profile/LibrarySection.tsx` | ~550  |
 
 ## Stuff that's documented and easy to forget
 

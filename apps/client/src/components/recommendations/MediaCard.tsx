@@ -84,9 +84,7 @@ export function MediaCard({
           <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-neutral-500">
             <span>{FORMAT_LABEL[media.mediaType] ?? media.mediaType}</span>
             {media.year && <span>· {media.year}</span>}
-            {media.rating != null && (
-              <span>· ★ {media.rating.toFixed(1)}</span>
-            )}
+            {media.rating != null && <span>· ★ {media.rating.toFixed(1)}</span>}
           </div>
           <h3 className="text-base font-semibold leading-tight">
             <a

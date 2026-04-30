@@ -45,10 +45,10 @@ function Hero() {
           <span className="text-emerald-300">Resonance finds it.</span>
         </h1>
         <p className="mx-auto max-w-2xl text-base leading-relaxed text-neutral-300 sm:text-lg">
-          An AI-powered taste-DNA engine for movies, TV, anime, manga,
-          games, and books. Have a conversation about a few stories that
-          stuck with you — get recommendations grounded in the themes,
-          archetypes, and narrative shapes you actually care about.
+          An AI-powered taste-DNA engine for movies, TV, anime, manga, games,
+          and books. Have a conversation about a few stories that stuck with you
+          — get recommendations grounded in the themes, archetypes, and
+          narrative shapes you actually care about.
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-3">
@@ -145,14 +145,14 @@ function ChatPreview() {
       </div>
       <div className="flex justify-end">
         <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-emerald-900/40 px-3 py-2 text-emerald-100">
-          The ending of Disco Elysium. Harry doesn't get redeemed, he just
-          keeps showing up.
+          The ending of Disco Elysium. Harry doesn't get redeemed, he just keeps
+          showing up.
         </div>
       </div>
       <div className="flex justify-start">
         <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-neutral-900 px-3 py-2 text-neutral-200">
-          Burden-carrying that doesn't pretend it's heroic. Anything
-          else hit you that way?
+          Burden-carrying that doesn't pretend it's heroic. Anything else hit
+          you that way?
         </div>
       </div>
     </div>
@@ -162,9 +162,17 @@ function ChatPreview() {
 /** Mock profile snippet — shows what gets extracted. */
 function ProfilePreview() {
   const themes = [
-    { label: "Burden-carrying without redemption", weight: 0.92, color: "bg-emerald-500" },
+    {
+      label: "Burden-carrying without redemption",
+      weight: 0.92,
+      color: "bg-emerald-500",
+    },
     { label: "The void as a moral force", weight: 0.78, color: "bg-teal-500" },
-    { label: "Earned ambiguity in endings", weight: 0.71, color: "bg-amber-500" },
+    {
+      label: "Earned ambiguity in endings",
+      weight: 0.71,
+      color: "bg-amber-500",
+    },
   ];
   return (
     <div className="space-y-3 rounded-md border border-neutral-800 bg-neutral-950/60 p-3 text-xs">
@@ -206,9 +214,9 @@ function RecPreview() {
         A Brief History of Seven Killings
       </p>
       <p className="text-xs leading-relaxed text-neutral-400">
-        Same fractured-interior architecture you found in No Longer Human
-        and Goodnight Punpun — multiple voices carrying the weight of a
-        place that's already broken them.
+        Same fractured-interior architecture you found in No Longer Human and
+        Goodnight Punpun — multiple voices carrying the weight of a place that's
+        already broken them.
       </p>
       <ul className="flex flex-wrap gap-1">
         <li className="rounded-full border border-emerald-900/50 bg-emerald-950/30 px-2 py-0.5 text-[10px] text-emerald-200/90">
@@ -235,24 +243,25 @@ function Differentiator() {
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
         <NotThis title="Not genre matching">
-          Genres are a coarse signal. Two horror movies can land for
-          completely different reasons.
+          Genres are a coarse signal. Two horror movies can land for completely
+          different reasons.
         </NotThis>
         <NotThis title="Not collaborative filtering">
           &quot;People who liked X also liked Y&quot; flattens you to a cohort.
           Resonance reads <em>you</em>, not the cluster.
         </NotThis>
         <NotThis title="Not vibes-only">
-          Every recommendation is verified against a real metadata source
-          (TMDB, IGDB, Jikan, Open Library). No hallucinated titles.
+          Every recommendation is verified against a real metadata source (TMDB,
+          IGDB, Jikan, Open Library). No hallucinated titles.
         </NotThis>
       </div>
       <div className="mx-auto max-w-3xl rounded-lg border border-emerald-900/50 bg-emerald-950/20 p-5 text-center">
         <p className="text-sm leading-relaxed text-emerald-100 sm:text-base">
-          Resonance reads the <strong>themes, archetypes, and narrative
-          structures</strong> that resonate with you, then finds them across
-          every format. The model proposes; the system verifies; the
-          explanation names a work you already love.
+          Resonance reads the{" "}
+          <strong>themes, archetypes, and narrative structures</strong> that
+          resonate with you, then finds them across every format. The model
+          proposes; the system verifies; the explanation names a work you
+          already love.
         </p>
       </div>
     </section>
@@ -276,12 +285,32 @@ function NotThis({
 
 function FormatShowcase() {
   const formats: { label: string; color: string; icon: React.ReactNode }[] = [
-    { label: "Movies", color: "border-rose-700 text-rose-300", icon: <FilmIcon /> },
+    {
+      label: "Movies",
+      color: "border-rose-700 text-rose-300",
+      icon: <FilmIcon />,
+    },
     { label: "TV", color: "border-amber-700 text-amber-300", icon: <TvIcon /> },
-    { label: "Anime", color: "border-fuchsia-700 text-fuchsia-300", icon: <SparkIcon /> },
-    { label: "Manga", color: "border-violet-700 text-violet-300", icon: <BookIcon /> },
-    { label: "Games", color: "border-emerald-700 text-emerald-300", icon: <GameIcon /> },
-    { label: "Books", color: "border-sky-700 text-sky-300", icon: <BookIcon /> },
+    {
+      label: "Anime",
+      color: "border-fuchsia-700 text-fuchsia-300",
+      icon: <SparkIcon />,
+    },
+    {
+      label: "Manga",
+      color: "border-violet-700 text-violet-300",
+      icon: <BookIcon />,
+    },
+    {
+      label: "Games",
+      color: "border-emerald-700 text-emerald-300",
+      icon: <GameIcon />,
+    },
+    {
+      label: "Books",
+      color: "border-sky-700 text-sky-300",
+      icon: <BookIcon />,
+    },
   ];
   return (
     <section className="space-y-8">
@@ -293,9 +322,9 @@ function FormatShowcase() {
           Six formats, one taste profile
         </h2>
         <p className="mx-auto max-w-2xl text-sm leading-relaxed text-neutral-400 sm:text-base">
-          The same patterns play out across mediums. A profile built from
-          your favorite films can recommend the right book or the right
-          game — and explain how they connect.
+          The same patterns play out across mediums. A profile built from your
+          favorite films can recommend the right book or the right game — and
+          explain how they connect.
         </p>
       </div>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -325,9 +354,9 @@ function ClosingCta() {
           Find what you'd actually love
         </h2>
         <p className="mx-auto max-w-xl text-sm leading-relaxed text-neutral-300 sm:text-base">
-          Free to try. The first conversation takes about five minutes.
-          You'll have your taste profile and your first recommendation
-          batch in under ten.
+          Free to try. The first conversation takes about five minutes. You'll
+          have your taste profile and your first recommendation batch in under
+          ten.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Link
@@ -351,7 +380,14 @@ function ClosingCta() {
 // Inline format icons. Kept simple SVGs so there's no asset pipeline.
 function FilmIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="3" y="3" width="18" height="18" rx="2" />
       <path d="M7 3v18M17 3v18M3 8h4M3 16h4M17 8h4M17 16h4M3 12h18" />
     </svg>
@@ -359,7 +395,14 @@ function FilmIcon() {
 }
 function TvIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="3" y="6" width="18" height="13" rx="2" />
       <path d="m8 21 4-3 4 3" />
     </svg>
@@ -367,7 +410,14 @@ function TvIcon() {
 }
 function BookIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z" />
       <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
     </svg>
@@ -375,7 +425,14 @@ function BookIcon() {
 }
 function GameIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M6 12h4M8 10v4" />
       <circle cx="16" cy="11" r="0.8" />
       <circle cx="16" cy="13" r="0.8" />
@@ -385,7 +442,14 @@ function GameIcon() {
 }
 function SparkIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" />
     </svg>
   );

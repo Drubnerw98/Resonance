@@ -237,9 +237,7 @@ recommendationsRouter.patch("/batches/:id", async (req, res, next) => {
     const [updated] = await db
       .update(recommendationBatches)
       .set({ name: parsed.data.name, updatedAt: new Date() })
-      .where(
-        eq(recommendationBatches.id, id),
-      )
+      .where(eq(recommendationBatches.id, id))
       .returning();
     if (!updated || updated.userId !== req.user!.id) {
       res.status(404).json({ error: "batch not found" });
@@ -268,7 +266,10 @@ recommendationsRouter.delete("/batches/:id", async (req, res, next) => {
     const [row] = await db
       .delete(recommendationBatches)
       .where(eq(recommendationBatches.id, id))
-      .returning({ id: recommendationBatches.id, userId: recommendationBatches.userId });
+      .returning({
+        id: recommendationBatches.id,
+        userId: recommendationBatches.userId,
+      });
     if (!row || row.userId !== req.user!.id) {
       res.status(404).json({ error: "batch not found" });
       return;
@@ -347,9 +348,11 @@ async function joinWithMedia(ids: string[]) {
 
 function serializeRec(
   r: Awaited<
-    ReturnType<typeof db.query.recommendations.findMany<{
-      with: { media: true; batch: true };
-    }>>
+    ReturnType<
+      typeof db.query.recommendations.findMany<{
+        with: { media: true; batch: true };
+      }>
+    >
   >[number],
 ) {
   return {

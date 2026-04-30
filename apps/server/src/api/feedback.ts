@@ -42,8 +42,10 @@ feedbackRouter.patch("/:id/feedback", async (req, res, next) => {
     // (explicit null). The `?? null` collapse here was the bug behind
     // "save clears my rating" — saving a rated rec sent no rating in the
     // body, but ?? coerced it to null, clobbering the column.
-    const feedbackInput: { status: typeof parsed.data.status; rating?: number | null } =
-      { status: parsed.data.status };
+    const feedbackInput: {
+      status: typeof parsed.data.status;
+      rating?: number | null;
+    } = { status: parsed.data.status };
     if (parsed.data.rating !== undefined) {
       feedbackInput.rating = parsed.data.rating;
     }

@@ -30,17 +30,17 @@ const JOB_TTL_MS = 60 * 60 * 1000; // 1 hour after completion
 const jobs = new Map<string, Job<unknown>>();
 
 /** Periodically prune completed/failed jobs. */
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, job] of jobs) {
-    if (
-      job.completedAt &&
-      now - job.completedAt.getTime() > JOB_TTL_MS
-    ) {
-      jobs.delete(id);
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [id, job] of jobs) {
+      if (job.completedAt && now - job.completedAt.getTime() > JOB_TTL_MS) {
+        jobs.delete(id);
+      }
     }
-  }
-}, 10 * 60 * 1000).unref(); // .unref so this timer doesn't keep the process alive
+  },
+  10 * 60 * 1000,
+).unref(); // .unref so this timer doesn't keep the process alive
 
 /**
  * Start a new job. The work runs immediately in the background; this call

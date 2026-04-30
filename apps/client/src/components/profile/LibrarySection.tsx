@@ -178,8 +178,8 @@ export function LibrarySection() {
                 Import Steam library
               </label>
               <p className="text-xs text-neutral-500">
-                Owned games — no file upload. Paste your SteamID, profile
-                URL, or vanity URL.
+                Owned games — no file upload. Paste your SteamID, profile URL,
+                or vanity URL.
               </p>
               <input
                 id="steam-input"
@@ -321,16 +321,16 @@ export function LibrarySection() {
               <li>
                 Unzip it. Upload <code>ratings.csv</code> for the strongest
                 signal — it has your star ratings, so we know which films you
-                loved (4-5 stars become library cross-references) and which
-                you bounced off (1-2 stars become avoid signal, like skipping
-                a rec).
+                loved (4-5 stars become library cross-references) and which you
+                bounced off (1-2 stars become avoid signal, like skipping a
+                rec).
               </li>
               <li>
                 Or upload <code>watched.csv</code> if you want every film you
                 logged. Without ratings we treat each as &quot;you watched
-                it&quot; — useful context, but no positive/negative bias. If
-                you watched something and hated it, prefer{" "}
-                <code>ratings.csv</code> so we know.
+                it&quot; — useful context, but no positive/negative bias. If you
+                watched something and hated it, prefer <code>ratings.csv</code>{" "}
+                so we know.
               </li>
             </ol>
           </details>
@@ -343,17 +343,17 @@ export function LibrarySection() {
               <li>
                 Visit your Steam profile (
                 <code>steamcommunity.com/id/yourname</code> or{" "}
-                <code>steamcommunity.com/profiles/76561…</code>) and copy
-                the URL — or grab your 64-bit Steam ID from the same page.
+                <code>steamcommunity.com/profiles/76561…</code>) and copy the
+                URL — or grab your 64-bit Steam ID from the same page.
               </li>
               <li>
-                Paste it into the field above and hit Import. We&apos;ll
-                resolve the URL to a SteamID and pull your owned games.
+                Paste it into the field above and hit Import. We&apos;ll resolve
+                the URL to a SteamID and pull your owned games.
               </li>
               <li>
-                <span className="text-neutral-200">Privacy</span>: your
-                Steam profile and game-details visibility need to be set
-                to Public for the API to return your library. Steam →{" "}
+                <span className="text-neutral-200">Privacy</span>: your Steam
+                profile and game-details visibility need to be set to Public for
+                the API to return your library. Steam →{" "}
                 <span className="text-neutral-200">
                   Edit Profile → Privacy Settings → Game details: Public
                 </span>
@@ -362,11 +362,10 @@ export function LibrarySection() {
               <li>
                 Owned games come in as{" "}
                 <span className="text-neutral-200">consumed</span> with no
-                rating — playtime is too noisy a signal to derive a real
-                rating from. Rate manually in your library if you want a
-                game to anchor cross-references in explanations. Wishlist
-                support is deferred (Steam&apos;s wishlist API is
-                gated behind user OAuth).
+                rating — playtime is too noisy a signal to derive a real rating
+                from. Rate manually in your library if you want a game to anchor
+                cross-references in explanations. Wishlist support is deferred
+                (Steam&apos;s wishlist API is gated behind user OAuth).
               </li>
             </ol>
           </details>
@@ -380,9 +379,9 @@ export function LibrarySection() {
                 On MyAnimeList:{" "}
                 <span className="text-neutral-200">
                   Profile → My List → Export
-                </span>
-                {" "}— pick anime or manga (you can do both, one at a time).
-                MAL gives you a <code>.xml.gz</code>; unzip to get a{" "}
+                </span>{" "}
+                — pick anime or manga (you can do both, one at a time). MAL
+                gives you a <code>.xml.gz</code>; unzip to get a{" "}
                 <code>.xml</code>.
               </li>
               <li>
@@ -391,12 +390,15 @@ export function LibrarySection() {
                 detect the format from the file&apos;s contents.
               </li>
               <li>
-                Status mapping: <span className="text-neutral-200">Completed</span>{" "}
-                entries go into your Library (with score → rating: 9-10⇒5,
-                8⇒4, 5-7⇒3, 3-4⇒2, 1-2⇒1, unrated⇒no rating);{" "}
-                <span className="text-neutral-200">Plan to Watch / Plan to Read</span>{" "}
-                go into your Watchlist; Watching / Reading / On-Hold /
-                Dropped are skipped (in-progress or ambiguous).
+                Status mapping:{" "}
+                <span className="text-neutral-200">Completed</span> entries go
+                into your Library (with score → rating: 9-10⇒5, 8⇒4, 5-7⇒3,
+                3-4⇒2, 1-2⇒1, unrated⇒no rating);{" "}
+                <span className="text-neutral-200">
+                  Plan to Watch / Plan to Read
+                </span>{" "}
+                go into your Watchlist; Watching / Reading / On-Hold / Dropped
+                are skipped (in-progress or ambiguous).
               </li>
             </ol>
           </details>
@@ -419,16 +421,16 @@ export function LibrarySection() {
                 <span className="text-neutral-200">read</span> shelf go into
                 your Library (rated entries become cross-references in
                 explanations); books on your{" "}
-                <span className="text-neutral-200">to-read</span> shelf go
-                into your Watchlist (won&apos;t be re-recommended).
-                Currently-reading and custom shelves are skipped.
+                <span className="text-neutral-200">to-read</span> shelf go into
+                your Watchlist (won&apos;t be re-recommended). Currently-reading
+                and custom shelves are skipped.
               </li>
               <li>
                 Your star ratings come along: 4-5 stars become library
                 cross-references, 1-2 stars become avoid signal, unrated
                 (Goodreads &ldquo;0&rdquo;) stays neutral. If you finished a
-                book and didn&apos;t like it, give it a star or two on
-                Goodreads first — that&apos;s the only way we know.
+                book and didn&apos;t like it, give it a star or two on Goodreads
+                first — that&apos;s the only way we know.
               </li>
             </ol>
           </details>

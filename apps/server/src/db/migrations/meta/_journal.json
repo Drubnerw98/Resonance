@@ -36,6 +36,13 @@
       "when": 1777505379654,
       "tag": "0004_plain_iron_monger",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777573844304,
+      "tag": "0005_ordinary_monster_badoon",
+      "breakpoints": true
     }
   ]
 }

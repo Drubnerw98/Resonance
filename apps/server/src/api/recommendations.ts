@@ -42,58 +42,62 @@ const generateBodySchema = z
  * creates a recommendation_batches row (with the prompt if provided) and
  * recommendations link to it. Pollable via /generate/:jobId.
  */
-recommendationsRouter.post("/generate", (req, res) => {
-  const userId = req.user!.id;
-
-  const parsed = generateBodySchema.safeParse(req.body ?? {});
-  if (!parsed.success) {
-    res
-      .status(400)
-      .json({ error: "invalid body", issues: parsed.error.issues });
-    return;
-  }
-  const prompt = parsed.data.prompt;
-
-  // If the user already has a job in flight, return it instead of starting
-  // a duplicate. Prevents accidental double-clicks from queueing two runs.
-  // Note: this returns BEFORE the rate-limit check so resuming a deduped
-  // in-flight job doesn't double-count.
-  const existing = findActiveJobForUser(userId, GENERATE_JOB_KIND);
-  if (existing) {
-    res.status(202).json({ jobId: existing.id, status: existing.status });
-    return;
-  }
-
+recommendationsRouter.post("/generate", async (req, res, next) => {
   try {
-    checkRateLimit(userId, "recommendations.generate");
+    const userId = req.user!.id;
+
+    const parsed = generateBodySchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({ error: "invalid body", issues: parsed.error.issues });
+      return;
+    }
+    const prompt = parsed.data.prompt;
+
+    // If the user already has a job in flight, return it instead of starting
+    // a duplicate. Prevents accidental double-clicks from queueing two runs.
+    // Note: this returns BEFORE the rate-limit check so resuming a deduped
+    // in-flight job doesn't double-count.
+    const existing = await findActiveJobForUser(userId, GENERATE_JOB_KIND);
+    if (existing) {
+      res.status(202).json({ jobId: existing.id, status: existing.status });
+      return;
+    }
+
+    try {
+      checkRateLimit(userId, "recommendations.generate");
+    } catch (err) {
+      const status =
+        err instanceof Error && "status" in err
+          ? Number((err as { status?: number }).status) || 429
+          : 429;
+      res
+        .status(status)
+        .json({ error: err instanceof Error ? err.message : "rate limited" });
+      return;
+    }
+
+    const job = await startJob<GenerateJobResult>({
+      userId,
+      kind: GENERATE_JOB_KIND,
+      work: async () => {
+        const result = await generateRecommendations(
+          userId,
+          prompt ? { prompt } : {},
+        );
+        return {
+          count: result.recs.length,
+          batchId: result.batch.id,
+          recommendationIds: result.recs.map((r) => r.id),
+        };
+      },
+    });
+
+    res.status(202).json({ jobId: job.id, status: job.status });
   } catch (err) {
-    const status =
-      err instanceof Error && "status" in err
-        ? Number((err as { status?: number }).status) || 429
-        : 429;
-    res
-      .status(status)
-      .json({ error: err instanceof Error ? err.message : "rate limited" });
-    return;
+    next(err);
   }
-
-  const job = startJob<GenerateJobResult>({
-    userId,
-    kind: GENERATE_JOB_KIND,
-    work: async () => {
-      const result = await generateRecommendations(
-        userId,
-        prompt ? { prompt } : {},
-      );
-      return {
-        count: result.recs.length,
-        batchId: result.batch.id,
-        recommendationIds: result.recs.map((r) => r.id),
-      };
-    },
-  });
-
-  res.status(202).json({ jobId: job.id, status: job.status });
 });
 
 /**
@@ -104,7 +108,7 @@ recommendationsRouter.post("/generate", (req, res) => {
 recommendationsRouter.get("/generate/:jobId", async (req, res, next) => {
   try {
     const jobId = req.params.jobId!;
-    const job = getJob<GenerateJobResult>(jobId);
+    const job = await getJob<GenerateJobResult>(jobId);
     if (!job || job.userId !== req.user!.id) {
       res.status(404).json({ error: "job not found" });
       return;
@@ -138,13 +142,17 @@ recommendationsRouter.get("/generate/:jobId", async (req, res, next) => {
  * frontend on mount to resume polling after a reload mid-generation.
  * Always 200; `jobId` is null when nothing is in flight.
  */
-recommendationsRouter.get("/active-job", (req, res) => {
-  const job = findActiveJobForUser(req.user!.id, GENERATE_JOB_KIND);
-  if (!job) {
-    res.json({ jobId: null });
-    return;
+recommendationsRouter.get("/active-job", async (req, res, next) => {
+  try {
+    const job = await findActiveJobForUser(req.user!.id, GENERATE_JOB_KIND);
+    if (!job) {
+      res.json({ jobId: null });
+      return;
+    }
+    res.json({ jobId: job.id, status: job.status });
+  } catch (err) {
+    next(err);
   }
-  res.json({ jobId: job.id, status: job.status });
 });
 
 /**

@@ -69,6 +69,13 @@ export const mediaTypeEnum = pgEnum("media_type", [
   "book",
 ]);
 
+export const jobStatusEnum = pgEnum("job_status", [
+  "pending",
+  "running",
+  "completed",
+  "failed",
+]);
+
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   clerkId: text("clerk_id").notNull().unique(),
@@ -280,6 +287,51 @@ export const discoveryThemes = pgTable("discovery_themes", {
     .notNull()
     .defaultNow(),
 });
+
+/**
+ * Background job tracker. Used by the recommendation pipeline (long-running
+ * AI calls + adapter verification) so the request handler can return 202
+ * immediately and the client can poll. Replaces the in-memory Map this used
+ * to live in — Postgres-backed so a deploy or process restart doesn't
+ * orphan in-flight jobs (boot-time recovery flips them to "failed").
+ *
+ * `result` is a per-kind JSONB payload that the caller persists when work
+ * completes — typed at the call site (`startJob<TResult>`), not here.
+ *
+ * Currently single-instance only. To make this multi-safe, the worker
+ * pickup needs an atomic claim: `UPDATE jobs SET status='running' WHERE
+ * id=$1 AND status='pending' RETURNING ...`. We don't run multiple
+ * replicas yet, so the simpler "insert with status='running' immediately"
+ * path stays — when we scale out, that's the single line to change.
+ */
+export const jobs = pgTable(
+  "jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    status: jobStatusEnum("status").notNull().default("pending"),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** Updated by the worker periodically while running. A row stuck in
+     * "running" with a stale heartbeat means the worker died — the boot
+     * recovery sweep + the per-tick stale check both rely on this. */
+    heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    error: text("error"),
+    result: jsonb("result"),
+  },
+  (t) => [
+    index("jobs_user_kind_status_idx").on(t.userId, t.kind, t.status),
+    index("jobs_completed_at_idx").on(t.completedAt),
+  ],
+);
+
+export type JobRow = typeof jobs.$inferSelect;
+export type NewJobRow = typeof jobs.$inferInsert;
 
 export const usersRelations = relations(users, ({ one, many }) => ({
   tasteProfile: one(tasteProfiles, {

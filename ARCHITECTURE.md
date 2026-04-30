@@ -478,9 +478,11 @@ suspenders against a future bug in the auth chain.
 
 ## 7. Job system
 
-`services/jobs.ts` is an in-memory job tracker. Long-running work
+`services/jobs.ts` is a Postgres-backed job tracker. Long-running work
 (recommendation generation, ~30-90s) starts a job, returns a `jobId`, and
 the frontend polls.
+
+**Table:** `jobs (id, user_id, kind, status, started_at, heartbeat_at, completed_at, error, result)`. Status enum: `pending | running | completed | failed`. Indexed on `(user_id, kind, status)` for the active-job lookup.
 
 **API:**
 
@@ -494,13 +496,26 @@ the frontend polls.
 `/active-job` check on mount; if a job is running, it picks up the poll
 loop. So a page reload mid-generation seamlessly resumes.
 
+**Crash recovery.** On boot, `recoverOrphanedJobs()` flips any leftover
+`running` rows to `failed` with `error="process restarted during job"`.
+A polling client gets a real status next tick instead of waiting forever.
+This is single-instance-safe (no other process is legitimately running
+those jobs). Workers also write a heartbeat every 30s; any `running` row
+whose heartbeat is older than 5 min is treated as dead by
+`findActiveJobForUser` so a hung worker doesn't trap the client either.
+
+**Cleanup.** Completed/failed rows live for 7 days, then a hourly periodic
+delete prunes them. Keeps recent history available for debugging without
+unbounded growth.
+
 **Trade-offs / known limitations:**
 
-- Lost on process restart. Acceptable for current scale; in production this
-  would swap to a Postgres-backed jobs table or Redis.
-- Single-process. Multi-instance deployment would require the same swap.
-- Jobs prune 1 hour after completion; users who reload long after the fact
-  get `404 job not found` and have to re-generate.
+- Single-instance only. Going multi-replica needs an atomic claim in
+  `startJob` — `UPDATE jobs SET status='running' WHERE id=$1 AND status='pending' RETURNING ...` — and the route handler inserting with `status='pending'` instead of `'running'`. One SQL statement; deferred until we actually scale out.
+- Result payload stored as JSONB on the row. For the recommendation
+  pipeline this is `{ count, batchId, recommendationIds }` — small, but
+  in principle a runaway result could bloat the row. The schema doesn't
+  enforce a size cap; would add one if/when result shapes grow.
 
 ---
 

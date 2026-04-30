@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { RecommendationItem } from "../../hooks/useRecommendations.ts";
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -34,13 +35,26 @@ export function MediaCard({
   const isSaved = status === "saved";
   const isSkipped = status === "skipped";
 
+  // Brief feedback-pulse animation on Save / Skip / Plan-to / Rate.
+  // Triggered by setting `pulse` true; auto-clears after the keyframe
+  // duration so it can re-fire on the next click.
+  const [pulse, setPulse] = useState(false);
+  function withPulse<T extends unknown[]>(fn: (...args: T) => void) {
+    return (...args: T) => {
+      fn(...args);
+      setPulse(true);
+      window.setTimeout(() => setPulse(false), 400);
+    };
+  }
+
   // Tone the entire card based on its feedback state.
   const cardClasses = [
     "flex gap-4 rounded-lg border p-4 transition-all duration-200",
     isSaved
       ? "border-emerald-700 bg-emerald-950/20"
       : "border-neutral-800 bg-neutral-900 hover:border-neutral-600 hover:bg-neutral-900/80",
-    isSkipped ? "opacity-50" : "opacity-100",
+    isSkipped ? "opacity-60" : "opacity-100",
+    pulse ? "animate-feedback-pulse" : "",
   ].join(" ");
 
   return (
@@ -105,8 +119,8 @@ export function MediaCard({
           recId={rec.id}
           status={status}
           rating={rating}
-          onFeedback={onFeedback}
-          onPlanTo={() => onPlanTo(rec)}
+          onFeedback={withPulse(onFeedback)}
+          onPlanTo={withPulse(() => onPlanTo(rec))}
         />
 
         <div className="flex items-center justify-end gap-2 pt-1">
@@ -232,18 +246,32 @@ function Stars({
   value: number;
   onChange: (n: number) => void;
 }) {
+  // Hover preview: hovered star and everything left of it light up before
+  // commit. Mouse-leave snaps back to the actual rating. Small interaction
+  // upgrade — makes ratings feel responsive rather than static.
+  const [hover, setHover] = useState(0);
+  const display = hover || value;
   return (
-    <div className="flex items-center gap-0.5" role="radiogroup" aria-label="Rating">
+    <div
+      className="flex items-center gap-0.5"
+      role="radiogroup"
+      aria-label="Rating"
+      onMouseLeave={() => setHover(0)}
+    >
       {[1, 2, 3, 4, 5].map((n) => {
-        const filled = n <= value;
+        const filled = n <= display;
+        const isPreview = hover > 0 && n <= hover && n > value;
         return (
           <button
             key={n}
             onClick={() => onChange(n)}
+            onMouseEnter={() => setHover(n)}
             className={
               "px-0.5 text-base leading-none transition-colors " +
               (filled
-                ? "text-amber-400"
+                ? isPreview
+                  ? "text-amber-300/80"
+                  : "text-amber-400"
                 : "text-neutral-600 hover:text-neutral-400")
             }
             aria-checked={filled}

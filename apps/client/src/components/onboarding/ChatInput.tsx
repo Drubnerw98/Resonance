@@ -79,9 +79,9 @@ export function ChatInput({ onSend, disabled }: Props) {
       <button
         type="submit"
         disabled={disabled || !value.trim()}
-        className="self-end rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40"
+        className="self-end rounded-md bg-emerald-600 px-5 py-2 text-sm font-semibold text-neutral-950 shadow-sm transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500 disabled:shadow-none"
       >
-        Send
+        Send →
       </button>
     </form>
   );

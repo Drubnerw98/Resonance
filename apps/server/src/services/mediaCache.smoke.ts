@@ -1,11 +1,12 @@
 // Live smoke test against all four media providers + Neon. Run with:
-//   pnpm tsx src/services/mediaCache.test.ts
+//   pnpm tsx src/services/mediaCache.smoke.ts
 //
 // Hits real APIs and writes to the real media_cache table. Assumes
 // TMDB_API_KEY, IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, and DATABASE_URL are
 // filled in .env.local. Open Library and Jikan need no credentials.
 //
-// Not part of the typecheck/build — purely a hand-runnable script.
+// Excluded from the Vitest suite by filename (.smoke.ts, not .test.ts) —
+// purely a hand-runnable script that hits real APIs.
 
 import "../env.js";
 import { searchAndCacheByQuery, searchAndCacheByTitle } from "./mediaCache.js";

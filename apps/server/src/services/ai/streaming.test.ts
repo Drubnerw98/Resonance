@@ -1,5 +1,4 @@
-// Quick smoke test, run with: pnpm tsx src/services/ai/streaming.test.ts
-// Not part of the typecheck/build — just a hand-runnable sanity script.
+import { describe, expect, it } from "vitest";
 import { StreamFilter } from "./streaming.js";
 
 interface Case {
@@ -96,30 +95,18 @@ const cases: Case[] = [
   },
 ];
 
-let failed = 0;
-for (const c of cases) {
-  const filter = new StreamFilter();
-  let out = "";
-  let ready = false;
-  for (const chunk of c.chunks) {
-    const r = filter.push(chunk);
-    out += r.text;
-    if (r.readySignaled) ready = true;
-  }
-  out += filter.flush();
-  const pass = out === c.expected && ready === c.ready;
-  if (!pass) {
-    failed++;
-    console.error(`FAIL ${c.name}`);
-    console.error(`  expected: ${JSON.stringify(c.expected)} ready=${c.ready}`);
-    console.error(`  actual:   ${JSON.stringify(out)} ready=${ready}`);
-  } else {
-    console.log(`pass  ${c.name}`);
-  }
-}
-
-if (failed > 0) {
-  console.error(`\n${failed} failures`);
-  process.exit(1);
-}
-console.log(`\nall ${cases.length} cases passed`);
+describe("StreamFilter", () => {
+  it.each(cases)("$name", ({ chunks, expected, ready }) => {
+    const filter = new StreamFilter();
+    let out = "";
+    let readySignaled = false;
+    for (const chunk of chunks) {
+      const r = filter.push(chunk);
+      out += r.text;
+      if (r.readySignaled) readySignaled = true;
+    }
+    out += filter.flush();
+    expect(out).toBe(expected);
+    expect(readySignaled).toBe(ready);
+  });
+});

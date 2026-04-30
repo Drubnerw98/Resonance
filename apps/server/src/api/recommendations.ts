@@ -15,6 +15,7 @@ import {
   type JobStatus,
 } from "../services/jobs.js";
 import { checkRateLimit } from "../services/rateLimit.js";
+import { enrichWithRuntime } from "../services/mediaCache.js";
 
 const GENERATE_JOB_KIND = "recommendations.generate";
 
@@ -322,6 +323,12 @@ recommendationsRouter.post("/:id/rescore", async (req, res, next) => {
  * GET /api/recommendations
  * Returns all recommendations for the user, newest first, with the joined
  * media_cache row + the parent batch (so the frontend can group by batch).
+ *
+ * Side effect: kicks off a background backfill for any TMDB movie/TV recs
+ * whose `runtime` field is still null — these are typically older recs
+ * persisted before the runtime field existed. Capped per-request so a
+ * one-off page load can't fan out 200 TMDB calls. Fire-and-forget; the
+ * data shows up on the user's next refresh.
  */
 recommendationsRouter.get("/", async (req, res, next) => {
   try {
@@ -331,6 +338,21 @@ recommendationsRouter.get("/", async (req, res, next) => {
       with: { media: true, batch: true },
     });
     res.json({ recommendations: rows.map(serializeRec) });
+
+    const stale = rows
+      .map((r) => r.media)
+      .filter(
+        (m) =>
+          m.source === "tmdb" &&
+          (m.mediaType === "movie" || m.mediaType === "tv") &&
+          m.normalizedData.runtime == null,
+      )
+      .slice(0, 30);
+    if (stale.length > 0) {
+      enrichWithRuntime(stale).catch(() => {
+        // Backfill is best-effort — failures are logged inside enrichWithRuntime.
+      });
+    }
   } catch (err) {
     next(err);
   }

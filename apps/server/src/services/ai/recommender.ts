@@ -16,7 +16,11 @@ import {
   type RecommendationBatchRow,
   type RecommendationRow,
 } from "../../db/schema.js";
-import { searchAndCacheByQuery, searchAndCacheByTitle } from "../mediaCache.js";
+import {
+  enrichWithRuntime,
+  searchAndCacheByQuery,
+  searchAndCacheByTitle,
+} from "../mediaCache.js";
 import { getActiveProfile } from "../profile.js";
 import { getAnthropic, ONBOARDING_MODEL } from "./client.js";
 import { recommendCandidatesSystemPrompt } from "./prompts/recommendCandidates.js";
@@ -450,6 +454,15 @@ export async function generateRecommendations(
     },
     "rec: persisted",
   );
+
+  // Step 5 — enrich the persisted picks with runtime (TMDB movies/TV only).
+  // After scoring so we only spend the extra detail-fetch on items that
+  // actually became recs. Failures are non-fatal — runtime stays null on
+  // the row and the client treats null as "—" in the sort.
+  const winnerCacheIds = new Set(saved.map((r) => r.mediaCacheId));
+  const winners = candidates.filter((c) => winnerCacheIds.has(c.id));
+  await enrichWithRuntime(winners);
+
   return { batch, recs: saved };
 }
 

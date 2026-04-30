@@ -24,6 +24,11 @@ interface TmdbMovieRow {
   vote_average: number;
   genre_ids?: number[];
   genres?: { id: number; name: string }[];
+  // Only present on details endpoints (/movie/:id, /tv/:id), not on search.
+  // Movies use a single `runtime` int (minutes); TV uses an array of episode
+  // runtimes — we take the first (the typical episode length).
+  runtime?: number | null;
+  episode_run_time?: number[];
 }
 
 let cachedGenres: {
@@ -95,6 +100,18 @@ function normalize(
         .map((id) => genreLookup.get(id))
         .filter((g): g is string => Boolean(g));
 
+  // Runtime — only present on details responses. Stay null on search hits
+  // (those go through the enrichWithRuntime pass after scoring). For TV,
+  // episode_run_time is an array; we take the first as the typical episode
+  // length. Some TMDB rows have an empty array — treat that as null.
+  let runtime: number | null = null;
+  if (mediaType === "movie" && typeof row.runtime === "number") {
+    runtime = row.runtime > 0 ? row.runtime : null;
+  } else if (mediaType === "tv" && Array.isArray(row.episode_run_time)) {
+    const first = row.episode_run_time[0];
+    runtime = typeof first === "number" && first > 0 ? first : null;
+  }
+
   return {
     externalId: String(row.id),
     source: "tmdb",
@@ -104,6 +121,7 @@ function normalize(
     imageUrl: row.poster_path ? `${IMAGE_BASE}${row.poster_path}` : null,
     rating: row.vote_average ?? null,
     year: Number.isFinite(year) ? year : null,
+    runtime,
     genres,
     externalUrl: `${TMDB_HOMEPAGE}/${mediaType}/${row.id}`,
     metadata: {},

@@ -36,13 +36,21 @@ const TAB_ORDER: { key: MediaType; label: string }[] = [
   { key: "book", label: "Books" },
 ];
 
-type SortKey = "match" | "alpha" | "year-desc" | "year-asc";
+type SortKey =
+  | "match"
+  | "alpha"
+  | "year-desc"
+  | "year-asc"
+  | "runtime-asc"
+  | "runtime-desc";
 
 const VALID_SORT_KEYS: ReadonlySet<SortKey> = new Set([
   "match",
   "alpha",
   "year-desc",
   "year-asc",
+  "runtime-asc",
+  "runtime-desc",
 ]);
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
@@ -50,10 +58,15 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "alpha", label: "Alphabetical" },
   { key: "year-desc", label: "Year (newest)" },
   { key: "year-asc", label: "Year (oldest)" },
+  { key: "runtime-asc", label: "Runtime (shortest)" },
+  { key: "runtime-desc", label: "Runtime (longest)" },
 ];
 
 /** Sort recs within a batch. Stable for ties so insertion order (model's
- * own ranking) carries through when a sort key is a tie. */
+ * own ranking) carries through when a sort key is a tie. Runtime sorts push
+ * null-runtime items (games / books / unenriched older recs) to the END
+ * regardless of direction — a sort by runtime is implicitly "rank the items
+ * I have runtime data for"; null-first would bury the actual signal. */
 function sortRecs(
   recs: RecommendationItem[],
   sort: SortKey,
@@ -75,6 +88,26 @@ function sortRecs(
       break;
     case "year-asc":
       sorted.sort((a, b) => (a.media.year ?? 9999) - (b.media.year ?? 9999));
+      break;
+    case "runtime-asc":
+      sorted.sort((a, b) => {
+        const ra = a.media.runtime ?? null;
+        const rb = b.media.runtime ?? null;
+        if (ra == null && rb == null) return 0;
+        if (ra == null) return 1;
+        if (rb == null) return -1;
+        return ra - rb;
+      });
+      break;
+    case "runtime-desc":
+      sorted.sort((a, b) => {
+        const ra = a.media.runtime ?? null;
+        const rb = b.media.runtime ?? null;
+        if (ra == null && rb == null) return 0;
+        if (ra == null) return 1;
+        if (rb == null) return -1;
+        return rb - ra;
+      });
       break;
   }
   return sorted;

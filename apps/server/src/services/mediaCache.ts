@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import type { MediaItem, MediaSearchQuery, MediaType } from "@resonance/shared";
 import { db } from "../db/index.js";
 import { mediaCache, type MediaCacheRow } from "../db/schema.js";
@@ -75,4 +76,55 @@ export async function searchAndCacheByQuery(
   const adapter = getAdapterForType(query.mediaType);
   const items = await adapter.searchByQuery(query);
   return upsertItems(items);
+}
+
+/**
+ * Fill in fields that aren't returned by the lightweight search endpoints
+ * — currently just `runtime` for TMDB movies/TV. Re-fetches details via
+ * `getById` and updates media_cache in place. Skips rows that already have
+ * a runtime, and skips non-TMDB rows (other adapters don't surface runtime
+ * yet). Failures are swallowed per-row so one missing detail doesn't break
+ * a whole batch enrichment.
+ *
+ * Called from the recommendation pipeline AFTER scoring, so we only spend
+ * the extra API calls on items that actually become user-facing recs.
+ */
+export async function enrichWithRuntime(
+  rows: MediaCacheRow[],
+): Promise<MediaCacheRow[]> {
+  const targets = rows.filter(
+    (r) =>
+      r.source === "tmdb" &&
+      (r.mediaType === "movie" || r.mediaType === "tv") &&
+      r.normalizedData.runtime == null,
+  );
+  if (targets.length === 0) return rows;
+
+  const adapter = getAdapterForType("movie");
+  const enriched = await Promise.all(
+    targets.map(async (r) => {
+      try {
+        const details = await adapter.getById(r.normalizedData.externalId);
+        if (details?.runtime == null) return r;
+        const merged: MediaItem = {
+          ...r.normalizedData,
+          runtime: details.runtime,
+        };
+        const [updated] = await db
+          .update(mediaCache)
+          .set({ normalizedData: merged, fetchedAt: new Date() })
+          .where(eq(mediaCache.id, r.id))
+          .returning();
+        return updated ?? r;
+      } catch {
+        // Detail fetch failures (404 on stale id, network blip) are
+        // non-fatal — we just leave runtime null on this one row.
+        return r;
+      }
+    }),
+  );
+
+  // Splice enriched rows back into the original ordering.
+  const byId = new Map(enriched.map((r) => [r.id, r]));
+  return rows.map((r) => byId.get(r.id) ?? r);
 }

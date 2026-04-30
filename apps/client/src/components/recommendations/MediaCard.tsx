@@ -10,6 +10,17 @@ const FORMAT_LABEL: Record<string, string> = {
   book: "Book",
 };
 
+/** "2h 14m" for movies; "45 min/ep" for TV. Null check is the caller's job. */
+function formatRuntime(minutes: number, mediaType: string): string {
+  if (mediaType === "tv") return `${minutes} min/ep`;
+  if (minutes >= 60) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+  return `${minutes}m`;
+}
+
 interface Props {
   rec: RecommendationItem;
   onFeedback: (
@@ -84,6 +95,9 @@ export function MediaCard({
           <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-neutral-500">
             <span>{FORMAT_LABEL[media.mediaType] ?? media.mediaType}</span>
             {media.year && <span>· {media.year}</span>}
+            {media.runtime != null && (
+              <span>· {formatRuntime(media.runtime, media.mediaType)}</span>
+            )}
             {media.rating != null && <span>· ★ {media.rating.toFixed(1)}</span>}
           </div>
           <h3 className="text-base font-semibold leading-tight">

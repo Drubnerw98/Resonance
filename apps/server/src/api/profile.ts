@@ -1,9 +1,15 @@
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { requireUser } from "../middleware/auth.js";
 import { db } from "../db/index.js";
-import { onboardingSessions, tasteProfiles, users } from "../db/schema.js";
+import {
+  onboardingSessions,
+  recommendations,
+  tasteProfiles,
+  users,
+} from "../db/schema.js";
 import { getActiveProfile, saveProfile } from "../services/profile.js";
+import { listLibraryItems } from "../services/library.js";
 import { refineProfile } from "../services/ai/refinement.js";
 import { checkRateLimit } from "../services/rateLimit.js";
 import { TasteProfileSchema } from "../services/ai/schemas.js";
@@ -25,6 +31,67 @@ profileRouter.get("/", async (req, res, next) => {
       data: row.profileData,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/profile/export
+ *
+ * Aggregated, read-only snapshot for downstream visualization tools
+ * (Constellation). Returns the user's TasteProfile plus their library and
+ * recommendations in a flat shape — no per-batch nesting, since the
+ * consumer just needs titles + tags + status. Recommendations are deduped
+ * by media id (newest wins) so a user with multiple feedback loops on the
+ * same title doesn't render as duplicate stars.
+ */
+profileRouter.get("/export", async (req, res, next) => {
+  try {
+    const userId = req.user!.id;
+
+    const profileRow = await getActiveProfile(userId);
+    if (!profileRow) {
+      res.status(404).json({ error: "no profile yet" });
+      return;
+    }
+
+    const libraryRows = await listLibraryItems(userId);
+    const recRows = await db.query.recommendations.findMany({
+      where: eq(recommendations.userId, userId),
+      orderBy: [desc(recommendations.createdAt)],
+      with: { media: true },
+    });
+
+    const seen = new Set<string>();
+    const dedupedRecs: typeof recRows = [];
+    for (const r of recRows) {
+      if (seen.has(r.mediaCacheId)) continue;
+      seen.add(r.mediaCacheId);
+      dedupedRecs.push(r);
+    }
+
+    res.json({
+      profile: profileRow.profileData,
+      library: libraryRows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        mediaType: row.mediaType,
+        year: row.year,
+        rating: row.rating,
+        source: "library" as const,
+      })),
+      recommendations: dedupedRecs.map((r) => ({
+        id: r.id,
+        title: r.media.title,
+        mediaType: r.media.mediaType,
+        year: r.media.normalizedData.year,
+        matchScore: r.matchScore,
+        tasteTags: r.tasteTags,
+        status: r.status,
+        rating: r.rating,
+      })),
     });
   } catch (err) {
     next(err);

@@ -97,6 +97,10 @@ profileRouter.get("/export", async (req, res, next) => {
         tasteTags: r.tasteTags,
         status: r.status,
         rating: r.rating,
+        // The AI's per-item verdict (~1-2 sentences, item-specific). Distinct
+        // from profile-level theme.evidence which describes the user's overall
+        // pattern citing many other titles.
+        explanation: r.explanation,
       })),
     });
   } catch (err) {

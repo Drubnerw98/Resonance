@@ -92,7 +92,7 @@ export function MediaCard({
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <header className="space-y-0.5">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-neutral-500">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-500">
             <span>{FORMAT_LABEL[media.mediaType] ?? media.mediaType}</span>
             {media.year && <span>· {media.year}</span>}
             {media.runtime != null && (
@@ -100,12 +100,12 @@ export function MediaCard({
             )}
             {media.rating != null && <span>· ★ {media.rating.toFixed(1)}</span>}
           </div>
-          <h3 className="text-base font-semibold leading-tight">
+          <h3 className="font-display text-lg font-medium leading-tight tracking-tight text-neutral-50">
             <a
               href={media.externalUrl}
               target="_blank"
               rel="noreferrer"
-              className="hover:underline"
+              className="transition-colors hover:text-white hover:underline"
             >
               {media.title}
             </a>

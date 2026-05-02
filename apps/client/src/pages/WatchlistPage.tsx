@@ -99,7 +99,7 @@ export function WatchlistPage() {
 
       {/* Mood prompt — the differentiator. Always visible above the list so
           the page leads with the action. */}
-      <section className="space-y-3 rounded-xl border border-neutral-800 bg-gradient-to-br from-neutral-900 to-neutral-950 p-5 shadow-lg shadow-black/20">
+      <section className="space-y-3 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
         <header className="space-y-1">
           <h2 className="text-base font-semibold text-neutral-100">
             What fits your mood tonight?

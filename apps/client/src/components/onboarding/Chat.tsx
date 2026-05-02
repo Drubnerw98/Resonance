@@ -118,7 +118,7 @@ export function Chat() {
         className="flex-1 space-y-3 overflow-y-auto rounded-md border border-neutral-800 bg-neutral-950 p-4"
       >
         {showStarter && (
-          <div className="space-y-3 rounded-md border border-emerald-900/40 bg-gradient-to-br from-emerald-950/20 to-neutral-900 p-4">
+          <div className="space-y-3 rounded-md border-l-2 border-emerald-500/50 bg-neutral-900/60 p-4 pl-5">
             <p className="text-sm text-neutral-200">
               <span className="font-medium text-emerald-300">
                 Hey, glad you're here.

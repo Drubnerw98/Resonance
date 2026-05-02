@@ -68,7 +68,7 @@ export function PromptCard() {
   }
 
   return (
-    <section className="rounded-xl border border-neutral-800 bg-gradient-to-br from-neutral-900 to-neutral-950 p-5 shadow-lg shadow-black/20">
+    <section className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="flex items-start gap-3">
           <textarea
@@ -85,7 +85,7 @@ export function PromptCard() {
           <button
             type="submit"
             disabled={submitting}
-            className="self-end rounded-md bg-white px-5 py-2 text-sm font-medium text-neutral-950 hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40"
+            className="self-end rounded-md bg-neutral-50 px-5 py-2 text-sm font-semibold text-neutral-950 shadow-sm transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
           >
             {submitting ? "Starting…" : "Generate"}
           </button>

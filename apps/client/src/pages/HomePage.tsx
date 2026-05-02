@@ -50,19 +50,19 @@ function Dashboard() {
 
   if (profile.state.status === "missing") {
     return (
-      <section className="space-y-5 rounded-xl border border-neutral-800 bg-gradient-to-br from-neutral-900 to-neutral-950 p-6 sm:p-8">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <section className="space-y-5 rounded-xl border border-neutral-800 bg-neutral-900/60 p-7 sm:p-9">
+        <h1 className="font-display text-3xl font-medium leading-[1.1] tracking-tight text-neutral-50 sm:text-4xl">
           {greeting}
           {name ? `, ${name}` : ""}.
         </h1>
-        <p className="max-w-prose text-base text-neutral-300">
+        <p className="max-w-prose text-base leading-relaxed text-neutral-300">
           Let&apos;s build your taste profile first. Onboarding is a quick
           conversation about what you actually love and why. That&apos;s what
           everything else here runs on.
         </p>
         <Link
           to="/onboarding"
-          className="inline-block rounded-md bg-white px-5 py-2.5 text-sm font-medium text-neutral-950 hover:bg-neutral-200"
+          className="inline-flex items-center justify-center rounded-md bg-neutral-50 px-5 py-2.5 text-sm font-semibold text-neutral-950 shadow-sm transition-colors hover:bg-white"
         >
           Start onboarding
         </Link>
@@ -80,12 +80,10 @@ function Dashboard() {
 
   return (
     <div className="space-y-6 py-2 sm:py-4">
-      {/* Tightened hero — smaller gap to the prompt card so the prompt is
+      {/* Tightened hero - smaller gap to the prompt card so the prompt is
           clearly the primary action above the fold. */}
-      <header className="space-y-1">
-        {/* `bg-clip-text` clips descenders (g/y/p/j) when leading is too tight,
-            so use a roomier line-height + a touch of bottom padding here. */}
-        <h1 className="bg-gradient-to-br from-white to-neutral-400 bg-clip-text pb-1 text-3xl font-semibold leading-[1.15] tracking-tight text-transparent sm:text-4xl">
+      <header className="space-y-1.5">
+        <h1 className="font-display text-3xl font-medium leading-[1.1] tracking-tight text-neutral-50 sm:text-4xl">
           {greeting}
           {name ? `, ${name}` : ""}.
         </h1>

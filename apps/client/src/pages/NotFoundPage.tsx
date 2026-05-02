@@ -12,17 +12,17 @@ export function NotFoundPage() {
   const location = useLocation();
   return (
     <section className="flex min-h-[60vh] flex-col items-center justify-center gap-6 py-10 text-center">
-      <div className="text-emerald-300">
+      <div className="text-emerald-300/90">
         <Logo size={56} />
       </div>
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+      <div className="space-y-3">
+        <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-neutral-500">
           404 · Page not found
         </p>
-        <h1 className="bg-gradient-to-br from-white to-neutral-400 bg-clip-text text-3xl font-semibold tracking-tight text-transparent sm:text-4xl">
-          Nothing resonates here
+        <h1 className="font-display text-3xl font-medium leading-tight tracking-tight text-neutral-50 sm:text-5xl">
+          Nothing resonates here.
         </h1>
-        <p className="mx-auto max-w-md text-sm text-neutral-400">
+        <p className="mx-auto max-w-md text-sm leading-relaxed text-neutral-400">
           We couldn&apos;t find{" "}
           <code className="rounded bg-neutral-800 px-1.5 py-0.5 text-neutral-300">
             {location.pathname}
@@ -33,7 +33,7 @@ export function NotFoundPage() {
       <div className="flex flex-wrap items-center justify-center gap-2">
         <Link
           to="/"
-          className="rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-neutral-200"
+          className="inline-flex items-center justify-center rounded-md bg-neutral-50 px-4 py-2 text-sm font-semibold text-neutral-950 shadow-sm transition-colors hover:bg-white"
         >
           Back to home
         </Link>

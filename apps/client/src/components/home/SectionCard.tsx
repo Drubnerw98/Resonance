@@ -10,14 +10,14 @@ export function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <article className="rounded-xl border border-neutral-800 bg-neutral-900 p-5">
+    <article className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
       <header className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+          <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-500">
             {title}
           </h2>
           {subtitle && (
-            <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-neutral-200">
+            <p className="mt-1 line-clamp-2 text-sm leading-snug text-neutral-200">
               {subtitle}
             </p>
           )}

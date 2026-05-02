@@ -46,8 +46,8 @@ function Hero() {
         </h1>
         <p className="mx-auto max-w-2xl text-base leading-relaxed text-neutral-300 sm:text-lg">
           An AI-powered taste-DNA engine for movies, TV, anime, manga, games,
-          and books. Have a conversation about a few stories that stuck with you
-          — get recommendations grounded in the themes, archetypes, and
+          and books. Have a conversation about a few stories that stuck with
+          you, then get recommendations grounded in the themes, archetypes, and
           narrative shapes you actually care about.
         </p>
       </div>
@@ -85,7 +85,7 @@ function HowItWorks() {
         <Step
           n={1}
           title="Have a conversation"
-          description="A media-savvy AI asks you about moments that stuck. Not 'what's your favorite movie' — what scene you keep replaying, what feeling a story left you with. Adapts when you can't articulate the why."
+          description="A media-savvy AI asks you about moments that stuck. Not 'what's your favorite movie.' The scene you keep replaying, the feeling a story left you with. Adapts when you can't articulate the why."
         >
           <ChatPreview />
         </Step>
@@ -99,7 +99,7 @@ function HowItWorks() {
         <Step
           n={3}
           title="Get recs that actually land"
-          description="The recommender names titles in your library by name. 'Has the same fractured-interior architecture you found in Disco Elysium' beats 'matches your profile.' Verified against real metadata — no hallucinated titles."
+          description="The recommender names titles in your library by name. 'Has the same fractured-interior architecture you found in Disco Elysium' beats 'matches your profile.' Every recommendation is verified against real metadata, never hallucinated."
         >
           <RecPreview />
         </Step>
@@ -215,7 +215,7 @@ function RecPreview() {
       </p>
       <p className="text-xs leading-relaxed text-neutral-400">
         Same fractured-interior architecture you found in No Longer Human and
-        Goodnight Punpun — multiple voices carrying the weight of a place that's
+        Goodnight Punpun. Multiple voices carrying the weight of a place that's
         already broken them.
       </p>
       <ul className="flex flex-wrap gap-1">
@@ -323,7 +323,7 @@ function FormatShowcase() {
         </h2>
         <p className="mx-auto max-w-2xl text-sm leading-relaxed text-neutral-400 sm:text-base">
           The same patterns play out across mediums. A profile built from your
-          favorite films can recommend the right book or the right game — and
+          favorite films can recommend the right book or the right game, and
           explain how they connect.
         </p>
       </div>

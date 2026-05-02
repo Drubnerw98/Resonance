@@ -31,10 +31,10 @@ const FORMAT_DOT_COLOR: Record<MediaType, string> = {
 };
 
 const STARTER_MOODS = [
-  "Something cathartic — I want to feel something",
+  "Something cathartic, I want to feel something",
   "Light, no thinking, make me laugh",
   "A long slow burn for the weekend",
-  "Short and propulsive — I have an evening",
+  "Short and propulsive, I have an evening",
   "Something I'll be thinking about all week",
 ];
 
@@ -63,11 +63,11 @@ export function WatchlistPage() {
       <section className="space-y-6">
         <PageHeader
           title="Watchlist"
-          subtitle="Stuff you plan to consume — and an AI second opinion on what fits your mood."
+          subtitle="Stuff you plan to consume, with an AI second opinion on what fits your mood."
         />
         <EmptyState
           title="No profile yet"
-          description="Mood-based ranking uses your taste DNA. Finish onboarding first — once you have a profile, this page can sort your watchlist by mood."
+          description="Mood-based ranking uses your taste DNA. Finish onboarding first; once you have a profile, this page can sort your watchlist by mood."
           action={
             <Link
               to="/onboarding"
@@ -92,7 +92,7 @@ export function WatchlistPage() {
         title="Watchlist"
         subtitle={
           watchlist.length === 0
-            ? "Stuff you plan to consume — and an AI second opinion on what fits your mood."
+            ? "Stuff you plan to consume, with an AI second opinion on what fits your mood."
             : `${watchlist.length} item${watchlist.length === 1 ? "" : "s"} on deck across ${countFormats(watchlist)} formats.`
         }
       />
@@ -105,7 +105,7 @@ export function WatchlistPage() {
             What fits your mood tonight?
           </h2>
           <p className="text-xs text-neutral-500">
-            Describe a feeling or shape — I&apos;ll rank your watchlist for it.
+            Describe a feeling or shape, and I&apos;ll rank your watchlist for it.
           </p>
         </header>
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -205,7 +205,7 @@ export function WatchlistPage() {
           title="No watchlist items yet"
           description={
             <>
-              Mark a recommendation as <em>Plan to</em>, or import a watchlist —
+              Mark a recommendation as <em>Plan to</em>, or import a watchlist:
               Goodreads <em>to-read</em> shelf, MyAnimeList{" "}
               <em>plan-to-watch</em>, or add manually from{" "}
               <Link to="/profile#library" className="underline">

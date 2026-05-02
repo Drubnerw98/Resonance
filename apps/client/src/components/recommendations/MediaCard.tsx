@@ -221,7 +221,7 @@ function FeedbackRow({
       <button
         onClick={onPlanTo}
         disabled={isPlanTo}
-        title="Add to your watchlist — won't be re-recommended"
+        title="Add to your watchlist. Won't be re-recommended."
         className={
           "rounded-md px-2 py-1 text-xs font-medium transition-colors disabled:cursor-default " +
           (isPlanTo

@@ -122,7 +122,7 @@ export function ProfilePage() {
         <h1 className="text-2xl font-semibold">No profile yet</h1>
         <p className="max-w-prose text-neutral-400">
           You haven&apos;t finished onboarding, or the profile extraction
-          didn&apos;t run. Head back to onboarding — when the conversation has
+          didn&apos;t run. Head back to onboarding. When the conversation has
           enough signal, the &quot;Generate profile&quot; button extracts your
           taste DNA from the transcript.
         </p>

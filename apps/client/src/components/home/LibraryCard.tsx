@@ -62,7 +62,7 @@ export function LibraryCard() {
     >
       {total === 0 ? (
         <p className="text-sm text-neutral-400">
-          Imports anchor your recs — works you&apos;ve loved get
+          Imports anchor your recs. Works you&apos;ve loved get
           cross-referenced in explanations. Try a Letterboxd or Goodreads CSV to
           start.
         </p>

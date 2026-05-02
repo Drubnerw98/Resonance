@@ -229,7 +229,7 @@ export function RecommendationsPage() {
         />
         <EmptyState
           title="No profile yet"
-          description="Recommendations are generated against your taste profile. Finish onboarding first — once your profile is in, you can prompt for any kind of batch you want."
+          description="Recommendations are generated against your taste profile. Finish onboarding first; once your profile is in, you can prompt for any kind of batch you want."
           action={
             <Link
               to="/onboarding"
@@ -305,7 +305,7 @@ export function RecommendationsPage() {
               ✨
             </span>
             <span>
-              Your profile is evolving from your recent feedback — usually ~30s.
+              Your profile is evolving from your recent feedback. Usually about 30 seconds.
               Refresh{" "}
               <Link to="/profile" className="underline">
                 your profile
@@ -392,7 +392,7 @@ export function RecommendationsPage() {
                   onboarding
                 </Link>{" "}
                 (we need a profile to recommend against), then submit a prompt
-                above — or leave it blank for a default batch.
+                above, or leave it blank for a default batch.
               </>
             }
           />

@@ -1,5 +1,35 @@
 @import "tailwindcss";
 
+/* Editorial design system tokens.
+   - font-sans: Inter for UI, body, controls.
+   - font-display: Newsreader (variable, optical sizing) for hero + section
+     titles. Editorial serif chosen to match the literary voice in the copy
+     (themes, archetypes, narrative shapes) instead of the default AI-SaaS
+     gradient-on-system-sans look. */
+@theme {
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display:
+    "Newsreader", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+
+  /* Warm the neutral palette so the dark theme reads as paper-and-ink
+     editorial rather than cold AI-SaaS template. Hand-tuned warm-grey ramp
+     close to Tailwind's `stone` family but leaning slightly bluer in the
+     mid-tones for legibility. */
+  --color-neutral-50: #fafaf8;
+  --color-neutral-100: #f1efeb;
+  --color-neutral-200: #d9d6cf;
+  --color-neutral-300: #b8b4ab;
+  --color-neutral-400: #8c887f;
+  --color-neutral-500: #6b6760;
+  --color-neutral-600: #4f4c46;
+  --color-neutral-700: #3a3833;
+  --color-neutral-800: #25231f;
+  --color-neutral-900: #16140f;
+  --color-neutral-950: #0c0b08;
+}
+
 html,
 body,
 #root {
@@ -16,17 +46,21 @@ html {
 
 body {
   margin: 0;
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    "Helvetica Neue",
-    Arial,
-    sans-serif;
+  font-family: var(--font-sans);
+  font-feature-settings:
+    "ss01" on,
+    "cv11" on;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Display class for editorial headings — Newsreader with optical sizing,
+   tighter tracking, slightly heavier weight than its default. Apply via
+   `font-display` utility (registered in @theme above). */
+.font-display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  letter-spacing: -0.02em;
 }
 
 /* iOS Safari auto-zooms when a focused input/textarea/select has a font-size

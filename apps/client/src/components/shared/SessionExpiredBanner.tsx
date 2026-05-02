@@ -33,7 +33,7 @@ export function SessionExpiredBanner() {
         className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-amber-900/60 bg-amber-950/80 px-4 py-2 text-sm text-amber-100 backdrop-blur-md"
       >
         <span>
-          Your session looks expired. Refresh to sign back in — your work is
+          Your session looks expired. Refresh to sign back in. Your work is
           safe.
         </span>
         <div className="flex shrink-0 items-center gap-1">

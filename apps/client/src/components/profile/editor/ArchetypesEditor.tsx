@@ -39,7 +39,7 @@ export function ArchetypesEditor({
             <textarea
               value={a.attraction}
               onChange={(e) => update(i, { attraction: e.target.value })}
-              placeholder="Why this resonates — 1 sentence"
+              placeholder="Why this resonates (one sentence)"
               rows={2}
               className="w-full resize-y rounded-md border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm text-neutral-300 focus:border-neutral-500 focus:outline-none"
             />

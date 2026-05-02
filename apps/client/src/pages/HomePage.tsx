@@ -57,7 +57,7 @@ function Dashboard() {
         </h1>
         <p className="max-w-prose text-base text-neutral-300">
           Let&apos;s build your taste profile first. Onboarding is a quick
-          conversation about what you actually love and why — that&apos;s what
+          conversation about what you actually love and why. That&apos;s what
           everything else here runs on.
         </p>
         <Link

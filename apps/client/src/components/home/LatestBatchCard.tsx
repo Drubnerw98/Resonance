@@ -43,7 +43,7 @@ export function LatestBatchCard() {
     return (
       <SectionCard title="Latest batch">
         <p className="text-sm text-neutral-400">
-          No batches yet — your first prompt above will land here.
+          No batches yet. Your first prompt above will land here.
         </p>
       </SectionCard>
     );

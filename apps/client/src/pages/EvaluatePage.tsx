@@ -91,7 +91,7 @@ export function EvaluatePage() {
         />
         <EmptyState
           title="No profile yet"
-          description="Verdicts are scored against your taste DNA. Finish onboarding first — once your profile is in, you can ask about any specific title."
+          description="Verdicts are scored against your taste DNA. Finish onboarding first; once your profile is in, you can ask about any specific title."
           action={
             <Link
               to="/onboarding"
@@ -272,7 +272,7 @@ function Picker({
                     {m.item.title}
                   </p>
                   <p className="text-xs text-neutral-500">
-                    {m.item.year ?? "—"}
+                    {m.item.year ?? "–"}
                     {m.item.rating != null
                       ? ` · ★ ${m.item.rating.toFixed(1)}`
                       : ""}

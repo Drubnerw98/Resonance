@@ -123,7 +123,7 @@ export function Chat() {
               <span className="font-medium text-emerald-300">
                 Hey, glad you're here.
               </span>{" "}
-              Don't list favorites — talk about <em>moments</em>. A scene that
+              Don't list favorites. Talk about <em>moments</em>. A scene that
               stuck. A line you keep thinking about. A story that wrecked you.
               The more specific, the better the profile we build.
             </p>

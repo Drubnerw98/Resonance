@@ -119,7 +119,7 @@ export function LibrarySection() {
         <h2 className="text-lg font-semibold">Your library</h2>
         <p className="text-xs text-neutral-500">
           Works you&apos;ve told us you&apos;ve loved. The recommender
-          cross-references these in its explanations — more items here means
+          cross-references these in its explanations, so more items here means
           richer recommendations.
         </p>
       </div>
@@ -145,7 +145,7 @@ export function LibrarySection() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <ImportButton
               label="Import Letterboxd CSV"
-              hint="Movies — watched / rated list"
+              hint="Movies, watched and rated list"
               busy={lib.importing && pendingSource === "letterboxd"}
               disabled={lib.importing}
               onClick={() => startImport("letterboxd")}
@@ -159,14 +159,14 @@ export function LibrarySection() {
             />
             <ImportButton
               label="Import Goodreads CSV"
-              hint="Books — read + to-read shelves"
+              hint="Books, read and to-read shelves"
               busy={lib.importing && pendingSource === "goodreads"}
               disabled={lib.importing}
               onClick={() => startImport("goodreads")}
             />
             <ImportButton
               label="Import MyAnimeList XML"
-              hint="Anime / manga — completed + plan-to lists"
+              hint="Anime / manga, completed and plan-to lists"
               busy={lib.importing && pendingSource === "myanimelist"}
               disabled={lib.importing}
               onClick={() => startImport("myanimelist")}
@@ -186,8 +186,8 @@ export function LibrarySection() {
                 Import Steam library
               </label>
               <p className="text-xs text-neutral-500">
-                Owned games — no file upload. Paste your SteamID, profile URL,
-                or vanity URL.
+                Owned games. No file upload required. Paste your SteamID,
+                profile URL, or vanity URL.
               </p>
               <input
                 id="steam-input"
@@ -328,7 +328,7 @@ export function LibrarySection() {
               </li>
               <li>
                 Unzip it. Upload <code>ratings.csv</code> for the strongest
-                signal — it has your star ratings, so we know which films you
+                signal: it has your star ratings, so we know which films you
                 loved (4-5 stars become library cross-references) and which you
                 bounced off (1-2 stars become avoid signal, like skipping a
                 rec).
@@ -336,9 +336,9 @@ export function LibrarySection() {
               <li>
                 Or upload <code>watched.csv</code> if you want every film you
                 logged. Without ratings we treat each as &quot;you watched
-                it&quot; — useful context, but no positive/negative bias. If you
-                watched something and hated it, prefer <code>ratings.csv</code>{" "}
-                so we know.
+                it&quot;: useful context, but no positive or negative bias. If
+                you watched something and hated it, prefer{" "}
+                <code>ratings.csv</code> so we know.
               </li>
             </ol>
           </details>
@@ -352,7 +352,7 @@ export function LibrarySection() {
                 Visit your Steam profile (
                 <code>steamcommunity.com/id/yourname</code> or{" "}
                 <code>steamcommunity.com/profiles/76561…</code>) and copy the
-                URL — or grab your 64-bit Steam ID from the same page.
+                URL, or grab your 64-bit Steam ID from the same page.
               </li>
               <li>
                 Paste it into the field above and hit Import. We&apos;ll resolve
@@ -370,7 +370,7 @@ export function LibrarySection() {
               <li>
                 Owned games come in as{" "}
                 <span className="text-neutral-200">consumed</span> with no
-                rating — playtime is too noisy a signal to derive a real rating
+                rating; playtime is too noisy a signal to derive a real rating
                 from. Rate manually in your library if you want a game to anchor
                 cross-references in explanations. Wishlist support is deferred
                 (Steam&apos;s wishlist API is gated behind user OAuth).
@@ -387,8 +387,8 @@ export function LibrarySection() {
                 On MyAnimeList:{" "}
                 <span className="text-neutral-200">
                   Profile → My List → Export
-                </span>{" "}
-                — pick anime or manga (you can do both, one at a time). MAL
+                </span>
+                . Pick anime or manga (you can do both, one at a time). MAL
                 gives you a <code>.xml.gz</code>; unzip to get a{" "}
                 <code>.xml</code>.
               </li>
@@ -438,7 +438,7 @@ export function LibrarySection() {
                 cross-references, 1-2 stars become avoid signal, unrated
                 (Goodreads &ldquo;0&rdquo;) stays neutral. If you finished a
                 book and didn&apos;t like it, give it a star or two on Goodreads
-                first — that&apos;s the only way we know.
+                first; that&apos;s the only way we know.
               </li>
             </ol>
           </details>
@@ -539,7 +539,7 @@ function LibraryRow({
           <button
             onClick={onMarkConsumed}
             className="rounded-md border border-emerald-800/70 px-2 py-1 text-xs font-medium text-emerald-300 hover:border-emerald-600 hover:bg-emerald-950/30"
-            title="I've watched / read / played this — move to Library"
+            title="I've watched / read / played this. Moves to Library."
           >
             Mark consumed
           </button>

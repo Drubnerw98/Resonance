@@ -54,7 +54,7 @@ export function ThemesEditor({
             <textarea
               value={t.evidence}
               onChange={(e) => update(i, { evidence: e.target.value })}
-              placeholder="Evidence — titles or moments that support this theme"
+              placeholder="Evidence: titles or moments that support this theme"
               rows={2}
               className="w-full resize-y rounded-md border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm text-neutral-300 focus:border-neutral-500 focus:outline-none"
             />

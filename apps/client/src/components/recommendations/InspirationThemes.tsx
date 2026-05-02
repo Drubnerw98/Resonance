@@ -98,7 +98,7 @@ export function InspirationThemes({ onPickTheme, disabled }: Props) {
             </div>
           ) : themes.themes.length === 0 ? (
             <p className="text-xs text-neutral-500">
-              No themes yet — click Refresh to generate some from your profile.
+              No themes yet. Click Refresh to generate some from your profile.
             </p>
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

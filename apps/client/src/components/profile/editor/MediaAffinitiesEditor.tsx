@@ -46,7 +46,7 @@ export function MediaAffinitiesEditor({
   return (
     <Section
       title="Media affinities"
-      hint="Which formats you want recommendations from. Disabled formats never appear in batches, themes, or evaluations — the recommender hard-filters them out."
+      hint="Which formats you want recommendations from. Disabled formats never appear in batches, themes, or evaluations; the recommender hard-filters them out."
     >
       <ul className="space-y-3">
         {FORMAT_ORDER.map((format) => {
@@ -87,7 +87,7 @@ export function MediaAffinitiesEditor({
                 <button
                   onClick={() => removeFormat(format)}
                   className="rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 hover:border-rose-800 hover:text-rose-300"
-                  title="Disable this format — it'll be hard-filtered from all recommendations"
+                  title="Disable this format. It'll be hard-filtered from all recommendations."
                 >
                   Disable
                 </button>

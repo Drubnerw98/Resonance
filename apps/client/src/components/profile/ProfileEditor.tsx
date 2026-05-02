@@ -46,7 +46,7 @@ export function ProfileEditor({
         <div>
           <h1 className="text-2xl font-semibold">Edit your taste DNA</h1>
           <p className="text-sm text-neutral-500">
-            Anything the AI got wrong — fix it here. Saving creates a new
+            Anything the AI got wrong, fix it here. Saving creates a new
             profile version.
           </p>
         </div>
@@ -96,7 +96,7 @@ export function ProfileEditor({
       />
       <ChipListEditor
         title="Avoidances"
-        hint="Patterns you bounce off — describe by pattern, not specific titles"
+        hint="Patterns you bounce off. Describe by pattern, not specific titles."
         placeholder="e.g. generic chosen-one plots"
         items={profile.avoidances}
         onChange={(avoidances) => setField("avoidances", avoidances)}

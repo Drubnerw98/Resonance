@@ -57,7 +57,13 @@ profileRouter.get("/export", async (req, res, next) => {
       return;
     }
 
-    const libraryRows = await listLibraryItems(userId);
+    // Only ship manually-added library items to Constellation. Bulk
+    // imports from Letterboxd / Goodreads / MAL / Steam can run into the
+    // thousands per user and represent consumption history, not the
+    // curated taste signal the constellation visualizes.
+    const libraryRows = (await listLibraryItems(userId)).filter(
+      (row) => row.source === "manual",
+    );
     const recRows = await db.query.recommendations.findMany({
       where: eq(recommendations.userId, userId),
       orderBy: [desc(recommendations.createdAt)],

@@ -148,6 +148,23 @@ export const DiscoveryThemesOutputSchema = z.object({
 
 export type DiscoveryThemesOutput = z.infer<typeof DiscoveryThemesOutputSchema>;
 
+// === Library item annotation: per-item fitNote + tasteTags ===
+//
+// One library item at a time → ~1-2 sentence rationale tying that title to
+// the user's taste profile, plus a small set of canonical theme/archetype
+// labels. Powers Constellation's per-item detail panel and replaces the
+// title-substring fallback for cluster placement on annotated items.
+//
+// Tag validation runs after parse: tasteTags are filtered against the
+// profile's known theme/archetype labels (the model occasionally invents
+// tags despite being told not to). Empty taste_tags are tolerated downstream.
+export const LibraryAnnotationSchema = z.object({
+  fitNote: z.string().min(20).max(500),
+  tasteTags: z.array(z.string().min(1)).min(1).max(5),
+});
+
+export type LibraryAnnotation = z.infer<typeof LibraryAnnotationSchema>;
+
 // === Watchlist decide: rank-from-set ===
 //
 // "I'm in mood X — what on my watchlist should I tackle?". Like recommendScore,

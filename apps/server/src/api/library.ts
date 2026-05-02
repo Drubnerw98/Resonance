@@ -15,6 +15,12 @@ import {
   parseMyAnimeListXML,
 } from "../services/library.js";
 import { fetchOwnedGames, resolveSteamId } from "../services/steam.js";
+import {
+  annotateLibraryItem,
+  persistAnnotation,
+} from "../services/ai/libraryAnnotation.js";
+import { checkRateLimit } from "../services/rateLimit.js";
+import { logger } from "../lib/logger.js";
 
 export const libraryRouter: Router = Router();
 
@@ -73,7 +79,38 @@ libraryRouter.post("/", async (req, res, next) => {
       res.status(409).json({ error: "already in library" });
       return;
     }
-    res.status(201).json({ item: row });
+
+    // Inline annotation for manual + consumed items. Watchlist items skip —
+    // a "fitNote" presupposes engagement the user hasn't had; Constellation
+    // positions watchlist nodes via title-substring fallback. Imports never
+    // hit this route, but the source check is cheap defensive cover.
+    //
+    // Best-effort: annotation failure does NOT roll back the insert. Row is
+    // already saved; the user gets the un-annotated item. A subsequent
+    // backfill or manual re-trigger can fill in fitNote later.
+    let annotated = row;
+    if (row.source === "manual" && row.status === "consumed") {
+      try {
+        checkRateLimit(req.user!.id, "library.annotate");
+        const result = await annotateLibraryItem(req.user!.id, row.id);
+        const persisted = await persistAnnotation(row.id, result);
+        if (persisted) annotated = persisted;
+      } catch (err) {
+        // Don't surface 429 to the user as a hard failure — they added the
+        // item successfully; annotation just degrades to the substring
+        // fallback path. Log so we can spot if the cap is being hit
+        // legitimately and needs raising.
+        logger.warn(
+          {
+            userId: req.user!.id,
+            itemId: row.id,
+            err: err instanceof Error ? err.message : String(err),
+          },
+          "library: annotation failed, returning un-annotated row",
+        );
+      }
+    }
+    res.status(201).json({ item: annotated });
   } catch (err) {
     next(err);
   }
@@ -123,7 +160,36 @@ libraryRouter.patch("/:id", async (req, res, next) => {
       res.status(404).json({ error: "not found" });
       return;
     }
-    res.json({ item: updated });
+
+    // Annotate on watchlist → consumed promotion. The row didn't qualify
+    // when it was added (watchlist items skip annotation) but now does. We
+    // only fire when fit_note is still null — repeated PATCHes on an
+    // already-annotated row don't re-spend tokens, and rating changes
+    // alone don't invalidate the existing fitNote (theme drift is gradual,
+    // same logic as the post-refinement stale strategy).
+    let annotated = updated;
+    if (
+      updated.source === "manual" &&
+      updated.status === "consumed" &&
+      updated.fitNote == null
+    ) {
+      try {
+        checkRateLimit(req.user!.id, "library.annotate");
+        const result = await annotateLibraryItem(req.user!.id, updated.id);
+        const persisted = await persistAnnotation(updated.id, result);
+        if (persisted) annotated = persisted;
+      } catch (err) {
+        logger.warn(
+          {
+            userId: req.user!.id,
+            itemId: updated.id,
+            err: err instanceof Error ? err.message : String(err),
+          },
+          "library: annotation on PATCH promotion failed, returning un-annotated row",
+        );
+      }
+    }
+    res.json({ item: annotated });
   } catch (err) {
     next(err);
   }

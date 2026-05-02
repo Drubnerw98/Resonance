@@ -203,6 +203,22 @@ export const libraryItems = pgTable(
     /** Optional release year — stored when import provides it; helps
      * disambiguate same-titled works. */
     year: integer("year"),
+    /** AI-generated 1-2 sentence rationale tying THIS specific title to the
+     * user's taste profile. Populated for manual+consumed items only;
+     * watchlist items and bulk imports stay null. Survives profile
+     * refinement (themes drift gradually, fitNotes degrade gracefully);
+     * regen would only fire on explicit user action, never lazily. */
+    fitNote: text("fit_note"),
+    /** Canonical theme/archetype labels (verbatim from profile) the AI
+     * judged this title to exemplify. Filtered server-side against the
+     * profile's known labels — the model occasionally invents tags.
+     * Empty for watchlist items and bulk imports; Constellation's
+     * title-substring fallback positions those instead. */
+    tasteTags: text("taste_tags").array().notNull().default([]),
+    /** Profile version active when fitNote/tasteTags were generated. Lets
+     * future regen logic identify stale annotations without timestamp
+     * comparisons. NULL for un-annotated rows. */
+    annotatedAtProfileVersion: integer("annotated_at_profile_version"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

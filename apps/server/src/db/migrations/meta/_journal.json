@@ -43,6 +43,13 @@
       "when": 1777573844304,
       "tag": "0005_ordinary_monster_badoon",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777738148076,
+      "tag": "0006_yielding_dexter_bennett",
+      "breakpoints": true
     }
   ]
 }

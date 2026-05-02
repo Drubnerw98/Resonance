@@ -18,6 +18,11 @@ const LIMITS = {
   "discover.refresh": 20,
   "profile.refine": 10,
   "watchlist.decide": 50,
+  // Per-item AI annotation on POST /api/library. 100/day covers a power
+  // user adding fresh items + one full backfill in a single session
+  // without false-positive caps; the unique index on
+  // (userId, mediaType, title) prevents trivial spam below this ceiling.
+  "library.annotate": 100,
 } as const satisfies Record<string, number>;
 
 export type RateLimitKind = keyof typeof LIMITS;

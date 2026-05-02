@@ -31,18 +31,20 @@ export function Nav() {
   }, [location.pathname]);
 
   return (
-    <nav className="sticky top-0 z-30 border-b border-neutral-800 bg-neutral-950/80 backdrop-blur-md">
-      <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6 sm:py-3.5">
+    <nav className="sticky top-0 z-30 border-b border-neutral-800/80 bg-neutral-950/85 backdrop-blur-md">
+      <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3.5 sm:gap-5 sm:px-6 sm:py-4">
         {/* Brand block: logo + wordmark, both wrapped in a single home link
             so clicking either takes you home. */}
         <NavLink
           to="/"
           end
-          className="flex shrink-0 items-center gap-2 text-neutral-100 hover:text-white"
+          className="flex shrink-0 items-center gap-2 text-neutral-100 transition-colors hover:text-white"
           onClick={() => setMenuOpen(false)}
         >
-          <Logo size={22} />
-          <span className="text-base font-semibold tracking-tight">
+          <span className="text-emerald-300/90">
+            <Logo size={20} />
+          </span>
+          <span className="font-display text-lg font-medium tracking-tight">
             Resonance
           </span>
         </NavLink>
@@ -138,7 +140,7 @@ function DesktopLink({ to, label }: { to: string; label: string }) {
     <NavLink
       to={to}
       className={({ isActive }) =>
-        "relative block whitespace-nowrap py-1 transition-colors " +
+        "relative block whitespace-nowrap py-1 text-sm tracking-tight transition-colors " +
         (isActive ? "text-white" : "text-neutral-400 hover:text-neutral-100")
       }
     >
@@ -148,7 +150,7 @@ function DesktopLink({ to, label }: { to: string; label: string }) {
           {/* Active-state accent: thin emerald underline that sits flush
               with the nav's bottom border. */}
           {isActive && (
-            <span className="absolute -bottom-[15px] left-0 right-0 h-[2px] bg-emerald-500 sm:-bottom-[17px]" />
+            <span className="absolute -bottom-[17px] left-0 right-0 h-[2px] bg-emerald-400 sm:-bottom-[19px]" />
           )}
         </>
       )}

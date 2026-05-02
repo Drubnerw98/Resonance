@@ -41,11 +41,20 @@ profileRouter.get("/", async (req, res, next) => {
  * GET /api/profile/export
  *
  * Aggregated, read-only snapshot for downstream visualization tools
- * (Constellation). Returns the user's TasteProfile plus their library and
- * recommendations in a flat shape — no per-batch nesting, since the
- * consumer just needs titles + tags + status. Recommendations are deduped
- * by media id (newest wins) so a user with multiple feedback loops on the
- * same title doesn't render as duplicate stars.
+ * (Constellation). Returns the user's TasteProfile plus library, recs,
+ * derived favorites, and structured avoidances. Recommendations are
+ * deduped by media id (newest wins) so a user with multiple feedback
+ * loops on the same title doesn't render as duplicate stars.
+ *
+ * Library items carry per-item AI annotation (fit_note + taste_tags) for
+ * manual+consumed rows; watchlist items ship with null/empty annotation
+ * so the consumer's substring fallback can still position them.
+ *
+ * `favorites` are derived from profile.mediaAffinities[].favorites: the
+ * AI extracts these during onboarding ("what shows have you loved?")
+ * and they live as flat title strings inside the profile JSONB. Surfacing
+ * them as first-class export entries is the cheapest density win for
+ * the constellation — no AI cost, pure structural derivation.
  */
 profileRouter.get("/export", async (req, res, next) => {
   try {
@@ -56,6 +65,7 @@ profileRouter.get("/export", async (req, res, next) => {
       res.status(404).json({ error: "no profile yet" });
       return;
     }
+    const profile = profileRow.profileData;
 
     // Only ship manually-added library items to Constellation. Bulk
     // imports from Letterboxd / Goodreads / MAL / Steam can run into the
@@ -78,15 +88,59 @@ profileRouter.get("/export", async (req, res, next) => {
       dedupedRecs.push(r);
     }
 
+    // Derive favorites: flatten mediaAffinities[].favorites and tag each
+    // by which themes/archetypes mention them. Mirrors Constellation's
+    // graph.ts:titleAppearsIn so the consumer doesn't have to redo the
+    // work — direct substring first, then a 2+ content-token overlap
+    // fallback that catches long-titled books ("First Law Trilogy") cited
+    // by their familiar form ("First Law"). Untagged favorites still ship
+    // (consumer drops them via the unanchored-node filter).
+    const favorites = profile.mediaAffinities.flatMap((affinity) =>
+      affinity.favorites.map((title) => ({
+        title,
+        mediaType: affinity.format,
+        themes: profile.themes
+          .filter((t) => titleAppearsIn(title, t.evidence))
+          .map((t) => t.label),
+        archetypes: profile.archetypes
+          .filter((a) => titleAppearsIn(title, a.attraction))
+          .map((a) => a.label),
+      })),
+    );
+
+    // Avoidances ship with `kind` so the consumer can render abstract
+    // patterns and named titles differently if it wants ("anti-stars" vs
+    // "constellation negative space"). dislikedTitles is optional on the
+    // profile shape (predates the field); ?? [] guards.
+    const avoidances = [
+      ...profile.avoidances.map((description) => ({
+        description,
+        kind: "pattern" as const,
+      })),
+      ...(profile.dislikedTitles ?? []).map((description) => ({
+        description,
+        kind: "title" as const,
+      })),
+    ];
+
     res.json({
-      profile: profileRow.profileData,
+      profile,
       library: libraryRows.map((row) => ({
         id: row.id,
         title: row.title,
         mediaType: row.mediaType,
         year: row.year,
         rating: row.rating,
+        // Synthetic constant — the row's source is "manual" but the
+        // export label has been "library" since the endpoint shipped.
+        // Constellation's type pins it; don't break the contract.
         source: "library" as const,
+        status: row.status,
+        // Null + empty for watchlist entries and any pre-backfill manual
+        // rows. Consumer treats nullish fitNote as "no rationale yet" and
+        // falls back to title-substring positioning when tasteTags is empty.
+        fitNote: row.fitNote,
+        tasteTags: row.tasteTags,
       })),
       recommendations: dedupedRecs.map((r) => ({
         id: r.id,
@@ -102,11 +156,62 @@ profileRouter.get("/export", async (req, res, next) => {
         // pattern citing many other titles.
         explanation: r.explanation,
       })),
+      favorites,
+      avoidances,
     });
   } catch (err) {
     next(err);
   }
 });
+
+/**
+ * Title-vs-text fuzzy match. Mirrors Constellation's `titleAppearsIn`:
+ * direct normalized substring, with a 2+ content-token overlap fallback
+ * for long titles cited by their short form ("First Law Trilogy ..."
+ * matches evidence saying "First Law"). The 2-token threshold prevents
+ * common words like "the" or "story" from triggering false positives.
+ */
+function titleAppearsIn(title: string, text: string): boolean {
+  const titleNorm = normalize(title);
+  const textNorm = normalize(text);
+  if (titleNorm.length === 0) return false;
+  if (textNorm.includes(titleNorm)) return true;
+
+  const titleTokens = contentTokens(titleNorm);
+  if (titleTokens.length < 2) return false;
+  const textTokens = new Set(contentTokens(textNorm));
+  let overlap = 0;
+  for (const t of titleTokens) {
+    if (textTokens.has(t)) overlap += 1;
+    if (overlap >= 2) return true;
+  }
+  return false;
+}
+
+function normalize(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/[-_/]+/g, " ")
+    .replace(/[^a-z0-9 ]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+const STOPWORDS = new Set([
+  "a", "an", "the", "and", "or", "but", "of", "as", "is", "in", "on", "to",
+  "for", "with", "without", "into", "through", "from", "by", "at",
+  "be", "been", "being", "have", "has", "had", "do", "does", "did",
+  "their", "its", "his", "her", "they", "them", "this", "that", "these",
+  "those", "it", "we", "you", "he", "she",
+  "who", "whom", "what", "which", "where", "when", "why", "how",
+  "own", "not", "no", "yes",
+]);
+
+function contentTokens(normalized: string): string[] {
+  return normalized
+    .split(" ")
+    .filter((w) => w.length >= 3 && !STOPWORDS.has(w));
+}
 
 /**
  * PUT /api/profile

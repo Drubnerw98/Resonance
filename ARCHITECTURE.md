@@ -144,6 +144,13 @@ rated | plan_to`. `plan_to` was added when watchlist support shipped; it
   `consumed`. Watchlist items contribute to the recommender's dedup pool but
   NOT to the library cross-reference set (the user hasn't actually engaged
   with them yet — using them as anchors in explanations would lie).
+- `library_items.fit_note` (text, nullable), `taste_tags` (text[], default
+  `'{}'`), and `annotated_at_profile_version` (integer, nullable) carry
+  per-item AI annotation. Populated only for `source = "manual"` AND
+  `status = "consumed"` rows; bulk-imported and watchlist rows stay
+  null/empty. Powers Constellation's per-item detail panel and replaces a
+  brittle title-substring fallback in its graph builder. See §4 "Library
+  annotation mode" and §10 "Per-item library annotation".
 
 **Why JSONB for `taste_profiles.profile_data`:** the profile is hierarchical,
 always read/written atomically, and its schema evolves through code rather
@@ -379,6 +386,84 @@ shows formats the user has in `mediaAffinities` — disabling a format
 removes it from the evaluate dropdown too. Symmetric with how disabled
 formats are excluded from rec batches and theme cards.
 
+### Library annotation mode
+
+Single-item structured-output call. Tags one library item against the
+user's active profile and returns:
+
+- `fitNote` — 1-2 sentences explaining why THIS specific title fits THIS
+  specific profile. Item-specific (not a generic theme summary).
+- `tasteTags` — 1-4 canonical theme/archetype labels, copied verbatim from
+  the profile. Filtered server-side against the known label set; invented
+  labels are dropped silently.
+
+**When it runs.** Inline on `POST /api/library` and on `PATCH
+/api/library/:id` when the patch promotes a row from watchlist → consumed.
+Eligibility check is on the row, not the route: `source === "manual" &&
+status === "consumed"`. Watchlist items, bulk imports (Letterboxd /
+Goodreads / MAL / Steam), and any pre-promotion row stay un-annotated.
+Annotation failure is best-effort — the row is already saved, so a model
+error or rate-limit hit logs and returns the un-annotated row instead of
+rolling back the insert.
+
+**Why inline instead of an async job.** Manual library adds are explicit
+"I want this saved with rationale" actions. ~4-6s wait at the response is
+acceptable for an explicit save; the job-tracker pattern was overkill for
+a one-shot per-item call. If the latency becomes a UX problem, the swap is
+straightforward (return the row immediately with `annotation_status:
+"pending"`, fire-and-forget the annotation, let the client poll).
+
+**Stale-on-refinement strategy: ship stale.** When `saveProfile` runs
+(refinement, manual edit), existing fitNotes are technically frozen
+against the prior profile version. We do NOT lazy-regen on read in
+`/export` — a user with 30 manual items would block their export for 60+
+seconds after every refinement. Theme drift is gradual; fitNotes degrade
+gracefully. `annotated_at_profile_version` records the version active at
+generation so a future on-demand "regen this fitNote" affordance can
+detect drift without timestamp comparisons.
+
+**Trimmed prompt payload.** The model receives `themes` + `archetypes`
+only — `narrativePrefs` doesn't drive cluster tags, and including
+`mediaAffinities[].favorites` while annotating an item that's itself a
+favorite would create a self-referential loop. Worth ~30% on input tokens
+per call.
+
+**Backfill script.** `apps/server/src/scripts/backfillLibraryAnnotations.ts`
+finds manual+consumed rows with `fit_note IS NULL` and annotates them
+sequentially. Per-item failures leave the row alone and continue;
+re-running picks up exactly the rows that didn't get annotated. Run from
+a local machine pointed at the target DB via `DATABASE_URL`.
+
+### `/api/profile/export` — the Constellation contract
+
+Read-only aggregated snapshot consumed by [Constellation](https://github.com/Drubnerw98/Constellation),
+a force-directed visualization companion. Returns:
+
+- `profile` — the full `TasteProfile` JSONB.
+- `library` — manual `library_items` only, with `fitNote`, `tasteTags`, and
+  `status` per row. Imports filter out at the query boundary so the
+  payload stays small. The `source` field is the synthetic constant
+  `"library"` (the row's actual `source` is `"manual"`); Constellation's
+  type pins this literal.
+- `recommendations` — every rec, deduped by `mediaCacheId`, with
+  `tasteTags` and `explanation`.
+- `favorites` — derived from `profile.mediaAffinities[].favorites`. Each
+  flat title is paired with theme/archetype labels via title-substring
+  matching against `theme.evidence` and `archetype.attraction` (the same
+  two-stage match Constellation's graph builder uses internally —
+  normalized substring, then 2+ content-token overlap). Zero AI cost,
+  pure structural derivation. Untagged favorites still ship; the consumer
+  drops them via its unanchored-node filter.
+- `avoidances` — flat list of `{ description, kind: "pattern" | "title" }`
+  derived from `profile.avoidances` and `profile.dislikedTitles`.
+
+**Why expose favorites separately rather than as library rows.** Favorites
+live in the profile JSONB as flat title strings — they were extracted by
+the AI during onboarding ("what shows have you loved?") and never written
+to `library_items`. Surfacing them as first-class export entries is the
+cheapest density win available for the constellation: ~25-30 additional
+high-signal nodes per active user, no AI cost.
+
 ---
 
 ## 5. Media adapter system
@@ -534,6 +619,7 @@ Anthropic budget by automating the onboarding chat or the rec generator.
 | `POST /api/evaluate/score`           | 100 | `evaluate.score`           |
 | `POST /api/discover/themes/refresh`  | 20  | `discover.refresh`         |
 | `POST /api/profile/refine`           | 10  | `profile.refine`           |
+| `POST /api/library` + `PATCH /api/library/:id` (annotation only) | 100 | `library.annotate`         |
 
 **Mechanics:** in-memory `Map<"userId:kind", { count, resetAt }>`. Reset at
 the next UTC midnight; expired buckets pruned hourly. Over the cap →
@@ -681,6 +767,30 @@ again until re-enabled.
 they want to KEEP the original batch's results AND see how a refinement
 changes things. Mutating the existing batch would force the user to
 choose which version to lose. New-batch refinement preserves both.
+
+**Per-item library annotation, inline on save.** Manual library adds get
+a 1-2 sentence AI rationale + 1-4 canonical theme/archetype tags written
+to the row at insert time (and on watchlist→consumed promotion). Powers
+Constellation's per-item detail panel and replaces a brittle
+title-substring fallback in its graph builder. Three sub-decisions worth
+naming: **inline blocks the response** (~4-6s; acceptable for an explicit
+save action, easy to swap to async if it bites); **filter eligibility on
+the row, not the route** (multiple import paths, defense-in-depth); **ship
+stale annotations after profile refinement** (theme drift is gradual,
+fitNotes degrade gracefully — lazy-regen-on-read would block exports for
+60+ seconds on power-user libraries). Same schema-as-contract +
+schema-as-validator pattern as the other AI modes; trimmed prompt payload
+(themes + archetypes only) avoids the favorite-annotating-itself loop.
+
+**`/api/profile/export` is a downstream-consumer contract.** The
+visualization companion (Constellation) reads this endpoint as its sole
+data source. The shape is intentionally flat (no per-batch nesting) and
+the `library[].source` literal is a synthetic constant `"library"` — the
+row's actual `source` is `"manual"`, but the export label has been pinned
+since the endpoint shipped and the consumer's TypeScript type matches.
+Don't break the contract for a renamed string. The endpoint also derives
+`favorites` and structured `avoidances` from the profile JSONB at zero AI
+cost — the cheapest density win available for the visualization.
 
 **Per-user rate limits live next to the job tracker, not in middleware.**
 `services/rateLimit.ts` is a sibling of `services/jobs.ts`; both are

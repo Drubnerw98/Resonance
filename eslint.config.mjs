@@ -105,6 +105,17 @@ export default tseslint.config(
     },
   },
 
+  // One-shot Node scripts (.mjs in scripts/) need Node globals too.
+  {
+    files: ["**/scripts/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        process: "readonly",
+        console: "readonly",
+      },
+    },
+  },
+
   // Pragmatic rule overrides — apply to all TS files.
   {
     files: ["**/*.{ts,tsx}"],

@@ -93,6 +93,91 @@ const cases: Case[] = [
     expected: "x < y",
     ready: false,
   },
+  // ── Boundary-split coverage ──────────────────────────────────────────────
+  {
+    name: "open tag split at every char (one char per chunk)",
+    chunks: "<thinking>secret</thinking>visible".split(""),
+    expected: "visible",
+    ready: false,
+  },
+  {
+    name: "split exactly between open and content",
+    chunks: ["<analysis>", "secret</analysis>visible"],
+    expected: "visible",
+    ready: false,
+  },
+  {
+    name: "split exactly before close tag",
+    chunks: ["<analysis>secret", "</analysis>visible"],
+    expected: "visible",
+    ready: false,
+  },
+  {
+    name: "split inside opening bracket of close tag",
+    chunks: ["<analysis>secret<", "/analysis>visible"],
+    expected: "visible",
+    ready: false,
+  },
+  {
+    name: "split inside ready tag opening bracket",
+    chunks: ["enough <", "ready/> done"],
+    expected: "enough  done",
+    ready: true,
+  },
+  {
+    name: "two thinking blocks back-to-back across chunks",
+    chunks: [
+      "<thinking>one</think",
+      "ing><thinking>two</thinking>visible",
+    ],
+    expected: "visible",
+    ready: false,
+  },
+  {
+    name: "ready tag after analysis with whitespace gap",
+    chunks: ["<analysis>n</analysis> ", "<ready/>", "go"],
+    expected: "go",
+    ready: true,
+  },
+  // ── Malformed / edge cases ───────────────────────────────────────────────
+  {
+    name: "unclosed analysis block — flush drops everything after open",
+    chunks: ["before <analysis>never closed and stream ends"],
+    expected: "before ",
+    ready: false,
+  },
+  {
+    name: "unclosed thinking block — flush drops everything after open",
+    chunks: ["before <thinking>"],
+    expected: "before ",
+    ready: false,
+  },
+  {
+    name: "stray close tag without matching open passes through",
+    chunks: ["foo</analysis>bar"],
+    expected: "foo</analysis>bar",
+    ready: false,
+  },
+  {
+    name: "empty thinking block",
+    chunks: ["a<thinking></thinking>b"],
+    expected: "ab",
+    ready: false,
+  },
+  {
+    name: "ready signaled only once even when tag appears twice",
+    chunks: ["<ready/> first <ready/> second"],
+    // Leading whitespace suppression strips the space left by the first ready
+    // tag (it precedes any visible content); the second one stays.
+    expected: "first  second",
+    ready: true,
+  },
+  {
+    name: "tag-like text inside another tag is consumed by outer",
+    chunks: ["<thinking>nested <analysis> won't matter</thinking>visible"],
+    expected: "visible",
+    ready: false,
+  },
 ];
 
 describe("StreamFilter", () => {
@@ -108,5 +193,23 @@ describe("StreamFilter", () => {
     out += filter.flush();
     expect(out).toBe(expected);
     expect(readySignaled).toBe(ready);
+  });
+
+  it("is robust to char-by-char streaming for arbitrary input", () => {
+    const input =
+      "<thinking>scratch pad</thinking>Hello <analysis>more</analysis>world <ready/>now";
+    const expected = "Hello world now";
+
+    const filter = new StreamFilter();
+    let out = "";
+    let ready = false;
+    for (const ch of input) {
+      const r = filter.push(ch);
+      out += r.text;
+      if (r.readySignaled) ready = true;
+    }
+    out += filter.flush();
+    expect(out).toBe(expected);
+    expect(ready).toBe(true);
   });
 });

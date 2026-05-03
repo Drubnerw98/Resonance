@@ -588,7 +588,11 @@ async function generateCandidatePlan(
   return CandidatesOutputSchema.parse(response.parsed_output);
 }
 
-async function collectRealCandidates(
+// Exported for direct unit testing — the filtering rules here (favorites
+// dropped, avoid set dropped, prior-batch series-variants deduped, disabled
+// formats hard-filtered, per-format cap) are the most regression-prone
+// piece of the pipeline.
+export async function collectRealCandidates(
   plan: CandidatesOutput,
   seenCacheIds: Set<string>,
   favorites: Set<string>,

@@ -20,8 +20,8 @@ createRoot(rootEl).render(
     <BrowserRouter>
       <ClerkProvider
         publishableKey={publishableKey}
-        signInFallbackRedirectUrl="/me"
-        signUpFallbackRedirectUrl="/me"
+        signInFallbackRedirectUrl="/"
+        signUpFallbackRedirectUrl="/"
       >
         <App />
       </ClerkProvider>

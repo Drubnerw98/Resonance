@@ -260,6 +260,18 @@ complexity/tone pass through as user-supplied; never invent affinities
 from formats with no titles. Profiles are intentionally thinner —
 the auto-refine loop sharpens them on first feedback batch.
 
+**Auto-first-batch.** Both `/onboarding/complete` and `/onboarding/fast`
+end with `maybeAutoFireFirstBatch(userId)` when this is the user's first
+profile (no prior `tasteProfile` row). It calls `startJob` for
+`recommendations.generate` synchronously enough to insert the row, then
+returns; the worker runs in the background. The client redirects to
+`/recommendations`, where `useRecommendations`'s mount-time
+`/active-job` check picks up the in-flight job and renders the loading
+pulse. New users never see an empty state. Skipped on continued
+onboarding (existing profile evolved), and rate-limit failures are
+swallowed so a degenerate quota state doesn't block onboarding
+completion.
+
 ### Mode 2: Profile extraction + refinement
 
 Single non-streaming call. Three flavors:
@@ -290,6 +302,17 @@ own `.d.ts` types still import from "zod" (v3), so calls require an
 trigger) deletes the user's `discovery_themes` row inline. Next
 `/api/discover/themes` GET regenerates against the new profile. Cleanest
 cache invalidation for a derived cache.
+
+**Evolution timeline.** Every save also writes a `profile_versions` row
+(via `saveProfile`) carrying the full snapshot + the trigger
+(`onboarding` / `feedback_batch` / `manual_edit`). `GET
+/api/profile/versions` exposes the history; the client computes
+structural diffs between adjacent versions in `lib/profileDiff.ts` —
+themes added/removed, weight shifts ≥ 0.05, archetype changes,
+avoidance/dislikedTitles deltas, format toggles, comfort shifts. No
+AI call required; the diff is reproducible from the stored snapshots
+alone, which makes it interview-defensible. Rendered on `/profile` by
+`<ProfileTimeline/>` collapsed by default ("Show all N versions →").
 
 ### Mode 3: Recommendation pipeline
 
@@ -326,10 +349,12 @@ has its own token bucket, so concurrent calls to the same adapter serialize
 naturally while cross-adapter calls run in parallel. `allSettled` (not
 `all`) ensures one failed search doesn't kill the batch.
 
-**Step 3 — Scoring** (Claude call). The model gets the profile + library +
-~60 candidate cards (each with title, year, genres, rating, ~600-char
-synopsis) and returns 20-40 `recommendations` with `matchScore`,
-`explanation`, `tasteTags`. Two ordered rules in the prompt:
+**Step 3 — Scoring** (Claude call, `max_tokens: 8192` to leave headroom for
+the cross-reference field — see below). The model gets the profile +
+library + ~60 candidate cards (each with title, year, genres, rating,
+~600-char synopsis) and returns 20-40 `recommendations` with `matchScore`,
+`explanation`, `tasteTags`, and 0-3 `crossReferences`. Two ordered rules
+in the prompt:
 
 - **Rule 1 — Drop misfits** always wins. A candidate that violates an
   avoidance, contradicts a `dislikedTitle`, is tonally wrong, or off-topic
@@ -343,7 +368,23 @@ diagnostic of a Rule 1 violation.
 
 **Step 4 — Persistence.** Recommendations rows linked to a
 `recommendation_batches` row (created at the top of the pipeline so the FK
-exists when persistence runs).
+exists when persistence runs). The `cross_references` jsonb column is
+written as `null` when the model returns no entries (vs `[]`) so older
+recs predating the column stay distinguishable from "model proposed
+nothing relevant".
+
+**Cross-references (visible moat, hidden mechanic).** The score schema
+includes an optional `crossReferences: { title, reason }[]` per scored
+rec. The prompt requires the title come from the user's library,
+mediaAffinities favorites, or a theme.evidence / archetype.attraction —
+fabricating a title the user hasn't named is named as a failure mode.
+Persisted alongside the rec; surfaced on `<MediaCard/>` as "Because you
+loved [Title]" chips. Clicking opens `<CrossReferenceModal/>` which uses
+the shared `titleAppearsIn` matcher (`packages/shared/src/titleMatch.ts`,
+also used by Constellation export) to find profile theme/archetype
+quotes mentioning the cited title and renders them inline. The "moat
+made visible" — the system tells you exactly which prior taste signal
+anchored each recommendation.
 
 **Cross-cutting concerns:**
 
@@ -725,6 +766,37 @@ revisit.
 - **Scroll-to-hash** (`ProfilePage`). `/profile#library` jumps to the
   library section after the data renders.
 
+**First-run polish.** Three small mechanisms compound to make the
+new-user demo feel solid instead of fragile:
+
+- **Auto-fired first batch** (server-side) — covered in Mode 1b. The
+  client side simply doesn't have an empty-state branch to render; the
+  page mounts, finds the in-flight job via `/active-job`, and displays
+  the loading pulse.
+- **Cold-start visibility toast** (`<ColdStartToast/>` in `Layout`).
+  `apiFetch` registers a 3s timer per request; if the response hasn't
+  landed by then it dispatches a `resonance:slow-fetch` window event,
+  cleared by `resonance:slow-fetch:settled` on response (success or
+  error). The toast subscribes globally and shows once-per-page-load —
+  repeat slow fetches in the same load don't re-trigger, which would be
+  noise. The user learns the system is awake; subsequent latency speaks
+  for itself.
+- **Profile maturity indicator** (`<MaturityBadge/>`). Pure heuristic in
+  `lib/profileMaturity.ts`: a profile is "mature" with 4+ themes AND 2+
+  archetypes AND 6+ favorites, OR with 3+ themes plus 8+ acted-on recs
+  (the feedback-loop path). Below threshold → an amber badge on
+  `/profile` and `/recommendations` saying "Profile is still forming"
+  with a context-aware suggestion. Hides once mature. Sets expectations
+  for fast-mode users without forcing them into a "your profile is
+  thin" failure state.
+
+The combined effect: a fresh signup goes from "blank screen → click
+Generate → wait silently → empty state if anything fails" to "log in →
+land on recommendations watching it cook → know the server's awake →
+understand why the first batch may be slightly thin." None of these
+require a paid Render tier; they're cheap UX layered over the
+constraints.
+
 ---
 
 ## 10. Notable design decisions
@@ -851,22 +923,27 @@ route — verbose but unambiguous.
 
 What's deferred is part of the design. Articulating it shows judgment.
 
-- **No test coverage** beyond a 14-case streaming-filter smoke test
-  (`streaming.test.ts`) and a few inline media-cache + rate-limiter smoke
-  scripts. For production this would be a P0; for a portfolio piece it's a
-  known gap.
-- **Single-instance only.** Both the job tracker AND the rate-limit counter
-  are in-memory. Multi-instance deployment requires swapping both to
-  Postgres- or Redis-backed storage. A user could currently route around
-  rate limits by hitting different replicas if there were more than one.
-- **No profile version rollback UI.** `profile_versions` stores history
-  but there's no viewer/restore interface yet.
+- **Test coverage is unit-shaped, not integration.** 72 vitest cases
+  across the streaming filter, AI output schemas, rate limiter, recommender
+  candidate-collection, and fast-mode extraction. No end-to-end against
+  a real DB, no frontend tests, no Playwright. For production this would
+  be a P0; for a portfolio piece it's a known gap.
+- **Rate-limit counter is single-instance.** In-memory `Map<userId:kind>`,
+  pruned hourly. Job tracker has been moved to Postgres (with crash
+  recovery + heartbeat); the rate limiter would need the same treatment
+  before going multi-instance. A user could currently route around limits
+  by hitting different replicas if there were more than one.
+- **Profile version rollback isn't exposed.** `profile_versions` stores
+  full history and the evolution-timeline UI surfaces structural diffs
+  read-only, but there's no "revert to version N" button. Add later if
+  the diff viewer surfaces a version a user wants back.
 - **No accessibility audit.** No screen-reader testing, no keyboard-nav
   verification beyond browser defaults. Form inputs use semantic HTML
   (button, label, role="radiogroup" on stars) but no formal pass.
-- **Job results in-memory.** Pruned 1 hour after completion. A user who
-  reloads several hours after a generation finished gets a 404 and has to
-  re-generate.
+- **Job results live for 7 days.** Postgres-backed; pruned hourly past
+  TTL. Older completed jobs returning 404 is expected behavior — the rec
+  rows themselves are persisted separately and reachable from the recs
+  list directly.
 - **No recent-evaluations history.** Verdicts are ephemeral — no
   persistence layer for the user's evaluate sessions. Could add as a
   separate table; not in scope yet.

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useOnboarding } from "../../hooks/useOnboarding.ts";
 import { ChatMessage } from "./ChatMessage.tsx";
 import { ChatInput } from "./ChatInput.tsx";
@@ -130,6 +130,15 @@ export function Chat() {
             <p className="text-xs text-neutral-500">
               Type something below to start. Usually 6-9 turns to get a real
               profile.
+            </p>
+            <p className="text-xs text-neutral-500">
+              Short on time?{" "}
+              <Link
+                to="/onboarding?mode=fast"
+                className="text-emerald-400 underline-offset-2 hover:underline"
+              >
+                Try the quick form instead →
+              </Link>
             </p>
           </div>
         )}

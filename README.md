@@ -30,7 +30,7 @@ For the architectural deep-dive (the *why* behind every major decision), see **[
 
 The five things that make Resonance more than a chat wrapper:
 
-- **AI-driven onboarding.** Multi-turn streaming chat that probes for *moments* and *feelings*, not "favorite movie" lists. Server-side reasoning-tag stripping, deterministic readiness floor on top of the model's `<ready/>` self-judgment, adaptive scaffolding for users who don't naturally introspect.
+- **AI-driven onboarding, two paths.** *Long mode:* multi-turn streaming chat that probes for *moments* and *feelings*, not "favorite movie" lists. Server-side reasoning-tag stripping, deterministic readiness floor on top of the model's `<ready/>` self-judgment, adaptive scaffolding for users who don't naturally introspect. *Fast mode:* one-shot guided form (titles + narrative-shape picks + avoidances). Same `TasteProfile` output, ~30 seconds instead of ~10 minutes. Both flow through the same extraction schema.
 - **Structured taste profile.** JSONB document with versioned history. Themes, archetypes, narrative preferences, format affinities, abstract avoidances, and specific dislikedTitles. Manually editable through the UI, automatically refined as feedback accumulates.
 - **Cross-format recommendations.** 4-step pipeline: the model proposes candidates, real-API validation against TMDB / IGDB / Jikan / Open Library backs every recommendation with verified metadata, the model scores survivors against profile and library, results persist as a named, reviewable batch.
 - **Library imports across all four formats.** Letterboxd CSV, Goodreads CSV, MyAnimeList XML, Steam Web API. Imported works become anchors that the recommender cites by title in its explanations.

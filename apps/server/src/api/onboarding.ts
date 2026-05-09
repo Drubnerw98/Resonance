@@ -15,10 +15,16 @@ import {
   evolveProfileFromTranscript,
   extractProfile,
 } from "../services/ai/extraction.js";
+import { extractProfileFromForm } from "../services/ai/fastExtraction.js";
 import { getActiveProfile, saveProfile } from "../services/profile.js";
 import { markOnboardingComplete } from "../services/users.js";
 import { checkRateLimit } from "../services/rateLimit.js";
-import type { OnboardingMessage, ProfileTrigger } from "@resonance/shared";
+import {
+  FAST_TONE_OPTIONS,
+  type FastOnboardingFormInput,
+  type OnboardingMessage,
+  type ProfileTrigger,
+} from "@resonance/shared";
 
 export const onboardingRouter: Router = Router();
 
@@ -272,6 +278,146 @@ onboardingRouter.post("/complete", async (req, res, next) => {
     res.json({
       sessionId: session.id,
       sessionStatus: "completed",
+      profile: saved.profileData,
+      version: saved.currentVersion,
+      alreadyExtracted: false,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// === Fast-mode onboarding ===
+//
+// One-shot equivalent of the chat flow: the user fills out a guided form, we
+// run a single non-streaming extraction against the form payload, and persist
+// the same TasteProfile shape long mode produces. Constellation/Ensemble see
+// no contract change — the export endpoint reads the profile, not the path
+// it came in through.
+
+const mediaTypeSchema = z.enum([
+  "movie",
+  "tv",
+  "anime",
+  "manga",
+  "game",
+  "book",
+]);
+
+// FAST_TONE_OPTIONS is `as const`, so cast to a mutable tuple for zod's
+// enum signature without losing literal-union narrowing.
+const fastToneSchema = z.enum(
+  FAST_TONE_OPTIONS as unknown as [
+    (typeof FAST_TONE_OPTIONS)[number],
+    ...(typeof FAST_TONE_OPTIONS)[number][],
+  ],
+);
+
+const fastOnboardingSchema = z.object({
+  titles: z
+    .array(
+      z.object({
+        format: mediaTypeSchema,
+        titles: z.array(z.string().trim().min(1).max(200)).max(20),
+      }),
+    )
+    .max(6),
+  pacing: z.enum(["slow-burn", "propulsive", "variable"]),
+  complexity: z.enum(["layered", "focused", "epic"]),
+  tone: z.array(fastToneSchema).min(1).max(3),
+  endings: z.string().trim().max(280),
+  avoidancePatterns: z.array(z.string().trim().min(1).max(200)).max(20),
+  dislikedTitles: z.array(z.string().trim().min(1).max(200)).max(20),
+  enabledFormats: z.array(mediaTypeSchema).min(1),
+}) satisfies z.ZodType<FastOnboardingFormInput>;
+
+/**
+ * POST /api/onboarding/fast
+ * Body: FastOnboardingFormInput (zod-validated). Synchronously extracts a
+ * TasteProfile from the form payload, persists it under a synthetic
+ * onboarding_session row (so getLatestSession + the "continue onboarding via
+ * chat" flow keep working), flips onboarding_status to complete, returns the
+ * saved profile.
+ *
+ * Idempotency: if the user already has an active profile, this falls back to
+ * `evolveProfileFromTranscript` so a second submission sharpens rather than
+ * overwrites — same pattern as POST /complete's "continued onboarding" path.
+ */
+onboardingRouter.post("/fast", async (req, res, next) => {
+  try {
+    try {
+      checkRateLimit(req.user!.id, "onboarding.fast");
+    } catch (err) {
+      const status =
+        err instanceof Error && "status" in err
+          ? Number((err as { status?: number }).status) || 429
+          : 429;
+      res
+        .status(status)
+        .json({ error: err instanceof Error ? err.message : "rate limited" });
+      return;
+    }
+
+    const parsed = fastOnboardingSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({ error: "invalid form", issues: parsed.error.issues });
+      return;
+    }
+    const input = parsed.data;
+
+    const totalNamedTitles = input.titles.reduce(
+      (n, g) => n + g.titles.length,
+      0,
+    );
+    if (totalNamedTitles < 4) {
+      res.status(400).json({
+        error: "name at least 4 titles total across formats",
+      });
+      return;
+    }
+
+    const userId = req.user!.id;
+    const existing = await getActiveProfile(userId);
+
+    // Persist the form payload as a single user message in a fresh session.
+    // This keeps getLatestSession + the "continued onboarding" branch in
+    // /complete working without a schema change — messages is jsonb and
+    // doesn't care about content shape.
+    const session = await startNewSession(userId);
+    await appendMessage(session.id, {
+      role: "user",
+      content: JSON.stringify({ kind: "fast-onboarding-form", input }),
+    });
+
+    let profile;
+    if (existing) {
+      // Treat a fast-mode submission on top of an existing profile the same
+      // way long-mode treats a continued chat session — evolve, don't replace.
+      profile = await evolveProfileFromTranscript(existing.profileData, [
+        {
+          role: "user",
+          content: `Fast-mode form submission: ${JSON.stringify(input)}`,
+        },
+      ]);
+      logger.info(
+        { previousVersion: existing.currentVersion },
+        "onboarding/fast: evolved existing profile from form payload",
+      );
+    } else {
+      profile = await extractProfileFromForm(input);
+    }
+
+    const trigger: ProfileTrigger = "onboarding";
+    const saved = await saveProfile(userId, profile, trigger);
+
+    await markSessionCompleted(session.id);
+    await markOnboardingComplete(userId);
+
+    res.json({
+      sessionId: session.id,
+      sessionStatus: "completed" as const,
       profile: saved.profileData,
       version: saved.currentVersion,
       alreadyExtracted: false,

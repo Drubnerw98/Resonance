@@ -218,6 +218,48 @@ scaffolded mode; the path to them changes.
 Sonnet's ~2K-token cache minimum and subsequent turns read system prompt +
 prior history at ~10% input cost.
 
+### Mode 1b: Fast-mode onboarding (form-based)
+
+`POST /api/onboarding/fast` is the synchronous, non-streaming counterpart
+to the chat. The user fills out a guided form (titles per format, narrative
+shape picks, avoidances) and the server runs a single extraction call against
+the form payload. Same `TasteProfile` output as long mode — Constellation/
+Ensemble export contracts are unaffected.
+
+**Why it exists.** Real-user feedback flagged the chat as too long.
+Fast-mode is a shorter on-ramp; long mode is preserved as the "deeper
+profile" option and reachable via the link from the chat starter card.
+
+**Pipeline:**
+
+1. `checkRateLimit("onboarding.fast")` (5/day cap — one-shot calls don't
+   legitimately need more).
+2. zod-validate the form payload (`fastOnboardingSchema`); enforce ≥4 named
+   titles total.
+3. Persist the payload as a single user message in a fresh
+   `onboarding_sessions` row (so `getLatestSession` and the continued-
+   onboarding branch in `/complete` keep working without schema changes).
+4. **First-time profile** → `extractProfileFromForm(input)` calls the model
+   with `fastExtractionSystemPrompt()` + `TasteProfileSchema` constraint.
+   **Existing profile** → `evolveProfileFromTranscript` so a fast-mode
+   submission on top sharpens rather than overwrites (same idempotency
+   pattern long mode uses).
+5. **Server overlay on `mediaAffinities`** — entries the user disabled in
+   the form are dropped; missing entries for enabled formats are
+   synthesized from title counts (0 titles → 0.3 comfort, 1-2 → 0.6,
+   3+ → 0.85). The format-disable rule is server-enforced regardless of
+   what the model proposed (CLAUDE.md "format enable/disable is
+   server-enforced").
+6. `saveProfile` with `trigger="onboarding"` (same trigger as long mode).
+7. `markSessionCompleted` + `markOnboardingComplete`.
+
+**Differences from long-mode extraction prompt.** The fast-mode prompt
+tells the model: themes/archetypes are inferred from titles + narrative
+picks (not from rich self-report); fewer themes is correct; pacing/
+complexity/tone pass through as user-supplied; never invent affinities
+from formats with no titles. Profiles are intentionally thinner —
+the auto-refine loop sharpens them on first feedback batch.
+
 ### Mode 2: Profile extraction + refinement
 
 Single non-streaming call. Three flavors:
@@ -615,6 +657,7 @@ Anthropic budget by automating the onboarding chat or the rec generator.
 | Endpoint                             | Cap | Kind                       |
 | ------------------------------------ | --- | -------------------------- |
 | `POST /api/onboarding/message`       | 100 | `onboarding.message`       |
+| `POST /api/onboarding/fast`          | 5   | `onboarding.fast`          |
 | `POST /api/recommendations/generate` | 25  | `recommendations.generate` |
 | `POST /api/evaluate/score`           | 100 | `evaluate.score`           |
 | `POST /api/discover/themes/refresh`  | 20  | `discover.refresh`         |
@@ -661,6 +704,7 @@ state, API calls, and optimistic updates. Components stay presentational.
 | `useThemes`          | Fetch + refresh discovery themes              |
 | `useEvaluate`        | Search → pick → score state machine           |
 | `useOnboarding`      | Streaming chat state, send, complete          |
+| `useFastOnboarding`  | Fast-mode form submission, profile creation   |
 
 **Why hooks not Redux/Zustand.** Each hook's domain is well-bounded; no
 cross-domain shared state needed. Hooks colocate state with the API they

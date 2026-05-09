@@ -18,6 +18,7 @@ Cross-format media recommender (movies, TV, anime, manga, games, books) built ar
 **Shipped:**
 
 - All four AI modes (onboarding, extraction + refinement, recommendation pipeline, discovery themes) + evaluate verdicts
+- Fast-mode onboarding (`POST /api/onboarding/fast`) — guided form alternative to the long chat. Same `TasteProfile` output, server-overlaid `mediaAffinities` from enabled-formats. Linked from the chat starter card as the "short on time?" escape hatch.
 - Persistent batches with name / prompt / refine flow (stack new batches on existing ones with extra constraints)
 - Library imports: Letterboxd CSV, Goodreads CSV, MyAnimeList XML, Steam Web API
 - Watchlist (plan-to-consume) on library_items + plan-to status on rec cards — both feed dedup, neither feeds cross-references
@@ -96,11 +97,11 @@ apps/
     src/
       components/
         marketing/      # signed-out landing page
-        onboarding/     # chat UI
+        onboarding/     # Chat (long mode) + FastForm (form mode)
         profile/        # ProfileView, ProfileEditor, LibrarySection
         recommendations/# MediaCard + skeleton
         shared/         # PageHeader, EmptyState, LoadingPulse, Footer, Logo, Layout, Nav
-      hooks/            # useProfile, useRecommendations, useBatches, useLibrary, useThemes, useEvaluate, useOnboarding, useApi
+      hooks/            # useProfile, useRecommendations, useBatches, useLibrary, useThemes, useEvaluate, useOnboarding, useFastOnboarding, useApi
       lib/              # api.ts, sse.ts (client-side fetch + SSE parser)
       pages/            # one .tsx per route + NotFoundPage
       styles/           # globals.css (Tailwind + a few keyframes)

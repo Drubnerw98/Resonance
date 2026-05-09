@@ -13,6 +13,11 @@
 
 const LIMITS = {
   "onboarding.message": 100,
+  // Fast-mode onboarding is a one-shot extraction call, not iterative — a
+  // legitimate user calls this exactly once. The cap is low to make abuse
+  // expensive without inconveniencing real users (failed submissions can be
+  // retried a few times within the budget).
+  "onboarding.fast": 5,
   "recommendations.generate": 25,
   "evaluate.score": 100,
   "discover.refresh": 20,

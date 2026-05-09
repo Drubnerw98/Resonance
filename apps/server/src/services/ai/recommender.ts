@@ -806,7 +806,12 @@ synopsis: ${truncate(item.description, 600)}`;
 
   const response = await client.messages.parse({
     model: RECOMMENDER_MODEL,
-    max_tokens: 4096,
+    // 8192 because each scored rec carries explanation + tasteTags + 0-3
+    // crossReferences ({title, reason}). At 25+ recs that's well over
+    // 4096; mid-string truncation surfaces as a JSON parse error from the
+    // SDK. Sonnet 4.6 caps far higher; 8192 is comfortable headroom
+    // without paying for unused output budget.
+    max_tokens: 8192,
     system: recommendScoreSystemPrompt(),
     messages: [{ role: "user", content: sections.join("\n\n") }],
     output_config: {

@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MediaItem, MediaType } from "@resonance/shared";
 
-// The recommender module imports db/index.js which boot-validates env. Mock
-// the chain so this test runs without DATABASE_URL set, and so collectRealCandidates
+// The recommender module imports db/index.js and ./client.js, both of which
+// pull in env.ts and boot-validate env vars (process.exit on miss). Mock the
+// chain so this test runs without real env wiring, and so collectRealCandidates
 // can be exercised in isolation from real adapters.
 vi.mock("../../db/index.js", () => ({ db: {} }));
+vi.mock("./client.js", () => ({
+  getAnthropic: vi.fn(),
+  ONBOARDING_MODEL: "claude-sonnet-4-6",
+}));
 vi.mock("../mediaCache.js", () => ({
   searchAndCacheByTitle: vi.fn(),
   searchAndCacheByQuery: vi.fn(),

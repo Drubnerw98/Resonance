@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { requireUser } from "../middleware/auth.js";
@@ -27,6 +27,13 @@ export const libraryRouter: Router = Router();
 libraryRouter.use(requireUser);
 
 const mediaTypeEnum = z.enum(["movie", "tv", "anime", "manga", "game", "book"]);
+const librarySourceEnum = z.enum([
+  "letterboxd",
+  "goodreads",
+  "myanimelist",
+  "steam",
+  "manual",
+]);
 
 /**
  * GET /api/library
@@ -218,7 +225,10 @@ const importBodySchema = z
  * Parses the supplied CSV text and bulk-inserts library items, deduping
  * against existing entries.
  */
-libraryRouter.post("/import", async (req, res, next) => {
+libraryRouter.post(
+  "/import",
+  express.json({ limit: "6mb" }),
+  async (req, res, next) => {
   try {
     const parsed = importBodySchema.safeParse(req.body ?? {});
     if (!parsed.success) {
@@ -259,7 +269,8 @@ libraryRouter.post("/import", async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-});
+  },
+);
 
 const importSteamBodySchema = z
   .object({
@@ -321,8 +332,16 @@ libraryRouter.post("/import-steam", async (req, res, next) => {
  */
 libraryRouter.delete("/", async (req, res, next) => {
   try {
-    const source =
-      typeof req.query.source === "string" ? req.query.source : null;
+    const sourceParam = req.query.source;
+    let source: z.infer<typeof librarySourceEnum> | null = null;
+    if (typeof sourceParam === "string") {
+      const parsed = librarySourceEnum.safeParse(sourceParam);
+      if (!parsed.success) {
+        res.status(400).json({ error: "invalid source" });
+        return;
+      }
+      source = parsed.data;
+    }
     const where = source
       ? and(
           eq(libraryItems.userId, req.user!.id),

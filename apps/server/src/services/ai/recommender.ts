@@ -929,7 +929,12 @@ export async function rescoreRecommendation(
           "Your taste profile has evolved and this no longer reads as a strong fit.",
         tasteTags: [],
       })
-      .where(eq(recommendations.id, recommendationId))
+      .where(
+        and(
+          eq(recommendations.id, recommendationId),
+          eq(recommendations.userId, userId),
+        ),
+      )
       .returning();
     if (!updated) throw new Error("Failed to update recommendation");
     return updated;
@@ -942,7 +947,12 @@ export async function rescoreRecommendation(
       explanation: newScore.explanation,
       tasteTags: newScore.tasteTags,
     })
-    .where(eq(recommendations.id, recommendationId))
+    .where(
+      and(
+        eq(recommendations.id, recommendationId),
+        eq(recommendations.userId, userId),
+      ),
+    )
     .returning();
   if (!updated) throw new Error("Failed to update recommendation");
   return updated;

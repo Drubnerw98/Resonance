@@ -319,6 +319,18 @@ recommendationsRouter.delete("/", async (req, res, next) => {
 recommendationsRouter.post("/:id/rescore", async (req, res, next) => {
   try {
     const id = req.params.id!;
+    try {
+      checkRateLimit(req.user!.id, "recommendations.rescore");
+    } catch (err) {
+      const status =
+        err instanceof Error && "status" in err
+          ? Number((err as { status?: number }).status) || 429
+          : 429;
+      res
+        .status(status)
+        .json({ error: err instanceof Error ? err.message : "rate limited" });
+      return;
+    }
     const updated = await rescoreRecommendation(req.user!.id, id);
     const [enriched] = await joinWithMedia([updated.id]);
     res.json({ recommendation: enriched });

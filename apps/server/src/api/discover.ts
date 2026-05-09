@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireUser } from "../middleware/auth.js";
 import {
   generateThemes,
-  getOrGenerateThemes,
+  getCachedThemes,
 } from "../services/ai/discover.js";
 import { checkRateLimit } from "../services/rateLimit.js";
 
@@ -18,7 +18,31 @@ discoverRouter.use(requireUser);
  */
 discoverRouter.get("/themes", async (req, res, next) => {
   try {
-    const row = await getOrGenerateThemes(req.user!.id);
+    const userId = req.user!.id;
+    const cached = await getCachedThemes(userId);
+    if (cached) {
+      res.json({
+        themes: cached.themes,
+        generatedAt: cached.generatedAt.toISOString(),
+      });
+      return;
+    }
+    // Cache miss path triggers an Anthropic call. Profile saves invalidate
+    // the cache, so an unbounded save-then-fetch loop could otherwise drive
+    // AI cost without the explicit /refresh endpoint being touched.
+    try {
+      checkRateLimit(userId, "discover.refresh");
+    } catch (err) {
+      const status =
+        err instanceof Error && "status" in err
+          ? Number((err as { status?: number }).status) || 429
+          : 429;
+      res
+        .status(status)
+        .json({ error: err instanceof Error ? err.message : "rate limited" });
+      return;
+    }
+    const row = await generateThemes(userId);
     res.json({
       themes: row.themes,
       generatedAt: row.generatedAt.toISOString(),

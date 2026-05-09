@@ -5,6 +5,7 @@ import express, {
   type Response,
 } from "express";
 import { clerkMiddleware } from "@clerk/express";
+import helmet from "helmet";
 import { pinoHttp } from "pino-http";
 import { env } from "./env.js";
 import { logger } from "./lib/logger.js";
@@ -77,8 +78,16 @@ export function createApp(): Express {
     }),
   );
 
+  app.use(helmet());
   app.use(corsMiddleware());
-  app.use(express.json({ limit: "1mb" }));
+  // Default body limit is 1MB to keep the DoS surface tight on routes
+  // that should only accept tiny payloads. /api/library/import legitimately
+  // accepts up to 6MB (large MAL XML files); its router mounts its own
+  // larger json middleware on that route specifically.
+  app.use((req, res, next) => {
+    if (req.path === "/api/library/import") return next();
+    express.json({ limit: "1mb" })(req, res, next);
+  });
 
   // Public — no auth required.
   app.get("/api/health", (_req, res) => {

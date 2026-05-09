@@ -19,6 +19,10 @@ const LIMITS = {
   // retried a few times within the budget).
   "onboarding.fast": 5,
   "recommendations.generate": 25,
+  // Single-recommendation rescore is one model call vs. the multi-step
+  // pipeline behind .generate. 2x the .generate cap allows post-refinement
+  // exploration ("how do my old recs hold up?") without enabling cost runaway.
+  "recommendations.rescore": 50,
   "evaluate.score": 100,
   "discover.refresh": 20,
   "profile.refine": 10,

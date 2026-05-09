@@ -5,8 +5,10 @@ import { ProfileView } from "../components/profile/ProfileView.tsx";
 import { ProfileEditor } from "../components/profile/ProfileEditor.tsx";
 import { LibrarySection } from "../components/profile/LibrarySection.tsx";
 import { Skeleton } from "../components/shared/Skeleton.tsx";
+import { MaturityBadge } from "../components/shared/MaturityBadge.tsx";
 import { useProfile } from "../hooks/useProfile.ts";
 import { useApi } from "../hooks/useApi.ts";
+import { computeProfileMaturity } from "../lib/profileMaturity.ts";
 
 export function ProfilePage() {
   const {
@@ -163,6 +165,12 @@ export function ProfilePage() {
               Edit profile
             </button>
           </div>
+          <MaturityBadge
+            maturity={computeProfileMaturity(
+              state.profile,
+              state.actedRecCount,
+            )}
+          />
           <ProfileView
             profile={state.profile}
             version={state.version}

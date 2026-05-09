@@ -9,6 +9,11 @@ interface ProfileResponse {
   data: TasteProfile;
   createdAt?: string;
   updatedAt: string;
+  /** Number of recs the user has acted on. Powers the maturity badge — fast-
+   * mode profiles start thin and the badge tells the user feedback sharpens
+   * the system. Only present on GET /profile, not on refine/update responses
+   * which return profile data only. */
+  actedRecCount?: number;
 }
 
 export type ProfileStatus =
@@ -18,6 +23,7 @@ export type ProfileStatus =
       profile: TasteProfile;
       version: number;
       updatedAt: string;
+      actedRecCount: number;
     }
   | { status: "missing" }
   | { status: "error"; message: string };
@@ -53,6 +59,7 @@ export function useProfile(): UseProfile {
           profile: res.data,
           version: res.version,
           updatedAt: res.updatedAt,
+          actedRecCount: res.actedRecCount ?? 0,
         });
       })
       .catch((err: unknown) => {
@@ -79,12 +86,17 @@ export function useProfile(): UseProfile {
       const res = await api<ProfileResponse>("/profile/refine", {
         method: "POST",
       });
-      setState({
+      // refine/update don't return actedRecCount (those operations don't
+      // change feedback count), so preserve the prior value rather than
+      // resetting it to 0 and visibly reverting the maturity badge.
+      setState((prev) => ({
         status: "ready",
         profile: res.data,
         version: res.version,
         updatedAt: res.updatedAt,
-      });
+        actedRecCount:
+          prev.status === "ready" ? prev.actedRecCount : (res.actedRecCount ?? 0),
+      }));
     } catch (err) {
       setRefineError(
         err instanceof ApiError
@@ -108,12 +120,16 @@ export function useProfile(): UseProfile {
           method: "PUT",
           body: profile,
         });
-        setState({
+        setState((prev) => ({
           status: "ready",
           profile: res.data,
           version: res.version,
           updatedAt: res.updatedAt,
-        });
+          actedRecCount:
+            prev.status === "ready"
+              ? prev.actedRecCount
+              : (res.actedRecCount ?? 0),
+        }));
         return res.data;
       } catch (err) {
         const msg =

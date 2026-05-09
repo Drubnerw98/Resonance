@@ -20,8 +20,13 @@ export function Chat() {
 
   async function handleExtract() {
     try {
-      await onboarding.complete();
-      navigate("/profile");
+      const res = await onboarding.complete();
+      // First-time profiles auto-fire a recommendation job server-side, so
+      // routing them to /recommendations lets the page pick up the in-flight
+      // job and render the loading state instead of an empty list. Continued-
+      // onboarding flows (existing profile evolved further) keep the original
+      // /profile destination so the user can see what sharpened.
+      navigate(res.firstProfile ? "/recommendations" : "/profile");
     } catch {
       // Error is set in the hook; stay on the page so the user can retry.
     }

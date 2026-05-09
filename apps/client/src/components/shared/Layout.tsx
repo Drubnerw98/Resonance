@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Nav } from "./Nav.tsx";
 import { Footer } from "./Footer.tsx";
 import { SessionExpiredBanner } from "./SessionExpiredBanner.tsx";
+import { ColdStartToast } from "./ColdStartToast.tsx";
 
 export function Layout() {
   // Re-key the main element on pathname change so React remounts the
@@ -20,6 +21,7 @@ export function Layout() {
         <Outlet />
       </main>
       <Footer />
+      <ColdStartToast />
     </div>
   );
 }

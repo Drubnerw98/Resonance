@@ -14,6 +14,8 @@ import { InspirationThemes } from "../components/recommendations/InspirationThem
 import { PageHeader } from "../components/shared/PageHeader.tsx";
 import { EmptyState } from "../components/shared/EmptyState.tsx";
 import { LoadingPulse } from "../components/shared/LoadingPulse.tsx";
+import { MaturityBadge } from "../components/shared/MaturityBadge.tsx";
+import { computeProfileMaturity } from "../lib/profileMaturity.ts";
 
 type TabKey = "all" | MediaType;
 
@@ -297,6 +299,15 @@ export function RecommendationsPage() {
           ) : null
         }
       />
+
+      {profile.state.status === "ready" && (
+        <MaturityBadge
+          maturity={computeProfileMaturity(
+            profile.state.profile,
+            profile.state.actedRecCount,
+          )}
+        />
+      )}
 
       {recs.refinementBanner && (
         <div className="flex items-start justify-between gap-3 rounded-lg border border-emerald-900/40 bg-emerald-950/20 p-3 text-sm text-emerald-200">

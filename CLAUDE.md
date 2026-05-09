@@ -19,6 +19,9 @@ Cross-format media recommender (movies, TV, anime, manga, games, books) built ar
 
 - All four AI modes (onboarding, extraction + refinement, recommendation pipeline, discovery themes) + evaluate verdicts
 - Fast-mode onboarding (`POST /api/onboarding/fast`) — guided form alternative to the long chat. Same `TasteProfile` output, server-overlaid `mediaAffinities` from enabled-formats. Linked from the chat starter card as the "short on time?" escape hatch.
+- First-batch auto-fire — both `/onboarding/complete` and `/onboarding/fast` start a `recommendations.generate` job in the background when the user's first profile is created. New users land on `/recommendations` with the loading pulse already running instead of an empty state. Skipped on continued onboarding (existing profile evolved further).
+- Cold-start visibility toast — `apiFetch` fires a `resonance:slow-fetch` event after 3s; `<ColdStartToast/>` in `Layout.tsx` shows a one-time-per-page-load warning so the Render free-tier ~30s cold start doesn't look like a hung request.
+- Profile maturity badge — `computeProfileMaturity(profile, actedRecCount)` heuristic on `/profile` and `/recommendations` shows a "still forming · feedback sharpens it" nudge while the profile is thin (relevant especially for fast-mode users). Hides once mature.
 - Persistent batches with name / prompt / refine flow (stack new batches on existing ones with extra constraints)
 - Library imports: Letterboxd CSV, Goodreads CSV, MyAnimeList XML, Steam Web API
 - Watchlist (plan-to-consume) on library_items + plan-to status on rec cards — both feed dedup, neither feeds cross-references

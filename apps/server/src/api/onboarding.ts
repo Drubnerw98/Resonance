@@ -16,6 +16,8 @@ import {
   extractProfile,
 } from "../services/ai/extraction.js";
 import { extractProfileFromForm } from "../services/ai/fastExtraction.js";
+import { generateRecommendations } from "../services/ai/recommender.js";
+import { findActiveJobForUser, startJob } from "../services/jobs.js";
 import { getActiveProfile, saveProfile } from "../services/profile.js";
 import { markOnboardingComplete } from "../services/users.js";
 import { checkRateLimit } from "../services/rateLimit.js";
@@ -275,12 +277,18 @@ onboardingRouter.post("/complete", async (req, res, next) => {
     }
     await markOnboardingComplete(userId);
 
+    const firstProfile = !existing;
+    if (firstProfile) {
+      await maybeAutoFireFirstBatch(userId);
+    }
+
     res.json({
       sessionId: session.id,
       sessionStatus: "completed",
       profile: saved.profileData,
       version: saved.currentVersion,
       alreadyExtracted: false,
+      firstProfile,
     });
   } catch (err) {
     next(err);
@@ -415,17 +423,67 @@ onboardingRouter.post("/fast", async (req, res, next) => {
     await markSessionCompleted(session.id);
     await markOnboardingComplete(userId);
 
+    const firstProfile = !existing;
+    if (firstProfile) {
+      await maybeAutoFireFirstBatch(userId);
+    }
+
     res.json({
       sessionId: session.id,
       sessionStatus: "completed" as const,
       profile: saved.profileData,
       version: saved.currentVersion,
       alreadyExtracted: false,
+      firstProfile,
     });
   } catch (err) {
     next(err);
   }
 });
+
+/**
+ * Kick off the user's first recommendation batch in the background so they
+ * land on /recommendations with a job already running, instead of an empty
+ * state. Skips if a generation job is already in flight (somehow), and
+ * silently swallows rate-limit / startup errors — auto-fire is convenience,
+ * not a contract; the user can always click Generate manually.
+ */
+async function maybeAutoFireFirstBatch(userId: string): Promise<void> {
+  try {
+    const existingJob = await findActiveJobForUser(
+      userId,
+      "recommendations.generate",
+    );
+    if (existingJob) return;
+
+    try {
+      checkRateLimit(userId, "recommendations.generate");
+    } catch {
+      // At/over quota — skip the auto-fire, don't fail the response.
+      return;
+    }
+
+    await startJob({
+      userId,
+      kind: "recommendations.generate",
+      work: async () => {
+        const result = await generateRecommendations(userId, {});
+        return {
+          count: result.recs.length,
+          batchId: result.batch.id,
+          recommendationIds: result.recs.map((r) => r.id),
+        };
+      },
+    });
+    logger.info({ userId }, "onboarding: auto-fired first generation batch");
+  } catch (err) {
+    // Don't block onboarding completion on auto-fire failure.
+    logger.warn(
+      { err, userId },
+      "onboarding: auto-fire first batch failed — user can click Generate manually",
+    );
+  }
+}
 
 function stripModelTags(text: string): string {
   return text

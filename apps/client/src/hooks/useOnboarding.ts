@@ -12,6 +12,19 @@ interface SessionResponse {
   messages: OnboardingMessage[];
 }
 
+interface CompleteResponse {
+  sessionId: string;
+  sessionStatus: "completed";
+  profile: unknown;
+  version: number;
+  alreadyExtracted: boolean;
+  /** True when this completion created a brand-new profile (vs. evolving an
+   * existing one via continued onboarding). The server auto-fires the first
+   * recommendation batch in this case so the user lands on /recommendations
+   * with a job already running. */
+  firstProfile?: boolean;
+}
+
 export interface UseOnboarding {
   sessionStatus: "loading" | "active" | "completed" | "abandoned" | "error";
   messages: OnboardingMessage[];
@@ -23,8 +36,9 @@ export interface UseOnboarding {
   ready: boolean;
   error: string | null;
   send: (content: string) => Promise<void>;
-  /** Triggers extraction and resolves with success, throws on failure. */
-  complete: () => Promise<void>;
+  /** Triggers extraction; resolves with the completion response so callers
+   * can branch on `firstProfile` for navigation. Throws on failure. */
+  complete: () => Promise<CompleteResponse>;
 }
 
 export function useOnboarding(): UseOnboarding {
@@ -112,13 +126,15 @@ export function useOnboarding(): UseOnboarding {
     [getToken, isSending],
   );
 
-  const complete = useCallback(async () => {
-    if (isExtracting) return;
+  const complete = useCallback(async (): Promise<CompleteResponse> => {
     setError(null);
     setIsExtracting(true);
     try {
-      await api("/onboarding/complete", { method: "POST" });
+      const res = await api<CompleteResponse>("/onboarding/complete", {
+        method: "POST",
+      });
       setSessionStatus("completed");
+      return res;
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Failed to extract profile";
@@ -127,7 +143,7 @@ export function useOnboarding(): UseOnboarding {
     } finally {
       setIsExtracting(false);
     }
-  }, [api, isExtracting]);
+  }, [api]);
 
   return {
     sessionStatus,

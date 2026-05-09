@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { requireUser } from "../middleware/auth.js";
 import { db } from "../db/index.js";
 import {
@@ -20,17 +20,33 @@ profileRouter.use(requireUser);
 
 profileRouter.get("/", async (req, res, next) => {
   try {
-    const row = await getActiveProfile(req.user!.id);
+    const userId = req.user!.id;
+    const row = await getActiveProfile(userId);
     if (!row) {
       res.status(404).json({ error: "no profile yet" });
       return;
     }
+    // Count of recs the user has actually engaged with — feeds the
+    // "profile maturity" indicator on the client (whether to show the
+    // "still forming · feedback sharpens it" nudge). `pending` means the
+    // user hasn't seen/acted on it; everything else counts.
+    const [countRow] = await db
+      .select({ value: sql<number>`count(*)::int` })
+      .from(recommendations)
+      .where(
+        and(
+          eq(recommendations.userId, userId),
+          ne(recommendations.status, "pending"),
+        ),
+      );
+    const actedRecCount = countRow?.value ?? 0;
     res.json({
       id: row.id,
       version: row.currentVersion,
       data: row.profileData,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      actedRecCount,
     });
   } catch (err) {
     next(err);

@@ -1,5 +1,10 @@
 import { useState } from "react";
-import type { RecommendationItem } from "../../hooks/useRecommendations.ts";
+import type { TasteProfile } from "@resonance/shared";
+import type {
+  RecommendationCrossReference,
+  RecommendationItem,
+} from "../../hooks/useRecommendations.ts";
+import { CrossReferenceModal } from "./CrossReferenceModal.tsx";
 
 const FORMAT_LABEL: Record<string, string> = {
   movie: "Movie",
@@ -23,6 +28,12 @@ function formatRuntime(minutes: number, mediaType: string): string {
 
 interface Props {
   rec: RecommendationItem;
+  /** Active profile, used by the cross-reference evidence modal to look up
+   * theme/archetype evidence quotes mentioning a referenced title. Null while
+   * the profile is loading or if the user is somehow rec-list-without-profile
+   * (the page already gates on this; null here just means "skip the
+   * evidence section"). */
+  profile: TasteProfile | null;
   onFeedback: (
     recId: string,
     status: RecommendationItem["status"],
@@ -35,12 +46,16 @@ interface Props {
 
 export function MediaCard({
   rec,
+  profile,
   onFeedback,
   onPlanTo,
   onRescore,
   isRescoring,
 }: Props) {
-  const { media, matchScore, explanation, tasteTags, status, rating } = rec;
+  const { media, matchScore, explanation, tasteTags, crossReferences, status, rating } =
+    rec;
+  const [activeCrossRef, setActiveCrossRef] =
+    useState<RecommendationCrossReference | null>(null);
   const scorePct = Math.round(matchScore * 100);
 
   const isSaved = status === "saved";
@@ -127,6 +142,28 @@ export function MediaCard({
           ))}
         </ul>
 
+        {crossReferences.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-xs uppercase tracking-wide text-neutral-500">
+              Because you loved
+            </p>
+            <ul className="flex flex-wrap gap-1.5">
+              {crossReferences.map((cr, i) => (
+                <li key={i}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveCrossRef(cr)}
+                    className="rounded-full border border-amber-700/50 bg-amber-950/20 px-2.5 py-0.5 text-xs text-amber-200 transition-colors hover:border-amber-500 hover:bg-amber-900/30 hover:text-amber-100"
+                    aria-label={`See why ${cr.title} anchored this rec`}
+                  >
+                    ↗ {cr.title}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <FeedbackRow
           recId={rec.id}
           status={status}
@@ -158,6 +195,13 @@ export function MediaCard({
           </span>
         </div>
       </div>
+      <CrossReferenceModal
+        open={activeCrossRef !== null}
+        crossRef={activeCrossRef}
+        recTitle={media.title}
+        profile={profile}
+        onClose={() => setActiveCrossRef(null)}
+      />
     </article>
   );
 }

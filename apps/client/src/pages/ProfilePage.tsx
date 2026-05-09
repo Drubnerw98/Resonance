@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { TasteProfile } from "@resonance/shared";
 import { ProfileView } from "../components/profile/ProfileView.tsx";
 import { ProfileEditor } from "../components/profile/ProfileEditor.tsx";
+import { ProfileTimeline } from "../components/profile/ProfileTimeline.tsx";
 import { LibrarySection } from "../components/profile/LibrarySection.tsx";
 import { Skeleton } from "../components/shared/Skeleton.tsx";
 import { MaturityBadge } from "../components/shared/MaturityBadge.tsx";
@@ -180,6 +181,7 @@ export function ProfilePage() {
             isRefining={isRefining}
             isStartingSession={isStartingSession}
           />
+          <ProfileTimeline />
         </>
       )}
 

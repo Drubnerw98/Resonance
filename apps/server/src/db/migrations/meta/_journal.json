@@ -50,6 +50,13 @@
       "when": 1777738148076,
       "tag": "0006_yielding_dexter_bennett",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778333034024,
+      "tag": "0007_slimy_lightspeed",
+      "breakpoints": true
     }
   ]
 }

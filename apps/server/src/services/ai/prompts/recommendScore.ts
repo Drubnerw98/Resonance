@@ -63,6 +63,9 @@ For each scored candidate:
   - matchScore: 0-1, calibrated. 0.9+ = "this will land". 0.7-0.85 = strong fit. 0.5-0.7 = good fit. 0.3-0.5 = a stretch worth surfacing for variety. Use the lower scores liberally — they signal honest match strength to the user, not a filter.
   - explanation: 1-2 sentences explaining the resonance. Reference SPECIFIC moments/themes from the profile, not generic taste. Sound like a friend pitching, not a recommender system. NEVER say things like "based on your profile" or "matches your X tag".
   - tasteTags: 2-3 short tags from the profile (theme labels, archetype labels) that this candidate exemplifies.
+  - crossReferences (0-3, optional but encouraged): user-known titles your scoring leaned on, each with a one-line rationale. The titles MUST come from the user's library, mediaAffinities[].favorites, or be cited in a profile theme.evidence / archetype.attraction. Don't fabricate titles the user hasn't named or saved.
+    Each entry: { title: string, reason: string }. The reason is one sentence on what specifically connects this rec to that prior title (a shared theme, character archetype, narrative shape — not "similar genre"). Skip the field if no honest connection exists; padding it with weak links makes the system feel dumb.
+    Example: { "title": "Aftersun", "reason": "Same restraint with bittersweet, no spelled-out catharsis." }
 
 QUALITY BAR:
 - Match scores should reflect calibrated belief. A 0.95 has to be defensible.

@@ -851,6 +851,13 @@ async function persistRecommendations(
       matchScore: r.matchScore,
       explanation: r.explanation,
       tasteTags: r.tasteTags,
+      // Drop the field entirely when empty so the column stays NULL on
+      // older recs (rather than `[]`) — keeps the "model didn't propose
+      // any" case distinguishable from "model proposed nothing relevant".
+      crossReferences:
+        r.crossReferences && r.crossReferences.length > 0
+          ? r.crossReferences
+          : null,
       status: "pending",
     });
   }

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import type { TasteProfile } from "@resonance/shared";
 import {
   type BatchInfo,
   type RecommendationItem,
@@ -22,6 +23,7 @@ function batchLabel(batch: BatchInfo): string {
 export function BatchSection({
   batch,
   items,
+  profile,
   isGenerating,
   onRefine,
   onFeedback,
@@ -31,6 +33,9 @@ export function BatchSection({
 }: {
   batch: BatchInfo;
   items: RecommendationItem[];
+  /** Forwarded to each MediaCard so the cross-reference evidence modal can
+   * surface profile theme/archetype quotes mentioning a referenced title. */
+  profile: TasteProfile | null;
   isGenerating: boolean;
   onRefine: (addition: string) => void;
   onFeedback: (
@@ -128,6 +133,7 @@ export function BatchSection({
           <MediaCard
             key={rec.id}
             rec={rec}
+            profile={profile}
             onFeedback={onFeedback}
             onPlanTo={onPlanTo}
             onRescore={onRescore}

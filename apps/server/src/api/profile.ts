@@ -1,9 +1,10 @@
 import { Router } from "express";
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ne, sql } from "drizzle-orm";
 import { requireUser } from "../middleware/auth.js";
 import { db } from "../db/index.js";
 import {
   onboardingSessions,
+  profileVersions,
   recommendations,
   tasteProfiles,
   users,
@@ -13,6 +14,7 @@ import { listLibraryItems } from "../services/library.js";
 import { refineProfile } from "../services/ai/refinement.js";
 import { checkRateLimit } from "../services/rateLimit.js";
 import { TasteProfileSchema } from "../services/ai/schemas.js";
+import { titleAppearsIn } from "@resonance/shared";
 
 export const profileRouter: Router = Router();
 
@@ -47,6 +49,45 @@ profileRouter.get("/", async (req, res, next) => {
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       actedRecCount,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/profile/versions
+ * Returns the user's full profile history (oldest → newest), each entry
+ * carrying the full TasteProfile snapshot at that point + the trigger
+ * (onboarding / feedback_batch / manual_edit) and creation timestamp.
+ *
+ * The client computes structural diffs between adjacent versions for the
+ * "evolution timeline" UI on /profile — surfacing the persistent-profile
+ * differentiator that's otherwise invisible in the live UI.
+ */
+profileRouter.get("/versions", async (req, res, next) => {
+  try {
+    const profileRow = await getActiveProfile(req.user!.id);
+    if (!profileRow) {
+      res.status(404).json({ error: "no profile yet" });
+      return;
+    }
+
+    const rows = await db.query.profileVersions.findMany({
+      where: eq(profileVersions.profileId, profileRow.id),
+      // Oldest first — the timeline reads chronologically, and computing
+      // diffs between v[n-1] and v[n] is simpler when we iterate forward.
+      orderBy: [asc(profileVersions.versionNumber)],
+    });
+
+    res.json({
+      versions: rows.map((v) => ({
+        id: v.id,
+        versionNumber: v.versionNumber,
+        trigger: v.trigger as "onboarding" | "feedback_batch" | "manual_edit",
+        profile: v.profileData,
+        createdAt: v.createdAt,
+      })),
     });
   } catch (err) {
     next(err);
@@ -179,55 +220,6 @@ profileRouter.get("/export", async (req, res, next) => {
     next(err);
   }
 });
-
-/**
- * Title-vs-text fuzzy match. Mirrors Constellation's `titleAppearsIn`:
- * direct normalized substring, with a 2+ content-token overlap fallback
- * for long titles cited by their short form ("First Law Trilogy ..."
- * matches evidence saying "First Law"). The 2-token threshold prevents
- * common words like "the" or "story" from triggering false positives.
- */
-function titleAppearsIn(title: string, text: string): boolean {
-  const titleNorm = normalize(title);
-  const textNorm = normalize(text);
-  if (titleNorm.length === 0) return false;
-  if (textNorm.includes(titleNorm)) return true;
-
-  const titleTokens = contentTokens(titleNorm);
-  if (titleTokens.length < 2) return false;
-  const textTokens = new Set(contentTokens(textNorm));
-  let overlap = 0;
-  for (const t of titleTokens) {
-    if (textTokens.has(t)) overlap += 1;
-    if (overlap >= 2) return true;
-  }
-  return false;
-}
-
-function normalize(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .replace(/[-_/]+/g, " ")
-    .replace(/[^a-z0-9 ]/g, "")
-    .replace(/\s+/g, " ");
-}
-
-const STOPWORDS = new Set([
-  "a", "an", "the", "and", "or", "but", "of", "as", "is", "in", "on", "to",
-  "for", "with", "without", "into", "through", "from", "by", "at",
-  "be", "been", "being", "have", "has", "had", "do", "does", "did",
-  "their", "its", "his", "her", "they", "them", "this", "that", "these",
-  "those", "it", "we", "you", "he", "she",
-  "who", "whom", "what", "which", "where", "when", "why", "how",
-  "own", "not", "no", "yes",
-]);
-
-function contentTokens(normalized: string): string[] {
-  return normalized
-    .split(" ")
-    .filter((w) => w.length >= 3 && !STOPWORDS.has(w));
-}
 
 /**
  * PUT /api/profile

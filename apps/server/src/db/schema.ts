@@ -276,6 +276,13 @@ export const recommendations = pgTable(
     matchScore: doublePrecision("match_score").notNull(),
     explanation: text("explanation").notNull(),
     tasteTags: text("taste_tags").array().notNull().default([]),
+    /** Per-rec cross-references — titles from the user's library/profile that
+     * the model leaned on when scoring this rec, plus a one-line rationale.
+     * Powers the "because you loved X" chips on the rec card. Nullable on
+     * older rows persisted before this column existed; the UI treats null
+     * the same as an empty array. */
+    crossReferences:
+      jsonb("cross_references").$type<{ title: string; reason: string }[]>(),
     status: recommendationStatusEnum("status").notNull().default("pending"),
     rating: integer("rating"),
     createdAt: timestamp("created_at", { withTimezone: true })

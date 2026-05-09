@@ -10,6 +10,14 @@ export interface BatchInfo {
   createdAt: string;
 }
 
+export interface RecommendationCrossReference {
+  /** A title from the user's library, profile favorites, or theme/archetype
+   * evidence that the model leaned on for this rec. */
+  title: string;
+  /** One-sentence rationale tying this rec to that prior title. */
+  reason: string;
+}
+
 export interface RecommendationItem {
   id: string;
   batchId: string;
@@ -17,6 +25,9 @@ export interface RecommendationItem {
   matchScore: number;
   explanation: string;
   tasteTags: string[];
+  /** 0-3 cross-references; powers the "because you loved X" chips on the
+   * card. Empty for older recs persisted before the field existed. */
+  crossReferences: RecommendationCrossReference[];
   status: "pending" | "seen" | "saved" | "skipped" | "rated" | "plan_to";
   rating: number | null;
   createdAt: string;

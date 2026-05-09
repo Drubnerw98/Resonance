@@ -705,6 +705,7 @@ state, API calls, and optimistic updates. Components stay presentational.
 | `useEvaluate`        | Search → pick → score state machine           |
 | `useOnboarding`      | Streaming chat state, send, complete          |
 | `useFastOnboarding`  | Fast-mode form submission, profile creation   |
+| `useProfileVersions` | Full profile history for the evolution timeline |
 
 **Why hooks not Redux/Zustand.** Each hook's domain is well-bounded; no
 cross-domain shared state needed. Hooks colocate state with the API they

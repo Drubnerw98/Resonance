@@ -107,6 +107,20 @@ export const ScoredCandidatesOutputSchema = z.object({
         matchScore: z.number().min(0).max(1),
         explanation: z.string().min(1),
         tasteTags: z.array(z.string().min(1)),
+        // 0-3 user-known titles (from the profile's favorites/themes/
+        // archetypes/library) the model leaned on when scoring this rec,
+        // each with a short rationale. Powers the "because you loved X"
+        // chips on the rec card. Optional — older recs/scoring runs that
+        // predate this field stay valid; the UI tolerates undefined.
+        crossReferences: z
+          .array(
+            z.object({
+              title: z.string().min(1).max(200),
+              reason: z.string().min(1).max(280),
+            }),
+          )
+          .max(3)
+          .optional(),
       }),
     )
     .max(40),

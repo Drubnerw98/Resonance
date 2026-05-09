@@ -463,6 +463,9 @@ export function RecommendationsPage() {
             key={batch.id}
             batch={batch}
             items={sortRecs(items, activeSort)}
+            profile={
+              profile.state.status === "ready" ? profile.state.profile : null
+            }
             isGenerating={recs.isGenerating}
             onRefine={(addition) => {
               const original = batch.prompt?.trim();

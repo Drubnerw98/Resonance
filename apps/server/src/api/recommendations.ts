@@ -397,6 +397,7 @@ function serializeRec(
     matchScore: r.matchScore,
     explanation: r.explanation,
     tasteTags: r.tasteTags,
+    crossReferences: r.crossReferences ?? [],
     status: r.status,
     rating: r.rating,
     createdAt: r.createdAt,

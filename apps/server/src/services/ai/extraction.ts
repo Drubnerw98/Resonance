@@ -48,8 +48,7 @@ export async function extractProfile(
         },
       ],
       output_config: { format },
-      signal: aiTimeoutSignal(),
-    }),
+    }, { signal: aiTimeoutSignal() }),
   );
 
   if (!response.parsed_output) {
@@ -107,8 +106,7 @@ Evolve the profile based on what was said in this new conversation. Treat the ne
       system: profileRefinementSystemPrompt(),
       messages: [{ role: "user", content: userMessage }],
       output_config: { format },
-      signal: aiTimeoutSignal(),
-    }),
+    }, { signal: aiTimeoutSignal() }),
   );
 
   if (!response.parsed_output) {

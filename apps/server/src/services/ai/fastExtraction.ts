@@ -38,8 +38,7 @@ export async function extractProfileFromForm(
       system: fastExtractionSystemPrompt(),
       messages: [{ role: "user", content: userMessage }],
       output_config: { format },
-      signal: aiTimeoutSignal(),
-    }),
+    }, { signal: aiTimeoutSignal() }),
   );
 
   if (!response.parsed_output) {

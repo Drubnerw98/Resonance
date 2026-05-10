@@ -140,8 +140,7 @@ async function callModel(
           >[0],
         ),
       },
-      signal: aiTimeoutSignal(),
-    }),
+    }, { signal: aiTimeoutSignal() }),
   );
 
   if (!response.parsed_output) {

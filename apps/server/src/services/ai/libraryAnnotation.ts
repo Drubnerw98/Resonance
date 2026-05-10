@@ -106,8 +106,7 @@ export async function annotateLibraryItem(
           >[0],
         ),
       },
-      signal: aiTimeoutSignal(),
-    }),
+    }, { signal: aiTimeoutSignal() }),
   );
 
   if (!response.parsed_output) {

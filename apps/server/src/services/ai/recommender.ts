@@ -508,8 +508,7 @@ async function generateCandidatePlan(
           >[0],
         ),
       },
-      signal: aiTimeoutSignal(),
-    }),
+    }, { signal: aiTimeoutSignal() }),
   );
 
   if (!response.parsed_output) {
@@ -827,8 +826,7 @@ synopsis: ${truncate(item.description, 600)}`;
           >[0],
         ),
       },
-      signal: aiTimeoutSignal(),
-    }),
+    }, { signal: aiTimeoutSignal() }),
   );
 
   if (!response.parsed_output) {

@@ -72,8 +72,7 @@ export function streamOnboardingReply(
         max_tokens: 2048,
         system: onboardingSystemPrompt(),
         messages,
-        signal: aiTimeoutSignal(),
-      });
+      }, { signal: aiTimeoutSignal() });
 
       for await (const event of stream) {
         if (

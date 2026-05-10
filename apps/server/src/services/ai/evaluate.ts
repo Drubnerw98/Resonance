@@ -141,8 +141,7 @@ export async function evaluateCandidate(
           >[0],
         ),
       },
-      signal: aiTimeoutSignal(),
-    }),
+    }, { signal: aiTimeoutSignal() }),
   );
 
   if (!response.parsed_output) {

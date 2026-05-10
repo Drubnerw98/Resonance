@@ -23,10 +23,8 @@ import {
   searchAndCacheByQuery,
   searchAndCacheByTitle,
 } from "../mediaCache.js";
-import {
-  canonicalizeTitle,
-  collectRealCandidates,
-} from "./recommender.js";
+import { collectRealCandidates } from "./recommender.js";
+import { canonicalizeTitle } from "./titleMatching.js";
 import type { MediaCacheRow } from "../../db/schema.js";
 import type { CandidatesOutput } from "./schemas.js";
 

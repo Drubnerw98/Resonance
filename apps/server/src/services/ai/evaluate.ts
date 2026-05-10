@@ -15,11 +15,8 @@ import { getAnthropic, ONBOARDING_MODEL } from "./client.js";
 import { evaluateSystemPrompt } from "./prompts/evaluate.js";
 import { aiTimeoutSignal, withAiTimeout } from "./aiTimeout.js";
 import { VerdictOutputSchema, type VerdictOutput } from "./schemas.js";
-import {
-  canonicalizeTitle,
-  collectAvoidTitles,
-  getUserLibrary,
-} from "./recommender.js";
+import { getUserLibrary } from "./recommender.js";
+import { canonicalizeTitle, collectAvoidTitles } from "./titleMatching.js";
 import { formatLibraryBlock } from "./aiHelpers.js";
 
 const EVALUATE_MODEL = ONBOARDING_MODEL;

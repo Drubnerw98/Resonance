@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS "jobs_user_kind_running_unique" ON "jobs" USING btree ("user_id","kind") WHERE "jobs"."status" = 'running';

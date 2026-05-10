@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   pgEnum,
   pgTable,
@@ -350,6 +350,12 @@ export const jobs = pgTable(
   (t) => [
     index("jobs_user_kind_status_idx").on(t.userId, t.kind, t.status),
     index("jobs_completed_at_idx").on(t.completedAt),
+    // At most one running job per (user, kind). Two simultaneous starts hit
+    // this constraint and the loser collapses into the winner — see
+    // services/jobs.ts startJob for the unique-violation handling.
+    uniqueIndex("jobs_user_kind_running_unique")
+      .on(t.userId, t.kind)
+      .where(sql`${t.status} = 'running'`),
   ],
 );
 

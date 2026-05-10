@@ -72,6 +72,12 @@ function rowToJob<TResult = unknown>(row: JobRow): Job<TResult> {
  * Start a new job. Inserts the row synchronously (so the caller can hand
  * back the id immediately), then spawns a background worker that runs the
  * supplied work function and patches the row on completion.
+ *
+ * If two starts race for the same (userId, kind), the partial unique index
+ * `jobs_user_kind_running_unique` lets exactly one INSERT through; the
+ * loser falls through to `findActiveJobForUser` and returns the winner's
+ * row. Both callers see the same job id, both poll the same status —
+ * neither AI generation runs twice.
  */
 export async function startJob<TResult>(opts: {
   userId: string;
@@ -79,16 +85,29 @@ export async function startJob<TResult>(opts: {
   work: () => Promise<TResult>;
 }): Promise<Job<TResult>> {
   const now = new Date();
-  const [inserted] = await db
-    .insert(jobsTable)
-    .values({
-      userId: opts.userId,
-      kind: opts.kind,
-      status: "running",
-      startedAt: now,
-      heartbeatAt: now,
-    })
-    .returning();
+  let inserted: JobRow | undefined;
+  try {
+    [inserted] = await db
+      .insert(jobsTable)
+      .values({
+        userId: opts.userId,
+        kind: opts.kind,
+        status: "running",
+        startedAt: now,
+        heartbeatAt: now,
+      })
+      .returning();
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      const existing = await findActiveJobForUser(opts.userId, opts.kind);
+      if (existing) return existing as Job<TResult>;
+      // Index hit but no active row visible — extremely narrow race
+      // (winner finished between our INSERT and our SELECT). Surface it
+      // rather than spawn a duplicate worker.
+      throw err;
+    }
+    throw err;
+  }
   if (!inserted) throw new Error("failed to insert job row");
 
   const job = rowToJob<TResult>(inserted);
@@ -96,6 +115,18 @@ export async function startJob<TResult>(opts: {
   void runWorker(job.id, opts.work);
 
   return job;
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const code = (err as { code?: unknown }).code;
+  if (code === "23505") return true;
+  const cause = (err as { cause?: unknown }).cause;
+  if (cause && typeof cause === "object") {
+    const causeCode = (cause as { code?: unknown }).code;
+    if (causeCode === "23505") return true;
+  }
+  return false;
 }
 
 /**

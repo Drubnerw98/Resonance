@@ -1,7 +1,9 @@
+import { APIUserAbortError } from "@anthropic-ai/sdk";
 import type { OnboardingMessage } from "@resonance/shared";
 import { getAnthropic, ONBOARDING_MODEL } from "./client.js";
 import { onboardingSystemPrompt } from "./prompts/onboarding.js";
 import { StreamFilter } from "./streaming.js";
+import { aiTimeoutSignal } from "./aiTimeout.js";
 
 export interface OnboardingStreamChunk {
   /** Cleaned text safe to display (analysis + ready tags stripped). */
@@ -70,6 +72,7 @@ export function streamOnboardingReply(
         max_tokens: 2048,
         system: onboardingSystemPrompt(),
         messages,
+        signal: aiTimeoutSignal(),
       });
 
       for await (const event of stream) {
@@ -93,10 +96,20 @@ export function streamOnboardingReply(
 
       resolveDone({ raw, ready: filter.isReady });
     } catch (err) {
-      rejectDone(err);
-      throw err;
+      const wrapped = mapAbortError(err);
+      rejectDone(wrapped);
+      throw wrapped;
     }
   }
 
   return { chunks: generate(), done };
+}
+
+function mapAbortError(err: unknown): unknown {
+  const isAbort =
+    err instanceof APIUserAbortError ||
+    (err instanceof Error &&
+      (err.name === "AbortError" || err.name === "TimeoutError"));
+  if (!isAbort) return err;
+  return Object.assign(new Error("AI request timed out"), { status: 504 });
 }

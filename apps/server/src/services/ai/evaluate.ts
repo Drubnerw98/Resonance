@@ -13,6 +13,7 @@ import { searchAndCacheByTitle } from "../mediaCache.js";
 import { getActiveProfile } from "../profile.js";
 import { getAnthropic, ONBOARDING_MODEL } from "./client.js";
 import { evaluateSystemPrompt } from "./prompts/evaluate.js";
+import { aiTimeoutSignal, withAiTimeout } from "./aiTimeout.js";
 import { VerdictOutputSchema, type VerdictOutput } from "./schemas.js";
 import {
   canonicalizeTitle,
@@ -130,17 +131,22 @@ export async function evaluateCandidate(
 
   sections.push(`# Task\n\nGive your honest verdict.`);
 
-  const response = await client.messages.parse({
-    model: EVALUATE_MODEL,
-    max_tokens: 800,
-    system: evaluateSystemPrompt(),
-    messages: [{ role: "user", content: sections.join("\n\n") }],
-    output_config: {
-      format: zodOutputFormat(
-        VerdictOutputSchema as unknown as Parameters<typeof zodOutputFormat>[0],
-      ),
-    },
-  });
+  const response = await withAiTimeout(() =>
+    client.messages.parse({
+      model: EVALUATE_MODEL,
+      max_tokens: 800,
+      system: evaluateSystemPrompt(),
+      messages: [{ role: "user", content: sections.join("\n\n") }],
+      output_config: {
+        format: zodOutputFormat(
+          VerdictOutputSchema as unknown as Parameters<
+            typeof zodOutputFormat
+          >[0],
+        ),
+      },
+      signal: aiTimeoutSignal(),
+    }),
+  );
 
   if (!response.parsed_output) {
     throw new Error(`Evaluate failed (stop_reason=${response.stop_reason})`);

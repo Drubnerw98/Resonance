@@ -8,6 +8,7 @@ import { getActiveProfile, saveProfile } from "../profile.js";
 import { getAnthropic, ONBOARDING_MODEL } from "./client.js";
 import { profileRefinementSystemPrompt } from "./prompts/profileRefinement.js";
 import { TasteProfileSchema } from "./schemas.js";
+import { aiTimeoutSignal, withAiTimeout } from "./aiTimeout.js";
 
 /** Number of post-pending feedback items required before auto-refinement fires. */
 const REFINEMENT_THRESHOLD = 5;
@@ -178,17 +179,22 @@ ${feedback
 
 Evolve the profile.`;
 
-  const response = await client.messages.parse({
-    model: ONBOARDING_MODEL,
-    max_tokens: 4096,
-    system: profileRefinementSystemPrompt(),
-    messages: [{ role: "user", content: userMessage }],
-    output_config: {
-      format: zodOutputFormat(
-        TasteProfileSchema as unknown as Parameters<typeof zodOutputFormat>[0],
-      ),
-    },
-  });
+  const response = await withAiTimeout(() =>
+    client.messages.parse({
+      model: ONBOARDING_MODEL,
+      max_tokens: 4096,
+      system: profileRefinementSystemPrompt(),
+      messages: [{ role: "user", content: userMessage }],
+      output_config: {
+        format: zodOutputFormat(
+          TasteProfileSchema as unknown as Parameters<
+            typeof zodOutputFormat
+          >[0],
+        ),
+      },
+      signal: aiTimeoutSignal(),
+    }),
+  );
 
   if (!response.parsed_output) {
     throw new Error(

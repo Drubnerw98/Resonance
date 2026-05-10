@@ -7,6 +7,7 @@ import type {
 import { getAnthropic, ONBOARDING_MODEL } from "./client.js";
 import { fastExtractionSystemPrompt } from "./prompts/fastExtraction.js";
 import { TasteProfileSchema } from "./schemas.js";
+import { aiTimeoutSignal, withAiTimeout } from "./aiTimeout.js";
 
 const FAST_EXTRACTION_MODEL = ONBOARDING_MODEL;
 
@@ -30,13 +31,16 @@ export async function extractProfileFromForm(
     TasteProfileSchema as unknown as Parameters<typeof zodOutputFormat>[0],
   );
 
-  const response = await client.messages.parse({
-    model: FAST_EXTRACTION_MODEL,
-    max_tokens: 4096,
-    system: fastExtractionSystemPrompt(),
-    messages: [{ role: "user", content: userMessage }],
-    output_config: { format },
-  });
+  const response = await withAiTimeout(() =>
+    client.messages.parse({
+      model: FAST_EXTRACTION_MODEL,
+      max_tokens: 4096,
+      system: fastExtractionSystemPrompt(),
+      messages: [{ role: "user", content: userMessage }],
+      output_config: { format },
+      signal: aiTimeoutSignal(),
+    }),
+  );
 
   if (!response.parsed_output) {
     throw new Error(

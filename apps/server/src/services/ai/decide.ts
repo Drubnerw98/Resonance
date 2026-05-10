@@ -11,6 +11,7 @@ import {
 } from "./schemas.js";
 import { getUserLibrary } from "./recommender.js";
 import { formatLibraryBlock } from "./aiHelpers.js";
+import { aiTimeoutSignal, withAiTimeout } from "./aiTimeout.js";
 
 const DECIDE_MODEL = ONBOARDING_MODEL;
 
@@ -95,19 +96,22 @@ export async function decideWatchlist(
   );
 
   const client = getAnthropic();
-  const response = await client.messages.parse({
-    model: DECIDE_MODEL,
-    max_tokens: 1500,
-    system: decideWatchlistSystemPrompt(),
-    messages: [{ role: "user", content: sections.join("\n\n") }],
-    output_config: {
-      format: zodOutputFormat(
-        WatchlistDecideOutputSchema as unknown as Parameters<
-          typeof zodOutputFormat
-        >[0],
-      ),
-    },
-  });
+  const response = await withAiTimeout(() =>
+    client.messages.parse({
+      model: DECIDE_MODEL,
+      max_tokens: 1500,
+      system: decideWatchlistSystemPrompt(),
+      messages: [{ role: "user", content: sections.join("\n\n") }],
+      output_config: {
+        format: zodOutputFormat(
+          WatchlistDecideOutputSchema as unknown as Parameters<
+            typeof zodOutputFormat
+          >[0],
+        ),
+      },
+      signal: aiTimeoutSignal(),
+    }),
+  );
 
   if (!response.parsed_output) {
     throw new Error(`Decide failed (stop_reason=${response.stop_reason})`);

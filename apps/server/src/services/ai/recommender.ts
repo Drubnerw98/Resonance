@@ -26,6 +26,7 @@ import { getAnthropic, ONBOARDING_MODEL } from "./client.js";
 import { recommendCandidatesSystemPrompt } from "./prompts/recommendCandidates.js";
 import { recommendScoreSystemPrompt } from "./prompts/recommendScore.js";
 import { formatLibraryBlock } from "./aiHelpers.js";
+import { aiTimeoutSignal, withAiTimeout } from "./aiTimeout.js";
 import {
   CandidatesOutputSchema,
   ScoredCandidatesOutputSchema,
@@ -418,9 +419,13 @@ export async function generateRecommendations(
     "rec: validated cache rows after dedupe + seen-filter",
   );
   if (candidates.length === 0) {
-    throw new Error(
-      "Recommendation pipeline produced 0 valid candidates — try widening the profile or onboarding more.",
+    const err: Error & { status: number } = Object.assign(
+      new Error(
+        "Recommendation pipeline produced 0 valid candidates — try widening the profile or onboarding more.",
+      ),
+      { status: 422 },
     );
+    throw err;
   }
 
   // Step 3 — AI scores real candidates with library context.
@@ -566,19 +571,22 @@ async function generateCandidatePlan(
 
   sections.push(`# Task\n\nGenerate candidate recommendations.`);
 
-  const response = await client.messages.parse({
-    model: RECOMMENDER_MODEL,
-    max_tokens: 2048,
-    system: recommendCandidatesSystemPrompt(),
-    messages: [{ role: "user", content: sections.join("\n\n") }],
-    output_config: {
-      format: zodOutputFormat(
-        CandidatesOutputSchema as unknown as Parameters<
-          typeof zodOutputFormat
-        >[0],
-      ),
-    },
-  });
+  const response = await withAiTimeout(() =>
+    client.messages.parse({
+      model: RECOMMENDER_MODEL,
+      max_tokens: 2048,
+      system: recommendCandidatesSystemPrompt(),
+      messages: [{ role: "user", content: sections.join("\n\n") }],
+      output_config: {
+        format: zodOutputFormat(
+          CandidatesOutputSchema as unknown as Parameters<
+            typeof zodOutputFormat
+          >[0],
+        ),
+      },
+      signal: aiTimeoutSignal(),
+    }),
+  );
 
   if (!response.parsed_output) {
     throw new Error(
@@ -804,24 +812,27 @@ synopsis: ${truncate(item.description, 600)}`;
     `# Task\n\nYou have ${candidates.length} candidates. Target AT LEAST ${requiredFloor} recommendations — but Rule 1 (drop misfits) always wins over the volume target. Returning fewer than ${requiredFloor} because the rest are genuine misfits is the right answer; padding with poor fits is wrong.`,
   );
 
-  const response = await client.messages.parse({
-    model: RECOMMENDER_MODEL,
-    // 8192 because each scored rec carries explanation + tasteTags + 0-3
-    // crossReferences ({title, reason}). At 25+ recs that's well over
-    // 4096; mid-string truncation surfaces as a JSON parse error from the
-    // SDK. Sonnet 4.6 caps far higher; 8192 is comfortable headroom
-    // without paying for unused output budget.
-    max_tokens: 8192,
-    system: recommendScoreSystemPrompt(),
-    messages: [{ role: "user", content: sections.join("\n\n") }],
-    output_config: {
-      format: zodOutputFormat(
-        ScoredCandidatesOutputSchema as unknown as Parameters<
-          typeof zodOutputFormat
-        >[0],
-      ),
-    },
-  });
+  const response = await withAiTimeout(() =>
+    client.messages.parse({
+      model: RECOMMENDER_MODEL,
+      // 8192 because each scored rec carries explanation + tasteTags + 0-3
+      // crossReferences ({title, reason}). At 25+ recs that's well over
+      // 4096; mid-string truncation surfaces as a JSON parse error from the
+      // SDK. Sonnet 4.6 caps far higher; 8192 is comfortable headroom
+      // without paying for unused output budget.
+      max_tokens: 8192,
+      system: recommendScoreSystemPrompt(),
+      messages: [{ role: "user", content: sections.join("\n\n") }],
+      output_config: {
+        format: zodOutputFormat(
+          ScoredCandidatesOutputSchema as unknown as Parameters<
+            typeof zodOutputFormat
+          >[0],
+        ),
+      },
+      signal: aiTimeoutSignal(),
+    }),
+  );
 
   if (!response.parsed_output) {
     throw new Error(`Scoring failed (stop_reason=${response.stop_reason})`);

@@ -9,6 +9,7 @@ import {
   LibraryAnnotationSchema,
   type LibraryAnnotation,
 } from "./schemas.js";
+import { aiTimeoutSignal, withAiTimeout } from "./aiTimeout.js";
 
 const ANNOTATION_MODEL = ONBOARDING_MODEL;
 
@@ -92,19 +93,22 @@ export async function annotateLibraryItem(
   ].join("\n");
 
   const client = getAnthropic();
-  const response = await client.messages.parse({
-    model: ANNOTATION_MODEL,
-    max_tokens: 600,
-    system: libraryAnnotationSystemPrompt(),
-    messages: [{ role: "user", content: userMessage }],
-    output_config: {
-      format: zodOutputFormat(
-        LibraryAnnotationSchema as unknown as Parameters<
-          typeof zodOutputFormat
-        >[0],
-      ),
-    },
-  });
+  const response = await withAiTimeout(() =>
+    client.messages.parse({
+      model: ANNOTATION_MODEL,
+      max_tokens: 600,
+      system: libraryAnnotationSystemPrompt(),
+      messages: [{ role: "user", content: userMessage }],
+      output_config: {
+        format: zodOutputFormat(
+          LibraryAnnotationSchema as unknown as Parameters<
+            typeof zodOutputFormat
+          >[0],
+        ),
+      },
+      signal: aiTimeoutSignal(),
+    }),
+  );
 
   if (!response.parsed_output) {
     throw new Error(

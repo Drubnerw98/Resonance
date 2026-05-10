@@ -4,6 +4,7 @@ import { getAnthropic, ONBOARDING_MODEL } from "./client.js";
 import { extractionSystemPrompt } from "./prompts/extraction.js";
 import { profileRefinementSystemPrompt } from "./prompts/profileRefinement.js";
 import { TasteProfileSchema } from "./schemas.js";
+import { aiTimeoutSignal, withAiTimeout } from "./aiTimeout.js";
 
 const EXTRACTION_MODEL = ONBOARDING_MODEL;
 
@@ -35,18 +36,21 @@ export async function extractProfile(
     TasteProfileSchema as unknown as Parameters<typeof zodOutputFormat>[0],
   );
 
-  const response = await client.messages.parse({
-    model: EXTRACTION_MODEL,
-    max_tokens: 4096,
-    system: extractionSystemPrompt(),
-    messages: [
-      {
-        role: "user",
-        content: `Here is the full onboarding transcript. Extract the user's taste profile.\n\n---\n\n${transcript}`,
-      },
-    ],
-    output_config: { format },
-  });
+  const response = await withAiTimeout(() =>
+    client.messages.parse({
+      model: EXTRACTION_MODEL,
+      max_tokens: 4096,
+      system: extractionSystemPrompt(),
+      messages: [
+        {
+          role: "user",
+          content: `Here is the full onboarding transcript. Extract the user's taste profile.\n\n---\n\n${transcript}`,
+        },
+      ],
+      output_config: { format },
+      signal: aiTimeoutSignal(),
+    }),
+  );
 
   if (!response.parsed_output) {
     throw new Error(
@@ -96,13 +100,16 @@ ${transcript}
 
 Evolve the profile based on what was said in this new conversation. Treat the new transcript as additional signal, not a replacement. Keep what's still true; sharpen what's been clarified; add what's new.`;
 
-  const response = await client.messages.parse({
-    model: EXTRACTION_MODEL,
-    max_tokens: 4096,
-    system: profileRefinementSystemPrompt(),
-    messages: [{ role: "user", content: userMessage }],
-    output_config: { format },
-  });
+  const response = await withAiTimeout(() =>
+    client.messages.parse({
+      model: EXTRACTION_MODEL,
+      max_tokens: 4096,
+      system: profileRefinementSystemPrompt(),
+      messages: [{ role: "user", content: userMessage }],
+      output_config: { format },
+      signal: aiTimeoutSignal(),
+    }),
+  );
 
   if (!response.parsed_output) {
     throw new Error(

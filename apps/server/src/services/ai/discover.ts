@@ -12,6 +12,7 @@ import {
 } from "./schemas.js";
 import { getUserLibrary, type LibraryItem } from "./recommender.js";
 import { formatLibraryBlock } from "./aiHelpers.js";
+import { aiTimeoutSignal, withAiTimeout } from "./aiTimeout.js";
 
 const DISCOVER_MODEL = ONBOARDING_MODEL;
 const TARGET_THEME_COUNT = 6;
@@ -126,19 +127,22 @@ async function callModel(
     `# Task\n\nProduce 6 themes. Read the QUALITY BAR carefully — generic themes (genre labels, "hidden gems") are failures here.`,
   );
 
-  const response = await client.messages.parse({
-    model: DISCOVER_MODEL,
-    max_tokens: 2000,
-    system: discoverThemesSystemPrompt(),
-    messages: [{ role: "user", content: sections.join("\n\n") }],
-    output_config: {
-      format: zodOutputFormat(
-        DiscoveryThemesOutputSchema as unknown as Parameters<
-          typeof zodOutputFormat
-        >[0],
-      ),
-    },
-  });
+  const response = await withAiTimeout(() =>
+    client.messages.parse({
+      model: DISCOVER_MODEL,
+      max_tokens: 2000,
+      system: discoverThemesSystemPrompt(),
+      messages: [{ role: "user", content: sections.join("\n\n") }],
+      output_config: {
+        format: zodOutputFormat(
+          DiscoveryThemesOutputSchema as unknown as Parameters<
+            typeof zodOutputFormat
+          >[0],
+        ),
+      },
+      signal: aiTimeoutSignal(),
+    }),
+  );
 
   if (!response.parsed_output) {
     throw new Error(

@@ -22,7 +22,9 @@ WHAT EACH FIELD SHOULD CAPTURE:
 **themes** (3-7 entries): The deep thematic patterns that recur across multiple things they brought up. Push past surface genres ("sci-fi", "horror") and surface tropes ("anti-heroes") to the underlying RESONANCE — what makes them care about a story. Examples of good theme labels: "earned transformation under pressure", "the void as a moral force", "principled action against an indifferent system". Each theme has:
   - label: short, specific phrase
   - weight: 0-1, how strongly this comes through
-  - evidence: brief reference to titles/moments in the transcript that support it
+  - summary: ONE declarative sentence in editorial voice explaining what the theme captures and why it resonates for this user. Anchored in the named works, written as designed copy a reader would scan and understand instantly. Failure modes to avoid: do NOT include star ratings like "(5★)" or "(4★)" inline; do NOT mention confidence scores or weights like "holds at 0.97"; do NOT chain clauses with semicolons into a reasoning trace; do NOT abbreviate titles cryptically (write "Fullmetal Alchemist: Brotherhood", not "FMAB"). Aim for the cadence of a thoughtful blurb, not the cadence of a debug log.
+  - anchors: 1-4 TitleRef entries — the specific works that crystallize this theme most directly. Use the exact title as the user named it. mediaType is one of "movie" | "tv" | "anime" | "manga" | "game" | "book". These render as visible chips next to the summary, so pick the works that most clearly carry the theme — not every supporting title.
+  - reinforcedBy: 0-8 additional TitleRef entries — works that support the theme but aren't the primary anchors. Same shape as anchors. Optional; leave empty if anchors are sufficient.
 
 **archetypes** (2-5 entries): Character types they're drawn to and WHY. Examples: "burden-carrying protagonist who keeps choosing the harder right thing", "principled outsider who reads the system better than the system reads itself". Each has:
   - label: specific phrase

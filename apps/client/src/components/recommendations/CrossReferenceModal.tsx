@@ -42,7 +42,23 @@ export function CrossReferenceModal({
   if (!open || !crossRef) return null;
 
   const matchedThemes = profile
-    ? profile.themes.filter((t) => titleAppearsIn(crossRef.title, t.evidence))
+    ? profile.themes.filter((t) => {
+        // Searchable haystack: summary + legacy evidence + every anchor /
+        // reinforcedBy title. Post-2026-05-10 schema themes carry their
+        // anchor titles as structured data, so a substring search on
+        // joined titles is a stronger signal than on the legacy free-text
+        // evidence alone.
+        const refTitles = [
+          ...(t.anchors ?? []),
+          ...(t.reinforcedBy ?? []),
+        ]
+          .map((r) => r.title)
+          .join(" · ");
+        const haystack = [t.summary ?? "", t.evidence ?? "", refTitles]
+          .filter(Boolean)
+          .join(" · ");
+        return titleAppearsIn(crossRef.title, haystack);
+      })
     : [];
   const matchedArchetypes = profile
     ? profile.archetypes.filter((a) =>
@@ -95,7 +111,9 @@ export function CrossReferenceModal({
                     Theme · {t.label}
                   </p>
                   <p className="mt-1 text-sm leading-relaxed text-neutral-300">
-                    {t.evidence}
+                    {t.summary && t.summary.trim()
+                      ? t.summary
+                      : t.evidence ?? ""}
                   </p>
                 </li>
               ))}

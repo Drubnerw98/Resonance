@@ -1,5 +1,37 @@
-import type { TasteProfile } from "@resonance/shared";
+import type { TasteProfile, TitleRef } from "@resonance/shared";
 import { PageHeader } from "../shared/PageHeader.tsx";
+
+const FORMAT_GLYPH: Record<string, string> = {
+  movie: "▶",
+  tv: "■",
+  anime: "★",
+  manga: "❒",
+  game: "◆",
+  book: "❡",
+};
+
+function TitleChip({
+  ref_,
+  tone,
+}: {
+  ref_: TitleRef;
+  tone: "anchor" | "reinforce";
+}) {
+  const cls =
+    tone === "anchor"
+      ? "border-neutral-700 bg-neutral-950 text-neutral-200"
+      : "border-neutral-800 bg-neutral-900/60 text-neutral-400";
+  return (
+    <li
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs ${cls}`}
+    >
+      <span aria-hidden className="text-[10px] opacity-70">
+        {FORMAT_GLYPH[ref_.mediaType] ?? "•"}
+      </span>
+      <span>{ref_.title}</span>
+    </li>
+  );
+}
 
 interface Props {
   profile: TasteProfile;
@@ -135,6 +167,13 @@ export function ProfileView({
         <ul className="space-y-3">
           {profile.themes.map((t, i) => {
             const accent = THEME_ACCENTS[i % THEME_ACCENTS.length]!;
+            // Display summary if present; fall back to legacy evidence for
+            // profiles persisted before the 2026-05-10 schema change.
+            const body = t.summary && t.summary.trim()
+              ? t.summary
+              : t.evidence ?? "";
+            const anchors = t.anchors ?? [];
+            const reinforcedBy = t.reinforcedBy ?? [];
             return (
               <li
                 key={i}
@@ -144,7 +183,27 @@ export function ProfileView({
                   <span className="font-medium">{t.label}</span>
                   <WeightBar value={t.weight} colorClass={accent.bar} />
                 </div>
-                <p className="mt-1 text-sm text-neutral-400">{t.evidence}</p>
+                {body && (
+                  <p className="mt-1 text-sm text-neutral-300">{body}</p>
+                )}
+                {anchors.length > 0 && (
+                  <ul className="mt-2 flex flex-wrap gap-1.5">
+                    {anchors.map((a, j) => (
+                      <TitleChip key={`anchor-${j}`} ref_={a} tone="anchor" />
+                    ))}
+                  </ul>
+                )}
+                {reinforcedBy.length > 0 && (
+                  <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                    {reinforcedBy.map((r, j) => (
+                      <TitleChip
+                        key={`reinforce-${j}`}
+                        ref_={r}
+                        tone="reinforce"
+                      />
+                    ))}
+                  </ul>
+                )}
               </li>
             );
           })}

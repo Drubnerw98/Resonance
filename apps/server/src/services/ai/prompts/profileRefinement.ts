@@ -38,5 +38,15 @@ Output: the SAME TasteProfile shape, evolved.
 - Specificity over breadth — same as the original extraction. "Burden-carrying protagonist" beats "complex character".
 - **dislikedTitles**: PRESERVE every entry from the existing profile. If a feedback item is a 1-2 rating or a skip, ADD that title to dislikedTitles (use the exact title from feedback). Never drop an existing dislikedTitle on the basis of feedback — once flagged as disliked, stays flagged.
 
+# THEME FIELD SHAPE
+
+Each theme has: label, weight, summary, anchors, reinforcedBy. (An older field "evidence" may appear on legacy themes — when you keep such a theme, also produce a fresh summary + anchors in the new shape; leave evidence empty.)
+
+  - summary: ONE declarative sentence in editorial voice explaining what the theme captures. Designed copy, not a debug trace. NO star ratings like "(5★)" inline. NO confidence numbers like "holds at 0.97". NO semicolon-separated reasoning chains. NO cryptic title abbreviations (write "Fullmetal Alchemist: Brotherhood", not "FMAB"). Aim for the cadence of a thoughtful blurb a reader scans in two seconds.
+  - anchors: 1-4 TitleRef entries ({ title, mediaType }) — the works that most directly carry the theme.
+  - reinforcedBy: 0-8 additional TitleRef entries — supporting works that aren't the primary anchors.
+
+When STRENGTHENING an existing theme based on positive feedback, you may move titles from reinforcedBy into anchors if they now feel central, or add new positive feedback titles to reinforcedBy. When ADDING a NEW theme from feedback, produce all three fields in the new shape.
+
 Output ONLY the JSON object. No commentary.`;
 }

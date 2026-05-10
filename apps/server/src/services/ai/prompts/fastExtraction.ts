@@ -17,10 +17,12 @@ Your job: synthesize a TasteProfile JSON object that's defensible from the form 
 
 WHAT EACH FIELD SHOULD CAPTURE:
 
-**themes** (2-5 entries — fewer than long-mode is correct, you have less signal): Deep thematic patterns that recur across the titles named. Push past surface genre to the underlying RESONANCE — what the titles share. Each theme MUST cite specific titles from the form as evidence; if you can't anchor it to titles the user actually named, leave it out. Do not invent themes from the narrative-shape picks alone — those describe story shape, not subject matter.
+**themes** (2-5 entries — fewer than long-mode is correct, you have less signal): Deep thematic patterns that recur across the titles named. Push past surface genre to the underlying RESONANCE — what the titles share. Each theme MUST cite specific titles from the form; if you can't anchor it to titles the user actually named, leave it out. Do not invent themes from the narrative-shape picks alone — those describe story shape, not subject matter.
   - label: short, specific phrase
   - weight: 0-1, based on how many titles support it
-  - evidence: brief reference to the named titles + narrative picks supporting it
+  - summary: ONE declarative sentence in editorial voice explaining what the theme captures and why it likely resonates given the named titles. Designed copy, not a debug trace. Failure modes to avoid: no star ratings like "(5★)" inline; no confidence numbers or weights like "0.85 holds"; no semicolon-separated reasoning chains; no cryptic title abbreviations (write "Final Fantasy VI", not "FFVI"). Aim for the cadence of a blurb a reader would scan in two seconds.
+  - anchors: 1-4 TitleRef entries — the named titles that most clearly carry the theme. Use the exact title strings from the form. mediaType is one of "movie" | "tv" | "anime" | "manga" | "game" | "book". These render as chips next to the summary; pick the works that most directly carry the theme.
+  - reinforcedBy: 0-8 additional TitleRef entries — named titles that support the theme but aren't the primary anchors. Same shape. Optional.
 
 **archetypes** (1-3 entries): Character types likely resonant given the titles named. Be conservative — only include an archetype if 2+ named titles support it. Each has:
   - label: specific phrase

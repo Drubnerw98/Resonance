@@ -95,13 +95,26 @@ export function deriveFavorites(profile: TasteProfile): ExportFavorite[] {
       title,
       mediaType: affinity.format,
       themes: profile.themes
-        .filter((t) => titleAppearsIn(title, t.evidence))
+        .filter((t) => titleAppearsIn(title, themeHaystack(t)))
         .map((t) => t.label),
       archetypes: profile.archetypes
         .filter((a) => titleAppearsIn(title, a.attraction))
         .map((a) => a.label),
     })),
   );
+}
+
+/** Combine a theme's display + structured fields into a single searchable
+ * string for substring matching. Post-2026-05-10 themes carry anchor titles
+ * as data; older themes only have free-text evidence. Joining them lets
+ * downstream `titleAppearsIn` callers stay shape-agnostic. */
+function themeHaystack(t: TasteProfile["themes"][number]): string {
+  const refs = [...(t.anchors ?? []), ...(t.reinforcedBy ?? [])]
+    .map((r) => r.title)
+    .join(" · ");
+  return [t.summary ?? "", t.evidence ?? "", refs]
+    .filter((s) => s.length > 0)
+    .join(" · ");
 }
 
 /**

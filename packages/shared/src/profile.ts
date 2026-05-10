@@ -3,10 +3,34 @@ import type { MediaType } from "./media.js";
 export type Pacing = "slow-burn" | "propulsive" | "variable";
 export type Complexity = "layered" | "focused" | "epic";
 
+/** A reference to a specific work the user has engaged with. Used inside
+ * `TasteTheme.anchors` / `reinforcedBy` so the UI can render attribution
+ * chips with a mediaType icon without ambiguous title-only matching against
+ * the library. */
+export interface TitleRef {
+  title: string;
+  mediaType: MediaType;
+}
+
 export interface TasteTheme {
   label: string;
   weight: number;
-  evidence: string;
+  /** One-sentence designed summary of why this theme resonates. Editorial
+   * voice — confident, no stars/scores/parens. The primary display string;
+   * `evidence` is legacy. */
+  summary?: string;
+  /** Primary anchor titles for this theme — the 1-4 works that crystallize
+   * it. Rendered as chips alongside the summary. */
+  anchors?: TitleRef[];
+  /** Reinforcing titles — additional works that support but aren't the
+   * primary anchors. Rendered as dimmer chips below or omitted on dense UI.
+   * Defaults to `[]`. */
+  reinforcedBy?: TitleRef[];
+  /** Legacy free-text evidence string from earlier profiles. Kept for
+   * backward compat — display surfaces fall back to this when `summary`
+   * is empty. New profiles produced after the 2026-05-10 schema change
+   * leave this empty. */
+  evidence?: string;
 }
 
 export interface TasteArchetype {

@@ -18,7 +18,14 @@ import {
 describe("TasteProfileSchema", () => {
   const valid = {
     themes: [
-      { label: "psychological interiority", weight: 0.8, evidence: "Aftersun" },
+      {
+        label: "psychological interiority",
+        weight: 0.8,
+        summary:
+          "Stories that sit with a character's inner weather rather than racing toward incident.",
+        anchors: [{ title: "Aftersun", mediaType: "movie" as const }],
+        reinforcedBy: [],
+      },
     ],
     archetypes: [{ label: "the lonely observer", attraction: "felt seen" }],
     narrativePrefs: {
@@ -48,7 +55,15 @@ describe("TasteProfileSchema", () => {
   it("rejects out-of-range theme weight", () => {
     const bad = {
       ...valid,
-      themes: [{ label: "x", weight: 1.5, evidence: "y" }],
+      themes: [
+        {
+          label: "x",
+          weight: 1.5,
+          summary: "y",
+          anchors: [{ title: "Y", mediaType: "movie" as const }],
+          reinforcedBy: [],
+        },
+      ],
     };
     expect(() => TasteProfileSchema.parse(bad)).toThrow();
   });

@@ -17,10 +17,29 @@ import type { TasteProfile } from "@resonance/shared";
 
 const MediaTypeEnum = z.enum(["movie", "tv", "anime", "manga", "game", "book"]);
 
+const TitleRefSchema = z.object({
+  title: z.string().min(1),
+  mediaType: MediaTypeEnum,
+});
+
 const ThemeSchema = z.object({
   label: z.string().min(1),
   weight: z.number().min(0).max(1),
-  evidence: z.string().min(1),
+  // Editorial copy: one declarative sentence on why this theme resonates,
+  // anchored to specific titles. No star ratings, no confidence scores, no
+  // semicolon-separated thought chains. Optional at the schema level so
+  // profiles persisted before the 2026-05-10 redesign still parse; the
+  // prompts enforce emission on every new generation.
+  summary: z.string().min(1).optional(),
+  // 1-4 anchor titles. Same optional-for-backward-compat reasoning as
+  // summary.
+  anchors: z.array(TitleRefSchema).min(1).max(4).optional(),
+  // 0-8 reinforcing titles. Defaults to [] so the field is always an array
+  // at the type level.
+  reinforcedBy: z.array(TitleRefSchema).max(8).default([]),
+  // Legacy free-text evidence. Required for backward compat with older
+  // profile rows; new emissions can leave it empty (default "").
+  evidence: z.string().default(""),
 });
 
 const ArchetypeSchema = z.object({

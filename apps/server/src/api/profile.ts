@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { and, asc, desc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { requireUser } from "../middleware/auth.js";
 import { db } from "../db/index.js";
 import {
@@ -10,11 +10,10 @@ import {
   users,
 } from "../db/schema.js";
 import { getActiveProfile, saveProfile } from "../services/profile.js";
-import { listLibraryItems } from "../services/library.js";
 import { refineProfile } from "../services/ai/refinement.js";
 import { checkRateLimit } from "../services/rateLimit.js";
 import { TasteProfileSchema } from "../services/ai/schemas.js";
-import { titleAppearsIn } from "@resonance/shared";
+import { buildProfileExport } from "../services/profileExport.js";
 
 export const profileRouter: Router = Router();
 
@@ -122,100 +121,55 @@ profileRouter.get("/export", async (req, res, next) => {
       res.status(404).json({ error: "no profile yet" });
       return;
     }
-    const profile = profileRow.profileData;
+    const payload = await buildProfileExport(userId, profileRow.profileData);
+    res.json(payload);
+  } catch (err) {
+    next(err);
+  }
+});
 
-    // Only ship manually-added library items to Constellation. Bulk
-    // imports from Letterboxd / Goodreads / MAL / Steam can run into the
-    // thousands per user and represent consumption history, not the
-    // curated taste signal the constellation visualizes.
-    const libraryRows = (await listLibraryItems(userId)).filter(
-      (row) => row.source === "manual",
-    );
-    const recRows = await db.query.recommendations.findMany({
-      where: eq(recommendations.userId, userId),
-      orderBy: [desc(recommendations.createdAt)],
-      with: { media: true },
-    });
+/**
+ * GET /api/profile/versions/:versionId/export
+ *
+ * Same shape as /api/profile/export, but built against a historical
+ * profile_versions snapshot instead of the live profile. Library items and
+ * recommendations are CURRENT (not versioned) — the diff Constellation cares
+ * about between two version exports is profile-only (themes / archetypes /
+ * favorites / avoidances), and library/rec rows have no version snapshots.
+ *
+ * Defense-in-depth: we filter the profile_versions row by the requesting
+ * user's profile_id explicitly, even though Clerk middleware already gates
+ * the route. A profile_versions row references a tasteProfiles row which
+ * is uniquely owned by a user.
+ */
+profileRouter.get("/versions/:versionId/export", async (req, res, next) => {
+  try {
+    const userId = req.user!.id;
+    const versionId = req.params.versionId!;
 
-    const seen = new Set<string>();
-    const dedupedRecs: typeof recRows = [];
-    for (const r of recRows) {
-      if (seen.has(r.mediaCacheId)) continue;
-      seen.add(r.mediaCacheId);
-      dedupedRecs.push(r);
+    const profileRow = await getActiveProfile(userId);
+    if (!profileRow) {
+      res.status(404).json({ error: "no profile yet" });
+      return;
     }
 
-    // Derive favorites: flatten mediaAffinities[].favorites and tag each
-    // by which themes/archetypes mention them. Mirrors Constellation's
-    // graph.ts:titleAppearsIn so the consumer doesn't have to redo the
-    // work — direct substring first, then a 2+ content-token overlap
-    // fallback that catches long-titled books ("First Law Trilogy") cited
-    // by their familiar form ("First Law"). Untagged favorites still ship
-    // (consumer drops them via the unanchored-node filter).
-    const favorites = profile.mediaAffinities.flatMap((affinity) =>
-      affinity.favorites.map((title) => ({
-        title,
-        mediaType: affinity.format,
-        themes: profile.themes
-          .filter((t) => titleAppearsIn(title, t.evidence))
-          .map((t) => t.label),
-        archetypes: profile.archetypes
-          .filter((a) => titleAppearsIn(title, a.attraction))
-          .map((a) => a.label),
-      })),
-    );
-
-    // Avoidances ship with `kind` so the consumer can render abstract
-    // patterns and named titles differently if it wants ("anti-stars" vs
-    // "constellation negative space"). dislikedTitles is optional on the
-    // profile shape (predates the field); ?? [] guards.
-    const avoidances = [
-      ...profile.avoidances.map((description) => ({
-        description,
-        kind: "pattern" as const,
-      })),
-      ...(profile.dislikedTitles ?? []).map((description) => ({
-        description,
-        kind: "title" as const,
-      })),
-    ];
-
-    res.json({
-      profile,
-      library: libraryRows.map((row) => ({
-        id: row.id,
-        title: row.title,
-        mediaType: row.mediaType,
-        year: row.year,
-        rating: row.rating,
-        // Synthetic constant — the row's source is "manual" but the
-        // export label has been "library" since the endpoint shipped.
-        // Constellation's type pins it; don't break the contract.
-        source: "library" as const,
-        status: row.status,
-        // Null + empty for watchlist entries and any pre-backfill manual
-        // rows. Consumer treats nullish fitNote as "no rationale yet" and
-        // falls back to title-substring positioning when tasteTags is empty.
-        fitNote: row.fitNote,
-        tasteTags: row.tasteTags,
-      })),
-      recommendations: dedupedRecs.map((r) => ({
-        id: r.id,
-        title: r.media.title,
-        mediaType: r.media.mediaType,
-        year: r.media.normalizedData.year,
-        matchScore: r.matchScore,
-        tasteTags: r.tasteTags,
-        status: r.status,
-        rating: r.rating,
-        // The AI's per-item verdict (~1-2 sentences, item-specific). Distinct
-        // from profile-level theme.evidence which describes the user's overall
-        // pattern citing many other titles.
-        explanation: r.explanation,
-      })),
-      favorites,
-      avoidances,
+    const versionRow = await db.query.profileVersions.findFirst({
+      where: and(
+        eq(profileVersions.id, versionId),
+        // Belt-and-suspenders user scoping: only versions whose parent
+        // profile belongs to this user are reachable. Two filters here —
+        // (id, profileId) — are unambiguous because profileId pins the
+        // owner via the active-profile row already loaded.
+        eq(profileVersions.profileId, profileRow.id),
+      ),
     });
+    if (!versionRow) {
+      res.status(404).json({ error: "version not found" });
+      return;
+    }
+
+    const payload = await buildProfileExport(userId, versionRow.profileData);
+    res.json(payload);
   } catch (err) {
     next(err);
   }

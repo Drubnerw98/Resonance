@@ -136,11 +136,11 @@ These are getting long but not yet painful. Don't split prematurely. Revisit if 
 
 | File                                    | Lines |
 | --------------------------------------- | ----- |
-| `services/ai/recommender.ts`            | ~900  |
-| `pages/HomePage.tsx`                    | ~620  |
-| `components/profile/ProfileEditor.tsx`  | ~610  |
-| `pages/RecommendationsPage.tsx`         | ~610  |
-| `components/profile/LibrarySection.tsx` | ~550  |
+| `services/ai/recommender.ts`            | ~840  |
+| `components/profile/LibrarySection.tsx` | ~560  |
+| `pages/RecommendationsPage.tsx`         | ~510  |
+| `components/profile/ProfileEditor.tsx`  | ~120  |
+| `pages/HomePage.tsx`                    | ~110  |
 
 ## Stuff that's documented and easy to forget
 

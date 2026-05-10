@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "../middleware/auth.js";
 import { db } from "../db/index.js";
@@ -246,9 +246,14 @@ recommendationsRouter.patch("/batches/:id", async (req, res, next) => {
     const [updated] = await db
       .update(recommendationBatches)
       .set({ name: parsed.data.name, updatedAt: new Date() })
-      .where(eq(recommendationBatches.id, id))
+      .where(
+        and(
+          eq(recommendationBatches.id, id),
+          eq(recommendationBatches.userId, req.user!.id),
+        ),
+      )
       .returning();
-    if (!updated || updated.userId !== req.user!.id) {
+    if (!updated) {
       res.status(404).json({ error: "batch not found" });
       return;
     }
@@ -274,12 +279,14 @@ recommendationsRouter.delete("/batches/:id", async (req, res, next) => {
     const id = req.params.id!;
     const [row] = await db
       .delete(recommendationBatches)
-      .where(eq(recommendationBatches.id, id))
-      .returning({
-        id: recommendationBatches.id,
-        userId: recommendationBatches.userId,
-      });
-    if (!row || row.userId !== req.user!.id) {
+      .where(
+        and(
+          eq(recommendationBatches.id, id),
+          eq(recommendationBatches.userId, req.user!.id),
+        ),
+      )
+      .returning({ id: recommendationBatches.id });
+    if (!row) {
       res.status(404).json({ error: "batch not found" });
       return;
     }

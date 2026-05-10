@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { MediaType } from "@resonance/shared";
 import {
@@ -190,6 +190,34 @@ export function RecommendationsPage() {
   }
 
   const [promptDraft, setPromptDraft] = useState("");
+  const promptInputRef = useRef<HTMLInputElement | null>(null);
+
+  // ?prompt=<urlencoded> deep-link from cross-app integrations (Constellation
+  // routes a theme into here). Pre-fill only — never auto-submit; the user
+  // gets to read what's about to fire. We only consume the param once the
+  // profile is ready, so a brand-new user hitting the deep link can finish
+  // onboarding and the prompt survives the round-trip via the URL itself.
+  // After consuming we strip the param so a refresh of the live page doesn't
+  // re-prefill an old prompt the user has since cleared.
+  const profileReady = profile.state.status === "ready";
+  useEffect(() => {
+    if (!profileReady) return;
+    const incoming = searchParams.get("prompt");
+    if (!incoming) return;
+    setPromptDraft(incoming);
+    const params = new URLSearchParams(searchParams);
+    params.delete("prompt");
+    setSearchParams(params, { replace: true });
+    // Defer focus + scroll until React paints the prefilled state.
+    queueMicrotask(() => {
+      const el = promptInputRef.current;
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.focus();
+    });
+    // searchParams is the only relevant input; setSearchParams is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, profileReady]);
 
   // Apply ?batch=<id> filter first, then ?tab=<format> on top.
   const batchFiltered = useMemo(
@@ -349,6 +377,7 @@ export function RecommendationsPage() {
           </label>
           <input
             id="prompt"
+            ref={promptInputRef}
             type="text"
             value={promptDraft}
             onChange={(e) => setPromptDraft(e.target.value)}

@@ -5,6 +5,7 @@ import {
   type RecommendationItem,
 } from "../../hooks/useRecommendations.ts";
 import { MediaCard } from "./MediaCard.tsx";
+import { DroppedPanel } from "./DroppedPanel.tsx";
 
 /** Human-readable label for a batch. Prefer name → prompt → date. */
 function batchLabel(batch: BatchInfo): string {
@@ -141,6 +142,11 @@ export function BatchSection({
           />
         ))}
       </div>
+
+      {/* Why-not panel — surfaces the anti-hallucination + format-enforcement
+          + dedup story for this batch. Closed by default; lazy-fetches the
+          drop list on first expand. */}
+      <DroppedPanel batchId={batch.id} />
     </section>
   );
 }

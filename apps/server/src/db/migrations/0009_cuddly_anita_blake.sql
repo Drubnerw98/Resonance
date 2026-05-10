@@ -1,0 +1,1 @@
+ALTER TABLE "recommendation_batches" ADD COLUMN "dropped_candidates" jsonb DEFAULT '[]'::jsonb NOT NULL;

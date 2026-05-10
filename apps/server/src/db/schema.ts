@@ -250,6 +250,17 @@ export const recommendationBatches = pgTable(
     prompt: text("prompt"),
     /** Optional user-given name. Falls back to a derived label in the UI. */
     name: text("name"),
+    /** Titles the model proposed that didn't survive the pipeline, each with
+     * a reason. Surfaces our anti-hallucination + format-enforcement +
+     * dedup logic to the user via the why-not panel. Default '[]' so
+     * batches predating this column read as "no drops captured" rather
+     * than "drops unknown" — semantically correct: we don't know what
+     * was dropped historically. Pre-batch drops are append-only at
+     * pipeline-end persistence; we never edit historical entries. */
+    droppedCandidates: jsonb("dropped_candidates")
+      .$type<DroppedCandidate[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -259,6 +270,36 @@ export const recommendationBatches = pgTable(
   },
   (t) => [index("recommendation_batches_user_id_idx").on(t.userId)],
 );
+
+/**
+ * The reasons a model-proposed title can fail to land in the final batch.
+ * Order is the order our pipeline checks fire — the FIRST hit is what we
+ * record (single drop entry per title per batch). Avoidance precedes format
+ * which precedes dedup, etc.
+ */
+export type DroppedCandidateReason =
+  | "avoidance"
+  | "disliked-title"
+  | "format-disabled"
+  | "duplicate"
+  | "hallucinated"
+  | "scored-and-dropped";
+
+/** One captured drop. `detail` is optional context (e.g. the matching avoid
+ * pattern, or the prior batch this title clashed with) — kept loose because
+ * different reasons want different shapes. */
+export interface DroppedCandidate {
+  title: string;
+  mediaType?:
+    | "movie"
+    | "tv"
+    | "anime"
+    | "manga"
+    | "game"
+    | "book";
+  reason: DroppedCandidateReason;
+  detail?: string;
+}
 
 export const recommendations = pgTable(
   "recommendations",

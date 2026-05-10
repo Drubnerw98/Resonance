@@ -3,7 +3,12 @@ import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "../middleware/auth.js";
 import { db } from "../db/index.js";
-import { recommendationBatches, recommendations } from "../db/schema.js";
+import {
+  recommendationBatches,
+  recommendations,
+  type DroppedCandidate,
+  type DroppedCandidateReason,
+} from "../db/schema.js";
 import {
   generateRecommendations,
   rescoreRecommendation,
@@ -217,6 +222,10 @@ recommendationsRouter.get("/batches", async (req, res, next) => {
           formatCounts,
           topTags,
           coverUrls,
+          // Drop summary so the why-not panel can render counts without
+          // fetching the full list. The full list comes from /drops when
+          // the user expands the panel.
+          droppedSummary: summarizeDropped(b.droppedCandidates ?? []),
         };
       }),
     });
@@ -224,6 +233,55 @@ recommendationsRouter.get("/batches", async (req, res, next) => {
     next(err);
   }
 });
+
+/**
+ * GET /api/recommendations/batches/:id/drops
+ * Returns the dropped_candidates JSONB for one batch — titles the model
+ * proposed that didn't survive the pipeline. Powers the why-not panel.
+ *
+ * Defense-in-depth: the userId scope on the WHERE clause prevents another
+ * authenticated user from reading someone else's drops by guessing the
+ * batch UUID, even though Clerk middleware already gates the route.
+ */
+recommendationsRouter.get("/batches/:id/drops", async (req, res, next) => {
+  try {
+    const id = req.params.id!;
+    const row = await db.query.recommendationBatches.findFirst({
+      where: and(
+        eq(recommendationBatches.id, id),
+        eq(recommendationBatches.userId, req.user!.id),
+      ),
+      columns: { id: true, droppedCandidates: true },
+    });
+    if (!row) {
+      res.status(404).json({ error: "batch not found" });
+      return;
+    }
+    const dropped = row.droppedCandidates ?? [];
+    res.json({
+      batchId: row.id,
+      dropped,
+      summary: summarizeDropped(dropped),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+function summarizeDropped(
+  dropped: DroppedCandidate[],
+): { count: number; byReason: Record<DroppedCandidateReason, number> } {
+  const byReason: Record<DroppedCandidateReason, number> = {
+    avoidance: 0,
+    "disliked-title": 0,
+    "format-disabled": 0,
+    duplicate: 0,
+    hallucinated: 0,
+    "scored-and-dropped": 0,
+  };
+  for (const d of dropped) byReason[d.reason]++;
+  return { count: dropped.length, byReason };
+}
 
 const renameBodySchema = z
   .object({ name: z.string().trim().max(120).nullable() })

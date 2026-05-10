@@ -11,6 +11,7 @@ import {
   libraryItems,
   recommendationBatches,
   recommendations,
+  type DroppedCandidate,
   type MediaCacheRow,
   type NewRecommendationRow,
   type RecommendationBatchRow,
@@ -187,6 +188,11 @@ export async function generateRecommendations(
   const profile = profileRow.profileData;
   const prompt = options.prompt?.trim() || null;
 
+  // Drop accumulator threaded through the pipeline. We persist whatever's
+  // accumulated at every checkpoint where the pipeline can fail — the user
+  // gets best-effort visibility even if scoring crashes mid-batch.
+  const dropped: DroppedCandidate[] = [];
+
   // Create the batch row first so all rec inserts can reference it.
   const [batch] = await db
     .insert(recommendationBatches)
@@ -277,15 +283,21 @@ export async function generateRecommendations(
     avoidTitles,
     previouslyRecommendedTitles,
     enabledFormats,
+    dropped,
   );
   logger.info(
     {
       count: candidates.length,
       byFormat: countByFormat(candidates.map((c) => c.mediaType)),
+      dropped: dropped.length,
     },
     "rec: validated cache rows after dedupe + seen-filter",
   );
   if (candidates.length === 0) {
+    // Persist drops even on the no-candidates failure path — the user
+    // benefits from seeing WHY nothing landed (e.g. all dropped as
+    // disliked-title or format-disabled).
+    await persistDroppedCandidates(batch.id, dropped);
     const err: Error & { status: number } = Object.assign(
       new Error(
         "Recommendation pipeline produced 0 valid candidates — try widening the profile or onboarding more.",
@@ -306,6 +318,23 @@ export async function generateRecommendations(
   );
 
   // Step 4 — persist scored recs against the batch.
+  // The model receives all candidates but typically returns a subset (Rule 1
+  // says "drop misfits over hitting volume"). The candidates the model
+  // didn't include are scored-and-dropped — record them now.
+  const scoredCandidateIds = new Set(
+    scored.recommendations.map((r) => r.candidateId),
+  );
+  candidates.forEach((c, i) => {
+    const idx = String(i + 1);
+    if (!scoredCandidateIds.has(idx)) {
+      dropped.push({
+        title: c.normalizedData.title,
+        mediaType: c.mediaType,
+        reason: "scored-and-dropped",
+        detail: "the model judged this a poor fit after seeing the full set",
+      });
+    }
+  });
   const saved = await persistRecommendations(
     userId,
     batch.id,
@@ -335,7 +364,35 @@ export async function generateRecommendations(
   const winners = candidates.filter((c) => winnerCacheIds.has(c.id));
   await enrichWithRuntime(winners);
 
+  // Persist drops on the batch row. Best-effort: a failure here doesn't
+  // unwind the recs we already persisted — we log and move on.
+  await persistDroppedCandidates(batch.id, dropped);
+
   return { batch, recs: saved };
+}
+
+/**
+ * Write the accumulated drops to the batch row's dropped_candidates JSONB.
+ * Called at every successful pipeline checkpoint so even partial failures
+ * preserve whatever drops were captured. Idempotent — overwrites the
+ * column with the latest snapshot rather than appending.
+ */
+async function persistDroppedCandidates(
+  batchId: string,
+  dropped: DroppedCandidate[],
+): Promise<void> {
+  if (dropped.length === 0) return;
+  try {
+    await db
+      .update(recommendationBatches)
+      .set({ droppedCandidates: dropped, updatedAt: new Date() })
+      .where(eq(recommendationBatches.id, batchId));
+  } catch (err) {
+    logger.warn(
+      { batchId, err, droppedCount: dropped.length },
+      "rec: failed to persist dropped candidates",
+    );
+  }
 }
 
 function countByFormat(formats: string[]): Record<string, number> {
@@ -467,6 +524,19 @@ async function generateCandidatePlan(
 // dropped, avoid set dropped, prior-batch series-variants deduped, disabled
 // formats hard-filtered, per-format cap) are the most regression-prone
 // piece of the pipeline.
+//
+// `dropped` is an OUT-parameter accumulator. We pass a single mutable
+// array through the pipeline rather than capturing in a closure or a
+// service-level pool — explicit, easy to test (assert array contents),
+// and avoids hidden state. Drops we record here:
+//   - hallucinated     (model proposed a title; adapter found nothing)
+//   - format-disabled  (mediaType not in user's enabled set)
+//   - duplicate        (already in a prior batch / profile favorite / dup)
+//   - disliked-title   (matches the user's avoid set — rec/library/profile)
+// Scored-and-dropped (model accepted to scoring stage but rejected) is
+// captured later in `persistRecommendations`.
+// The first reason wins per canonical title — the order of checks in
+// consider() is the precedence we want for the user-facing label.
 export async function collectRealCandidates(
   plan: CandidatesOutput,
   seenCacheIds: Set<string>,
@@ -474,6 +544,7 @@ export async function collectRealCandidates(
   avoidTitles: Set<string>,
   previouslyRecommendedTitles: Set<string>,
   enabledFormats: Set<MediaType>,
+  dropped: DroppedCandidate[] = [],
 ): Promise<MediaCacheRow[]> {
   const byCacheId = new Map<string, MediaCacheRow>();
   // Canonical titles we've already accepted — both within this batch AND
@@ -487,6 +558,25 @@ export async function collectRealCandidates(
   let droppedAsDup = 0;
   let droppedAsDisabledFormat = 0;
 
+  // Track which canonical titles we've already recorded a drop for in this
+  // call, so a model that double-proposes (title search + discovery query)
+  // doesn't surface the same dropped title twice. Reasoned at canonical
+  // level to collapse "X" and "X Season 2".
+  const droppedCanonicals = new Set<string>();
+  function record(
+    title: string,
+    mediaType: MediaType,
+    reason: DroppedCandidate["reason"],
+    detail?: string,
+  ): void {
+    const canon = canonicalizeTitle(title);
+    if (droppedCanonicals.has(canon)) return;
+    droppedCanonicals.add(canon);
+    dropped.push(
+      detail ? { title, mediaType, reason, detail } : { title, mediaType, reason },
+    );
+  }
+
   function consider(r: MediaCacheRow): void {
     // Hard-filter by enabled formats. The candidate prompt also instructs
     // the model to skip disabled formats, but server-side enforcement is
@@ -494,22 +584,51 @@ export async function collectRealCandidates(
     // has movies disabled, it never reaches the scoring step.
     if (!enabledFormats.has(r.mediaType)) {
       droppedAsDisabledFormat++;
+      record(
+        r.normalizedData.title,
+        r.mediaType,
+        "format-disabled",
+        `${r.mediaType} is turned off in your profile`,
+      );
       return;
     }
     if (seenCacheIds.has(r.id)) {
       droppedAsSeen++;
+      record(
+        r.normalizedData.title,
+        r.mediaType,
+        "duplicate",
+        "already in a previous batch",
+      );
       return;
     }
     if (matchesKnown(r.normalizedData.title, favorites)) {
       droppedAsFavorite++;
+      record(
+        r.normalizedData.title,
+        r.mediaType,
+        "duplicate",
+        "you already love this — it's a profile favorite",
+      );
       return;
     }
     if (matchesKnown(r.normalizedData.title, avoidTitles)) {
       droppedAsAvoided++;
+      // The avoid set is title-level only (rec/library dislikes + profile
+      // dislikedTitles). Abstract avoidance patterns ("torture porn") are
+      // enforced upstream at the candidate-prompt stage by the model itself,
+      // so anything that gets THIS far must have matched a specific title.
+      record(r.normalizedData.title, r.mediaType, "disliked-title");
       return;
     }
     if (matchesKnown(r.normalizedData.title, seenCanonicals)) {
       droppedAsDup++;
+      record(
+        r.normalizedData.title,
+        r.mediaType,
+        "duplicate",
+        "matches a title you already had",
+      );
       return;
     }
     seenCanonicals.add(canonicalizeTitle(r.normalizedData.title));
@@ -557,6 +676,17 @@ export async function collectRealCandidates(
       logger.warn(
         { title: sug.title, mediaType: sug.mediaType },
         "rec: title search returned 0 hits",
+      );
+      // The model invented (or misremembered) this title — no media_cache
+      // row corresponds to it. This is the anti-hallucination guarantee
+      // surfaced to the user. We record at the canonical level inside
+      // record() so a same-title repeat in discoveryQueries doesn't
+      // double-log.
+      record(
+        sug.title,
+        sug.mediaType,
+        "hallucinated",
+        "no matching real title found in our metadata sources",
       );
     }
     for (const r of hits) consider(r);

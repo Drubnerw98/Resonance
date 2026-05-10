@@ -25,7 +25,10 @@ import {
 } from "../mediaCache.js";
 import { collectRealCandidates } from "./recommender.js";
 import { canonicalizeTitle } from "./titleMatching.js";
-import type { MediaCacheRow } from "../../db/schema.js";
+import type {
+  DroppedCandidate,
+  MediaCacheRow,
+} from "../../db/schema.js";
 import type { CandidatesOutput } from "./schemas.js";
 
 const mockSearchByTitle = vi.mocked(searchAndCacheByTitle);
@@ -246,6 +249,143 @@ describe("collectRealCandidates", () => {
     );
 
     expect(out.map((r) => r.normalizedData.title)).toEqual(["Mishima"]);
+  });
+});
+
+describe("collectRealCandidates dropped accumulator", () => {
+  beforeEach(() => {
+    mockSearchByTitle.mockReset();
+    mockSearchByQuery.mockReset();
+  });
+
+  it("records hallucinated reasons when title search returns 0 hits", async () => {
+    // Model proposes a title; adapter finds nothing (the anti-hallucination
+    // signal). One real hit alongside should still come through.
+    mockSearchByTitle.mockImplementation(async (_t, title) => {
+      if (title === "A Title That Doesn't Exist") return [];
+      return [fakeRow(title, "movie")];
+    });
+
+    const dropped: DroppedCandidate[] = [];
+    await collectRealCandidates(
+      plan([
+        { title: "Mishima", mediaType: "movie" },
+        { title: "A Title That Doesn't Exist", mediaType: "movie" },
+      ]),
+      new Set(),
+      new Set(),
+      new Set(),
+      new Set(),
+      ALL_FORMATS,
+      dropped,
+    );
+
+    expect(dropped).toEqual([
+      expect.objectContaining({
+        title: "A Title That Doesn't Exist",
+        reason: "hallucinated",
+      }),
+    ]);
+  });
+
+  it("records format-disabled drops with the disabled mediaType", async () => {
+    mockSearchByTitle.mockImplementation(async (mediaType, title) => [
+      fakeRow(title, mediaType),
+    ]);
+
+    const dropped: DroppedCandidate[] = [];
+    await collectRealCandidates(
+      plan([
+        { title: "Disco Elysium", mediaType: "game" },
+        { title: "Mishima", mediaType: "movie" },
+      ]),
+      new Set(),
+      new Set(),
+      new Set(),
+      new Set(),
+      new Set(["movie", "tv"]),
+      dropped,
+    );
+
+    expect(
+      dropped.find((d) => d.reason === "format-disabled"),
+    ).toMatchObject({ title: "Disco Elysium", mediaType: "game" });
+  });
+
+  it("records disliked-title drops when a candidate matches the avoid set", async () => {
+    mockSearchByTitle.mockImplementation(async (_t, title) => [
+      fakeRow(title, "book"),
+    ]);
+
+    const dropped: DroppedCandidate[] = [];
+    await collectRealCandidates(
+      plan([{ title: "The Name of the Wind", mediaType: "book" }]),
+      new Set(),
+      new Set(),
+      new Set([canonicalizeTitle("The Name of the Wind")]),
+      new Set(),
+      ALL_FORMATS,
+      dropped,
+    );
+
+    expect(dropped).toEqual([
+      expect.objectContaining({
+        title: "The Name of the Wind",
+        reason: "disliked-title",
+      }),
+    ]);
+  });
+
+  it("records duplicate drops when a candidate matches a prior batch (canonical)", async () => {
+    mockSearchByTitle.mockImplementation(async (_t, title) => [
+      fakeRow(title, "anime"),
+    ]);
+
+    const dropped: DroppedCandidate[] = [];
+    await collectRealCandidates(
+      plan([{ title: "Vinland Saga Season 2", mediaType: "anime" }]),
+      new Set(),
+      new Set(),
+      new Set(),
+      new Set([canonicalizeTitle("Vinland Saga")]),
+      ALL_FORMATS,
+      dropped,
+    );
+
+    expect(dropped).toEqual([
+      expect.objectContaining({
+        title: "Vinland Saga Season 2",
+        reason: "duplicate",
+      }),
+    ]);
+  });
+
+  it("does not double-record when the same canonical title shows up twice", async () => {
+    // Model proposes a hallucinated title twice (title search 0-hit) AND
+    // it shows up in discovery queries. We should record one drop, not two.
+    mockSearchByTitle.mockResolvedValue([]);
+    mockSearchByQuery.mockResolvedValue([]);
+
+    const dropped: DroppedCandidate[] = [];
+    await collectRealCandidates(
+      plan(
+        [
+          { title: "Imaginary Movie", mediaType: "movie" },
+          { title: "Imaginary Movie", mediaType: "movie" },
+        ],
+        [],
+      ),
+      new Set(),
+      new Set(),
+      new Set(),
+      new Set(),
+      ALL_FORMATS,
+      dropped,
+    );
+
+    expect(dropped.filter((d) => d.title === "Imaginary Movie")).toHaveLength(
+      1,
+    );
   });
 });
 

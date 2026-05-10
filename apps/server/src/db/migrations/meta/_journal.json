@@ -64,6 +64,13 @@
       "when": 1778437181921,
       "tag": "0008_open_kid_colt",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778439305911,
+      "tag": "0009_cuddly_anita_blake",
+      "breakpoints": true
     }
   ]
 }

@@ -28,6 +28,14 @@
   --color-neutral-800: #25231f;
   --color-neutral-900: #16140f;
   --color-neutral-950: #0c0b08;
+
+  /* Editorial-publication direction (2026-05-10 Phase 4). A small parchment
+     scale layered above the warm-grey neutrals — used for body emphasis,
+     drop caps, inline accents on long-form prose. Cooler than pure cream
+     so it reads against the warm bg rather than blending. */
+  --color-parchment-100: #f5f1e8;
+  --color-parchment-200: #e5dfd0;
+  --color-parchment-300: #cdc6b3;
 }
 
 html,
@@ -61,6 +69,55 @@ body {
   font-family: var(--font-display);
   font-optical-sizing: auto;
   letter-spacing: -0.02em;
+}
+
+/* Editorial layout utilities (2026-05-10 Phase 4). Resonance leans into a
+   dark-mode publication aesthetic — hairline rules instead of bordered
+   cards, magazine-style numerals, generous tracking on small captions.
+   These classes are intentionally small and composable so existing
+   utility-classed components can adopt them piecemeal. */
+
+/* Hairline rule — 1px line at the body fg (parchment) at low alpha. Used
+   in lieu of a bordered card to delineate sections. The accent comes from
+   weight + space, not from a heavy enclosure. */
+.editorial-hairline {
+  border-top: 1px solid color-mix(in srgb, var(--color-parchment-200) 14%, transparent);
+}
+
+/* Editorial eyebrow — small tracked caption above section titles. Same
+   Plex Mono treatment as the cross-app eyebrow but bound to a body color
+   that breathes against the warm-grey bg. */
+.editorial-eyebrow {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-parchment-300) 70%, transparent);
+}
+
+/* Magazine numerals — used for ordered section markers ("01", "02", "03").
+   Tabular figures + lining numerals + Newsreader optical sizing. */
+.editorial-numeral {
+  font-family: var(--font-display);
+  font-feature-settings:
+    "tnum" on,
+    "lnum" on;
+  font-optical-sizing: auto;
+  letter-spacing: 0;
+}
+
+/* Drop-cap helper. Sets the first letter to a larger Newsreader italic
+   that floats two lines deep. Used sparingly on long-form prose blocks
+   (essay-style copy in landing / about / empty states). */
+.editorial-drop-cap::first-letter {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 3.2em;
+  line-height: 0.85;
+  float: left;
+  padding: 0.05em 0.1em 0 0;
+  color: var(--color-parchment-100);
 }
 
 /* iOS Safari auto-zooms when a focused input/textarea/select has a font-size

@@ -31,6 +31,13 @@ Cross-format media recommender (movies, TV, anime, manga, games, books) built ar
 - Per-user daily rate limits on AI-bound endpoints (in-memory, daily UTC reset)
 - Mobile nav (hamburger), iOS Safari focus auto-zoom fix, branded 404, friendly missing-profile empty states
 - Sort dropdown on recommendations (match% / alphabetical / year asc/desc)
+- Doomscroll view toggle on the recs page (`Grid` vs `One at a time`, localStorage-persisted)
+- Past UI-naming alignment: route `/lists` → `/batches`, page header + button copy + nav label updated to "Batches" so the UI matches the underlying `recommendation_batches` table
+- AI theme/archetype labels capped at 2-4 words via prompt rule (`extraction.ts`, `fastExtraction.ts`, `profileRefinement.ts`); summary/attraction carry the explanation
+- Profile sections stack vertically (title above content); theme anchor/reinforce chips + favorites link out to TMDB / MyAnimeList / IGDB / Open Library search via free-text query
+- Shared `FormatGlyph` component matching Constellation's glyph vocabulary (circle/triangle/hexagon/diamond/star) used on profile chips, inspiration chips, watchlist headers
+- Watchlist: per-row 5-star rating, *Mark watched* promotion (triggers existing AI annotation pipeline), *Pick for me* random fallback in the decider
+- `ProfileSavedToast` — animated sparkle + slide-up toast on manual profile save, surfaces the new version number
 - Auto-refinement banner when feedback PATCH crosses the threshold
 - Save + rate visually independent (rated 4★ + saved coexist)
 - Signed-out landing page (hero / how-it-works / differentiator / format showcase / closing CTA)

@@ -17,11 +17,13 @@ export interface TasteTheme {
   weight: number;
   /** One-sentence designed summary of why this theme resonates. Editorial
    * voice — confident, no stars/scores/parens. The primary display string;
-   * `evidence` is legacy. */
-  summary?: string;
+   * `evidence` is legacy. Explicit `| undefined` is required because
+   * `exactOptionalPropertyTypes: true` distinguishes absent from undefined,
+   * and the zod-inferred type emits `string | undefined`. */
+  summary?: string | undefined;
   /** Primary anchor titles for this theme — the 1-4 works that crystallize
    * it. Rendered as chips alongside the summary. */
-  anchors?: TitleRef[];
+  anchors?: TitleRef[] | undefined;
   /** Reinforcing titles — additional works that support but aren't the
    * primary anchors. Rendered as dimmer chips below or omitted on dense UI.
    * Defaults to `[]`. */

@@ -31,6 +31,7 @@ export function BatchSection({
   onPlanTo,
   onRescore,
   rescoringIds,
+  viewMode = "grid",
 }: {
   batch: BatchInfo;
   items: RecommendationItem[];
@@ -47,6 +48,9 @@ export function BatchSection({
   onPlanTo: (rec: RecommendationItem) => void;
   onRescore: (id: string) => void;
   rescoringIds: ReadonlySet<string>;
+  /** "grid" = 2-col responsive grid (default). "focus" = single-card-per-row
+   * doomscroll. */
+  viewMode?: "grid" | "focus";
 }) {
   const [refining, setRefining] = useState(false);
   const [addition, setAddition] = useState("");
@@ -129,7 +133,13 @@ export function BatchSection({
         </form>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div
+        className={
+          viewMode === "focus"
+            ? "grid gap-4 grid-cols-1"
+            : "grid gap-4 lg:grid-cols-2"
+        }
+      >
         {items.map((rec) => (
           <MediaCard
             key={rec.id}

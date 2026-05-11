@@ -64,6 +64,15 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "runtime-desc", label: "Runtime (longest)" },
 ];
 
+type ViewMode = "grid" | "focus";
+const VIEW_MODE_STORAGE_KEY = "resonance:recs:viewMode";
+
+function readStoredViewMode(): ViewMode {
+  if (typeof window === "undefined") return "grid";
+  const v = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+  return v === "focus" ? "focus" : "grid";
+}
+
 /** Sort recs within a batch. Stable for ties so insertion order (model's
  * own ranking) carries through when a sort key is a tie. Runtime sorts push
  * null-runtime items (games / books / unenriched older recs) to the END
@@ -191,6 +200,13 @@ export function RecommendationsPage() {
 
   const [promptDraft, setPromptDraft] = useState("");
   const promptInputRef = useRef<HTMLInputElement | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>(readStoredViewMode);
+  function updateViewMode(next: ViewMode): void {
+    setViewMode(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, next);
+    }
+  }
 
   // ?prompt=<urlencoded> deep-link from cross-app integrations (Constellation
   // routes a theme into here). Pre-fill only — never auto-submit; the user
@@ -454,28 +470,69 @@ export function RecommendationsPage() {
         </nav>
       )}
 
-      {/* Sort control — applies inside each batch's items. Default match%
-          which is the model's own ranking. URL-synced so a refresh keeps it. */}
+      {/* Sort + view-mode controls. Sort applies inside each batch's items
+          (default match%, URL-synced). View toggles the grid density between
+          a 2-col card grid and a 1-up focus / doomscroll layout
+          (localStorage-persisted). */}
       {grouped.length > 0 && (
-        <div className="flex items-center justify-end gap-2 text-sm">
-          <label
-            htmlFor="sort"
-            className="text-xs uppercase tracking-wide text-neutral-500"
+        <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 text-sm">
+          <div
+            role="group"
+            aria-label="Layout"
+            className="flex items-center gap-2"
           >
-            Sort
-          </label>
-          <select
-            id="sort"
-            value={activeSort}
-            onChange={(e) => setActiveSort(e.target.value as SortKey)}
-            className="rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm focus:border-neutral-500 focus:outline-none"
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.key} value={opt.key}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            <span className="text-xs uppercase tracking-wide text-neutral-500">
+              View
+            </span>
+            <div className="flex overflow-hidden rounded-md border border-neutral-700">
+              <button
+                type="button"
+                onClick={() => updateViewMode("grid")}
+                aria-pressed={viewMode === "grid"}
+                className={
+                  "px-2.5 py-1 text-xs transition-colors " +
+                  (viewMode === "grid"
+                    ? "bg-neutral-800 text-neutral-100"
+                    : "bg-neutral-900 text-neutral-400 hover:text-neutral-200")
+                }
+              >
+                Grid
+              </button>
+              <button
+                type="button"
+                onClick={() => updateViewMode("focus")}
+                aria-pressed={viewMode === "focus"}
+                className={
+                  "border-l border-neutral-700 px-2.5 py-1 text-xs transition-colors " +
+                  (viewMode === "focus"
+                    ? "bg-neutral-800 text-neutral-100"
+                    : "bg-neutral-900 text-neutral-400 hover:text-neutral-200")
+                }
+              >
+                One at a time
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="sort"
+              className="text-xs uppercase tracking-wide text-neutral-500"
+            >
+              Sort
+            </label>
+            <select
+              id="sort"
+              value={activeSort}
+              onChange={(e) => setActiveSort(e.target.value as SortKey)}
+              className="rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm focus:border-neutral-500 focus:outline-none"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.key} value={opt.key}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 
@@ -492,6 +549,7 @@ export function RecommendationsPage() {
               profile.state.status === "ready" ? profile.state.profile : null
             }
             isGenerating={recs.isGenerating}
+            viewMode={viewMode}
             onRefine={(addition) => {
               const original = batch.prompt?.trim();
               const combined = original
@@ -517,10 +575,18 @@ export function RecommendationsPage() {
                 generating…
               </span>
             </header>
-            <div className="grid gap-4 lg:grid-cols-2">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <MediaCardSkeleton key={`skel-${i}`} />
-              ))}
+            <div
+              className={
+                viewMode === "focus"
+                  ? "grid gap-4 grid-cols-1"
+                  : "grid gap-4 lg:grid-cols-2"
+              }
+            >
+              {Array.from({ length: viewMode === "focus" ? 2 : 4 }).map(
+                (_, i) => (
+                  <MediaCardSkeleton key={`skel-${i}`} />
+                ),
+              )}
             </div>
           </section>
         )}

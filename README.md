@@ -10,21 +10,7 @@ A full-stack AI application built around three differentiation pillars that a on
 
 For the architectural deep-dive (the *why* behind every major decision), see **[ARCHITECTURE.md](./ARCHITECTURE.md)**.
 
-<!--
-  Demo GIF goes here once recorded. Suggested placement:
-    1. Capture a 25-30 second screen recording of the core loop:
-       onboarding chat → taste profile → generate batch → rec card with
-       cross-reference → "would I like X?" verdict.
-    2. Save to docs/demo.gif (keep under ~10 MB for fast README rendering;
-       use ffmpeg or gifski with palette optimization if needed).
-    3. Replace the comment block below with:
-         ![Demo](docs/demo.gif)
-
-       For a dual-resolution / dark-mode-aware version, use the
-       <picture> form GitHub honors in markdown.
--->
-
-> **Demo GIF coming soon.** See the comment above this line for capture and embed instructions.
+![Signed-out landing: editorial hero with magazine-style typography](./screenshots/landing.jpg)
 
 ## Features
 
@@ -32,8 +18,8 @@ The five things that make Resonance more than a chat wrapper:
 
 - **AI-driven onboarding, two paths.** *Long mode:* multi-turn streaming chat that probes for *moments* and *feelings*, not "favorite movie" lists. Server-side reasoning-tag stripping, deterministic readiness floor on top of the model's `<ready/>` self-judgment, adaptive scaffolding for users who don't naturally introspect. *Fast mode:* one-shot guided form (titles + narrative-shape picks + avoidances). Same `TasteProfile` output, ~30 seconds instead of ~10 minutes. Both flow through the same extraction schema.
 - **Structured taste profile.** JSONB document with versioned history. Themes, archetypes, narrative preferences, format affinities, abstract avoidances, and specific dislikedTitles. Manually editable through the UI, automatically refined as feedback accumulates.
-- **Cross-format recommendations.** 4-step pipeline: the model proposes candidates, real-API validation against TMDB / IGDB / Jikan / Open Library backs every recommendation with verified metadata, the model scores survivors against profile and library, results persist as a named, reviewable batch. Each rec carries 0-3 typed cross-references (`{title, reason}`) anchored to titles you've actually named — surfaced as "Because you loved X" chips that open an evidence modal pulling the matching theme/archetype quote from your profile.
-- **Evolution timeline.** Every profile save snapshots into `profile_versions`. The `/profile` page renders a structural diff between adjacent versions — themes added/dropped, weight shifts, new avoidances, format toggles — making the "your taste sharpens with use" claim visible rather than just architectural. Pure diff, no AI cost.
+- **Cross-format recommendations.** 4-step pipeline: the model proposes candidates, real-API validation against TMDB / IGDB / Jikan / Open Library backs every recommendation with verified metadata, the model scores survivors against profile and library, results persist as a named, reviewable batch. Each rec carries 0-3 typed cross-references (`{title, reason}`) anchored to titles you've actually named, surfaced as "Because you loved X" chips that open an evidence modal pulling the matching theme/archetype quote from your profile.
+- **Evolution timeline.** Every profile save snapshots into `profile_versions`. The `/profile` page renders a structural diff between adjacent versions (themes added/dropped, weight shifts, new avoidances, format toggles), making the "your taste sharpens with use" claim visible rather than just architectural. Pure diff, no AI cost.
 - **Library imports across all four formats.** Letterboxd CSV, Goodreads CSV, MyAnimeList XML, Steam Web API. Imported works become anchors that the recommender cites by title in its explanations.
 - **"Would I like X?" verdicts.** Type a specific title, get an honest read against your profile. The model is allowed to give negative answers. Surfaces status flags (already in library, on dislikedTitles, previously recommended).
 - **Refine flow ("stacked batches").** Every recommendation batch has a Refine button. Submit an extra constraint and a new batch generates from "original prompt, but also: \<addition\>". The original sits untouched alongside the refined version.
@@ -49,7 +35,7 @@ The five things that make Resonance more than a chat wrapper:
 - **Per-user rate limits.** Daily caps on AI-bound endpoints (onboarding messages, generations, evaluates, theme refreshes, manual refinements) prevent budget burn-through. Returns clean 429s, resets at midnight UTC.
 - **Anti-hallucination layer.** Every recommendation surfaced to the user corresponds to a real `media_cache` row. Hallucinated titles silently drop.
 - **Mobile-aware UI.** Hamburger nav below 640px viewport, iOS Safari focus auto-zoom prevented, branded 404 page, smooth route transitions.
-- **First-run polish.** Finishing onboarding (long or fast mode) auto-fires the user's first recommendation batch in the background — they land on `/recommendations` watching the loading state instead of staring at an empty list. A cold-start toast surfaces at 3s on slow requests so the Render free-tier ~30s spin-up doesn't look like a hung request. A "profile is still forming · feedback sharpens it" badge sets expectations for thin profiles (mostly relevant for fast-mode submissions) and disappears once you've rated enough to mature it.
+- **First-run polish.** Finishing onboarding (long or fast mode) auto-fires the user's first recommendation batch in the background, so users land on `/recommendations` watching the loading state instead of staring at an empty list. A cold-start toast surfaces at 3s on slow requests so the Render free-tier ~30s spin-up doesn't look like a hung request. A "profile is still forming · feedback sharpens it" badge sets expectations for thin profiles (mostly relevant for fast-mode submissions) and disappears once you've rated enough to mature it.
 
 </details>
 

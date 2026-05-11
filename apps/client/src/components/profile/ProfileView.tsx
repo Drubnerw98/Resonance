@@ -1,4 +1,4 @@
-import type { TasteProfile, TitleRef } from "@resonance/shared";
+import type { MediaType, TasteProfile, TitleRef } from "@resonance/shared";
 import { PageHeader } from "../shared/PageHeader.tsx";
 
 const FORMAT_GLYPH: Record<string, string> = {
@@ -10,6 +10,28 @@ const FORMAT_GLYPH: Record<string, string> = {
   book: "❡",
 };
 
+/** Build an external-database search URL for a title. We only have free-text
+ * titles in the profile (extracted by the AI from the onboarding chat), no
+ * IDs — so these are search URLs into the canonical DB for each media type,
+ * not deep links to specific entries. */
+function externalSearchUrl(title: string, mediaType: MediaType | string): string {
+  const q = encodeURIComponent(title);
+  switch (mediaType) {
+    case "movie":
+    case "tv":
+      return `https://www.themoviedb.org/search?query=${q}`;
+    case "anime":
+    case "manga":
+      return `https://myanimelist.net/search/all?q=${q}`;
+    case "game":
+      return `https://www.igdb.com/search?type=1&q=${q}`;
+    case "book":
+      return `https://openlibrary.org/search?q=${q}`;
+    default:
+      return `https://www.google.com/search?q=${q}`;
+  }
+}
+
 function TitleChip({
   ref_,
   tone,
@@ -19,16 +41,22 @@ function TitleChip({
 }) {
   const cls =
     tone === "anchor"
-      ? "border-emerald-700/35 bg-emerald-950/15 text-neutral-100"
-      : "border-neutral-800/60 bg-transparent text-neutral-400";
+      ? "border-emerald-700/35 bg-emerald-950/15 text-neutral-100 hover:border-emerald-500/70 hover:bg-emerald-900/30"
+      : "border-neutral-800/60 bg-transparent text-neutral-400 hover:border-neutral-600 hover:text-neutral-200";
   return (
-    <li
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] transition-colors duration-200 ${cls}`}
-    >
-      <span aria-hidden className="text-[10px] opacity-70">
-        {FORMAT_GLYPH[ref_.mediaType] ?? "•"}
-      </span>
-      <span>{ref_.title}</span>
+    <li>
+      <a
+        href={externalSearchUrl(ref_.title, ref_.mediaType)}
+        target="_blank"
+        rel="noreferrer"
+        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] transition-colors duration-200 ${cls}`}
+        title={`Search ${ref_.mediaType} databases for "${ref_.title}"`}
+      >
+        <span aria-hidden className="text-[10px] opacity-70">
+          {FORMAT_GLYPH[ref_.mediaType] ?? "•"}
+        </span>
+        <span>{ref_.title}</span>
+      </a>
     </li>
   );
 }
@@ -313,7 +341,19 @@ export function ProfileView({
               </div>
               {m.favorites.length > 0 && (
                 <p className="text-[13px] leading-relaxed text-neutral-400">
-                  {m.favorites.join(" · ")}
+                  {m.favorites.map((fav, j) => (
+                    <span key={j}>
+                      {j > 0 && " · "}
+                      <a
+                        href={externalSearchUrl(fav, m.format)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline decoration-neutral-700 underline-offset-2 transition-colors hover:text-neutral-200 hover:decoration-neutral-400"
+                      >
+                        {fav}
+                      </a>
+                    </span>
+                  ))}
                 </p>
               )}
             </li>
@@ -382,18 +422,20 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="grid gap-x-10 gap-y-5 sm:grid-cols-[auto_1fr]">
-      <div className="space-y-2">
+    <section className="space-y-5">
+      <div className="flex items-baseline gap-4">
         <span
           className="editorial-numeral block text-3xl leading-none font-normal text-emerald-300/30 sm:text-4xl"
           aria-hidden
         >
           {n.toString().padStart(2, "0")}
         </span>
-        <h2 className="font-display text-2xl font-medium leading-tight tracking-tight text-neutral-50 sm:text-3xl">
-          {title}
-        </h2>
-        <p className="text-[13px] italic text-neutral-500">{hint}</p>
+        <div className="space-y-1">
+          <h2 className="font-display text-2xl font-medium leading-tight tracking-tight text-neutral-50 sm:text-3xl">
+            {title}
+          </h2>
+          <p className="text-[13px] italic text-neutral-500">{hint}</p>
+        </div>
       </div>
       <div className="min-w-0">{children}</div>
     </section>

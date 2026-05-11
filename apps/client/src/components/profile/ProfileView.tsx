@@ -1,14 +1,6 @@
 import type { MediaType, TasteProfile, TitleRef } from "@resonance/shared";
 import { PageHeader } from "../shared/PageHeader.tsx";
-
-const FORMAT_GLYPH: Record<string, string> = {
-  movie: "▶",
-  tv: "■",
-  anime: "★",
-  manga: "❒",
-  game: "◆",
-  book: "❡",
-};
+import { FormatGlyph } from "../shared/FormatGlyph.tsx";
 
 /** Build an external-database search URL for a title. We only have free-text
  * titles in the profile (extracted by the AI from the onboarding chat), no
@@ -52,9 +44,11 @@ function TitleChip({
         className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] transition-colors duration-200 ${cls}`}
         title={`Search ${ref_.mediaType} databases for "${ref_.title}"`}
       >
-        <span aria-hidden className="text-[10px] opacity-70">
-          {FORMAT_GLYPH[ref_.mediaType] ?? "•"}
-        </span>
+        <FormatGlyph
+          format={ref_.mediaType}
+          size={10}
+          className="opacity-70"
+        />
         <span>{ref_.title}</span>
       </a>
     </li>
@@ -90,6 +84,18 @@ const FORMAT_BAR_COLOR: Record<string, string> = {
   manga: "bg-violet-600",
   game: "bg-emerald-600",
   book: "bg-sky-600",
+};
+
+// Text-color equivalent so FormatGlyph (which uses currentColor) can tint
+// to the same hue as the WeightBar. Kept static so Tailwind's JIT picks
+// up the literal class names.
+const FORMAT_TEXT_COLOR: Record<string, string> = {
+  movie: "text-rose-500",
+  tv: "text-amber-400",
+  anime: "text-fuchsia-500",
+  manga: "text-violet-500",
+  game: "text-emerald-500",
+  book: "text-sky-500",
 };
 
 function WeightBar({
@@ -327,10 +333,11 @@ export function ProfileView({
           {profile.mediaAffinities.map((m, i) => (
             <li key={i} className="editorial-hairline space-y-2 pt-5">
               <div className="flex flex-wrap items-baseline justify-between gap-3">
-                <span className="flex items-baseline gap-2.5 font-display text-lg font-medium text-neutral-50">
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${FORMAT_BAR_COLOR[m.format] ?? "bg-emerald-500"}`}
-                    aria-hidden
+                <span className="flex items-center gap-2.5 font-display text-lg font-medium text-neutral-50">
+                  <FormatGlyph
+                    format={m.format}
+                    size={14}
+                    className={FORMAT_TEXT_COLOR[m.format] ?? "text-emerald-500"}
                   />
                   {FORMAT_LABEL[m.format] ?? m.format}
                 </span>

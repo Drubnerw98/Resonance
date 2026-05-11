@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { DiscoveryTheme, MediaType } from "@resonance/shared";
 import { useThemes } from "../../hooks/useThemes.ts";
 import { Skeleton } from "../shared/Skeleton.tsx";
+import { FormatGlyph } from "../shared/FormatGlyph.tsx";
 
 const FORMAT_LABEL: Record<MediaType, string> = {
   movie: "Movies",
@@ -12,13 +13,15 @@ const FORMAT_LABEL: Record<MediaType, string> = {
   book: "Books",
 };
 
-const FORMAT_DOT_COLOR: Record<MediaType, string> = {
-  movie: "bg-rose-500",
-  tv: "bg-amber-500",
-  anime: "bg-fuchsia-500",
-  manga: "bg-violet-500",
-  game: "bg-emerald-500",
-  book: "bg-sky-500",
+// Per-format tint applied to the SVG glyph via currentColor. Same palette
+// the rest of the app uses for format identity.
+const FORMAT_TEXT_COLOR: Record<MediaType, string> = {
+  movie: "text-rose-400",
+  tv: "text-amber-400",
+  anime: "text-fuchsia-400",
+  manga: "text-violet-400",
+  game: "text-emerald-400",
+  book: "text-sky-400",
 };
 
 const ACCENT_BORDERS = [
@@ -151,10 +154,7 @@ function ThemeCard({
             key={f}
             className="flex items-center gap-1.5 rounded-full border border-neutral-700 bg-neutral-950/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-neutral-300"
           >
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${FORMAT_DOT_COLOR[f]}`}
-              aria-hidden
-            />
+            <FormatGlyph format={f} size={8} className={FORMAT_TEXT_COLOR[f]} />
             {FORMAT_LABEL[f]}
           </li>
         ))}

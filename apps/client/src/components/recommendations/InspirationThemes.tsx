@@ -142,7 +142,7 @@ function ThemeCard({
       <h3 className="text-sm font-semibold leading-snug text-neutral-100 group-hover:text-white">
         {theme.title}
       </h3>
-      <p className="line-clamp-2 flex-1 text-xs leading-relaxed text-neutral-400">
+      <p className="flex-1 text-xs leading-relaxed text-neutral-400">
         {theme.description}
       </p>
       <ul className="flex flex-wrap gap-1.5">

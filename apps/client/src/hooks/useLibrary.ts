@@ -55,6 +55,9 @@ export interface UseLibrary {
   /** Flip an item between consumed and watchlist. Used by the
    * "Mark consumed" / "Move to watchlist" actions. */
   setItemStatus: (id: string, status: LibraryItemStatus) => Promise<void>;
+  /** Set a 1-5 star rating on an item (or null to clear). Promotion from
+   * watchlist → consumed triggers AI annotation server-side. */
+  setItemRating: (id: string, rating: number | null) => Promise<void>;
   /** Clear every library item, optionally filtered by source. Returns count
    * deleted. */
   clear: (source?: string) => Promise<number>;
@@ -191,6 +194,27 @@ export function useLibrary(): UseLibrary {
     [api, items],
   );
 
+  const setItemRating = useCallback(
+    async (id: string, rating: number | null) => {
+      const snapshot = items;
+      setItems((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, rating } : i)),
+      );
+      try {
+        await api(`/library/${id}`, {
+          method: "PATCH",
+          body: { rating },
+        });
+      } catch (err) {
+        setItems(snapshot);
+        setError(
+          err instanceof Error ? err.message : "Failed to update rating",
+        );
+      }
+    },
+    [api, items],
+  );
+
   const clear = useCallback(
     async (source?: string): Promise<number> => {
       try {
@@ -218,6 +242,7 @@ export function useLibrary(): UseLibrary {
     add,
     remove,
     setItemStatus,
+    setItemRating,
     clear,
     refresh,
   };

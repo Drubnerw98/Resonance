@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import type { MediaType } from "@resonance/shared";
 import { useApi } from "./useApi.ts";
 import { ApiError } from "../lib/api.ts";
+import type { LibraryItem } from "./useLibrary.ts";
 
 export interface WatchlistPick {
   libraryItemId: string;
@@ -23,6 +24,9 @@ export interface UseWatchlistDecide {
   prompt: string | null;
   error: string | null;
   decide: (prompt: string) => Promise<void>;
+  /** Random fallback — no AI, no prompt. Pick one item uniformly from the
+   * provided watchlist. Used when none of the mood prompts feel right. */
+  pickRandom: (items: LibraryItem[]) => void;
   reset: () => void;
 }
 
@@ -69,6 +73,25 @@ export function useWatchlistDecide(): UseWatchlistDecide {
     [api],
   );
 
+  const pickRandom = useCallback((items: LibraryItem[]) => {
+    if (items.length === 0) return;
+    const choice = items[Math.floor(Math.random() * items.length)]!;
+    setPrompt("Pick for me");
+    setPicks([
+      {
+        libraryItemId: choice.id,
+        title: choice.title,
+        mediaType: choice.mediaType,
+        year: choice.year,
+        source: choice.source,
+        rank: 1,
+        explanation: "Random pick from your watchlist.",
+      },
+    ]);
+    setStatus("ready");
+    setError(null);
+  }, []);
+
   const reset = useCallback(() => {
     setStatus("idle");
     setPicks([]);
@@ -76,5 +99,5 @@ export function useWatchlistDecide(): UseWatchlistDecide {
     setError(null);
   }, []);
 
-  return { status, picks, prompt, error, decide, reset };
+  return { status, picks, prompt, error, decide, pickRandom, reset };
 }

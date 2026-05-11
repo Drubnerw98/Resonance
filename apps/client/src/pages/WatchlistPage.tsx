@@ -11,6 +11,7 @@ import { PageHeader } from "../components/shared/PageHeader.tsx";
 import { EmptyState } from "../components/shared/EmptyState.tsx";
 import { LoadingPulse } from "../components/shared/LoadingPulse.tsx";
 import { Skeleton } from "../components/shared/Skeleton.tsx";
+import { FormatGlyph } from "../components/shared/FormatGlyph.tsx";
 
 const FORMAT_LABEL: Record<MediaType, string> = {
   movie: "Movies",
@@ -21,13 +22,13 @@ const FORMAT_LABEL: Record<MediaType, string> = {
   book: "Books",
 };
 
-const FORMAT_DOT_COLOR: Record<MediaType, string> = {
-  movie: "bg-rose-500",
-  tv: "bg-amber-500",
-  anime: "bg-fuchsia-500",
-  manga: "bg-violet-500",
-  game: "bg-emerald-500",
-  book: "bg-sky-500",
+const FORMAT_TEXT_COLOR: Record<MediaType, string> = {
+  movie: "text-rose-400",
+  tv: "text-amber-400",
+  anime: "text-fuchsia-400",
+  manga: "text-violet-400",
+  game: "text-emerald-400",
+  book: "text-sky-400",
 };
 
 const STARTER_MOODS = [
@@ -57,6 +58,11 @@ export function WatchlistPage() {
     () => lib.items.filter((i) => i.status === "watchlist"),
     [lib.items],
   );
+
+  function handlePickRandom() {
+    if (watchlist.length === 0) return;
+    decide.pickRandom(watchlist);
+  }
 
   if (profile.state.status === "missing") {
     return (
@@ -128,6 +134,17 @@ export function WatchlistPage() {
               className="rounded-md bg-white px-5 py-2 text-sm font-medium text-neutral-950 hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {decide.status === "loading" ? "Deciding…" : "Decide"}
+            </button>
+            <button
+              type="button"
+              onClick={handlePickRandom}
+              disabled={
+                decide.status === "loading" || watchlist.length === 0
+              }
+              title="Skip the mood, just pick something at random"
+              className="rounded-md border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 hover:border-emerald-700 hover:bg-emerald-950/30 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Pick for me
             </button>
           </div>
 
@@ -216,7 +233,11 @@ export function WatchlistPage() {
           }
         />
       ) : (
-        <WatchlistByFormat items={watchlist} />
+        <WatchlistByFormat
+          items={watchlist}
+          onMarkWatched={(id) => void lib.setItemStatus(id, "consumed")}
+          onRate={(id, rating) => void lib.setItemRating(id, rating)}
+        />
       )}
     </section>
   );
@@ -237,9 +258,10 @@ function PickRow({ pick }: { pick: WatchlistPick }) {
             {pick.title}
           </h3>
           <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-neutral-500">
-            <span
-              aria-hidden
-              className={`h-1.5 w-1.5 rounded-full ${FORMAT_DOT_COLOR[pick.mediaType]}`}
+            <FormatGlyph
+              format={pick.mediaType}
+              size={8}
+              className={FORMAT_TEXT_COLOR[pick.mediaType]}
             />
             {FORMAT_LABEL[pick.mediaType]}
             {pick.year != null && ` · ${pick.year}`}
@@ -253,7 +275,15 @@ function PickRow({ pick }: { pick: WatchlistPick }) {
   );
 }
 
-function WatchlistByFormat({ items }: { items: LibraryItem[] }) {
+function WatchlistByFormat({
+  items,
+  onMarkWatched,
+  onRate,
+}: {
+  items: LibraryItem[];
+  onMarkWatched: (id: string) => void;
+  onRate: (id: string, rating: number | null) => void;
+}) {
   const grouped = useMemo(() => {
     const m: Partial<Record<MediaType, LibraryItem[]>> = {};
     for (const it of items) {
@@ -276,33 +306,108 @@ function WatchlistByFormat({ items }: { items: LibraryItem[] }) {
       {sections.map(({ format, items: rows }) => (
         <div key={format} className="space-y-2">
           <h3 className="flex items-center gap-2 text-sm font-medium text-neutral-300">
-            <span
-              aria-hidden
-              className={`h-2 w-2 rounded-full ${FORMAT_DOT_COLOR[format]}`}
+            <FormatGlyph
+              format={format}
+              size={10}
+              className={FORMAT_TEXT_COLOR[format]}
             />
             {FORMAT_LABEL[format]}
             <span className="text-xs text-neutral-500">({rows.length})</span>
           </h3>
           <ul className="space-y-1">
             {rows.map((it) => (
-              <li
+              <WatchlistRow
                 key={it.id}
-                className="flex items-center justify-between gap-3 rounded-md border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-neutral-100">
-                    {it.title}
-                  </span>
-                  <span className="text-xs text-neutral-500">
-                    {it.year != null ? `${it.year} · ` : ""}from {it.source}
-                  </span>
-                </span>
-              </li>
+                item={it}
+                onMarkWatched={() => onMarkWatched(it.id)}
+                onRate={(stars) => onRate(it.id, stars)}
+              />
             ))}
           </ul>
         </div>
       ))}
     </section>
+  );
+}
+
+/**
+ * One watchlist row. Marking-watched flips status → consumed which triggers
+ * AI annotation server-side (the row joins the profile signal). Rating sets
+ * a 1-5 value; clicking the active star clears it. Promotion + rating in
+ * one click: rate stars first, then "Mark watched" or vice versa — both
+ * land in the same PATCH cycle. */
+function WatchlistRow({
+  item,
+  onMarkWatched,
+  onRate,
+}: {
+  item: LibraryItem;
+  onMarkWatched: () => void;
+  onRate: (rating: number | null) => void;
+}) {
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm">
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-neutral-100">{item.title}</span>
+        <span className="text-xs text-neutral-500">
+          {item.year != null ? `${item.year} · ` : ""}from {item.source}
+        </span>
+      </span>
+      <div className="flex items-center gap-4">
+        <RowStars value={item.rating ?? 0} onChange={onRate} />
+        <button
+          type="button"
+          onClick={onMarkWatched}
+          className="rounded-md border border-emerald-800/60 bg-emerald-950/30 px-2.5 py-1 text-xs text-emerald-200 transition-colors hover:border-emerald-500/70 hover:bg-emerald-900/50 hover:text-emerald-100"
+          title="Mark as watched / consumed. Promotes to the consumed library so it can feed your profile."
+        >
+          Mark watched
+        </button>
+      </div>
+    </li>
+  );
+}
+
+function RowStars({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (n: number | null) => void;
+}) {
+  const [hover, setHover] = useState(0);
+  const display = hover || value;
+  return (
+    <div
+      className="flex items-center gap-0.5"
+      role="radiogroup"
+      aria-label="Rating"
+      onMouseLeave={() => setHover(0)}
+    >
+      {[1, 2, 3, 4, 5].map((n) => {
+        const filled = n <= display;
+        return (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(value === n ? null : n)}
+            onMouseEnter={() => setHover(n)}
+            aria-checked={filled}
+            role="radio"
+            aria-label={`${n} star${n === 1 ? "" : "s"}`}
+            title={`${n} star${n === 1 ? "" : "s"}`}
+            className={
+              "px-0.5 text-[14px] leading-none transition-colors duration-150 " +
+              (filled
+                ? "text-amber-400"
+                : "text-neutral-700 hover:text-neutral-400")
+            }
+          >
+            ★
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

@@ -38,7 +38,9 @@ export interface UseProfile {
   /** Persist a manually-edited profile via PUT /api/profile. Resolves with
    * the saved profile on success; throws on validation/persist failure so
    * the caller can keep edit mode open instead of dropping the user's work. */
-  update: (profile: TasteProfile) => Promise<TasteProfile>;
+  update: (
+    profile: TasteProfile,
+  ) => Promise<{ profile: TasteProfile; version: number }>;
 }
 
 export function useProfile(): UseProfile {
@@ -111,7 +113,9 @@ export function useProfile(): UseProfile {
   }, [api, isRefining]);
 
   const update = useCallback(
-    async (profile: TasteProfile): Promise<TasteProfile> => {
+    async (
+      profile: TasteProfile,
+    ): Promise<{ profile: TasteProfile; version: number }> => {
       if (isUpdating) throw new Error("update already in progress");
       setIsUpdating(true);
       setUpdateError(null);
@@ -130,7 +134,7 @@ export function useProfile(): UseProfile {
               ? prev.actedRecCount
               : (res.actedRecCount ?? 0),
         }));
-        return res.data;
+        return { profile: res.data, version: res.version };
       } catch (err) {
         const msg =
           err instanceof ApiError

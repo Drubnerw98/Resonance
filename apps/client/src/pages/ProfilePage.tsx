@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { TasteProfile } from "@resonance/shared";
 import { ProfileView } from "../components/profile/ProfileView.tsx";
 import { ProfileEditor } from "../components/profile/ProfileEditor.tsx";
+import { ProfileSavedToast } from "../components/profile/ProfileSavedToast.tsx";
 import { ProfileTimeline } from "../components/profile/ProfileTimeline.tsx";
 import { LibrarySection } from "../components/profile/LibrarySection.tsx";
 import { Skeleton } from "../components/shared/Skeleton.tsx";
@@ -27,11 +28,18 @@ export function ProfilePage() {
   const [isStartingSession, setIsStartingSession] = useState(false);
   const [continueError, setContinueError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [savedToastVersion, setSavedToastVersion] = useState<number | null>(
+    null,
+  );
 
   async function handleSave(profile: TasteProfile) {
     try {
-      await update(profile);
+      const saved = await update(profile);
       setIsEditing(false);
+      // Trigger the toast off the version returned by the PUT so the user
+      // sees confirmation tied to the actual server response (not optimistic
+      // state). update returns { profile, version } after the round-trip.
+      setSavedToastVersion(saved.version);
     } catch {
       // updateError is set by the hook; keep edit mode open so the user
       // can fix and retry without losing their work.
@@ -186,6 +194,14 @@ export function ProfilePage() {
       )}
 
       <LibrarySection />
+
+      {savedToastVersion != null && (
+        <ProfileSavedToast
+          key={savedToastVersion}
+          version={savedToastVersion}
+          onDismiss={() => setSavedToastVersion(null)}
+        />
+      )}
 
       <section className="space-y-2 border-t border-neutral-800 pt-4">
         <h2 className="text-sm font-semibold text-neutral-400">Danger zone</h2>

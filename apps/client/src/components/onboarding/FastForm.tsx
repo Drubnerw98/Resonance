@@ -248,7 +248,7 @@ export function FastForm() {
       <FormSection
         eyebrow="2 / 4"
         title="What kind of stories"
-        subtitle="Pick the closer one in each pair — no wrong answer."
+        subtitle="Pick the closer one in each pair. No wrong answer."
       >
         <ChoiceGroup
           label="Pacing"
@@ -266,7 +266,7 @@ export function FastForm() {
 
         <div className="space-y-2">
           <label className="block text-sm font-medium text-neutral-200">
-            Tone <span className="text-xs text-neutral-500">— pick 1–3</span>
+            Tone <span className="text-xs text-neutral-500">(pick 1–3)</span>
           </label>
           <div className="flex flex-wrap gap-2">
             {FAST_TONE_OPTIONS.map((tone) => {
@@ -302,7 +302,7 @@ export function FastForm() {
 
         <div className="space-y-2">
           <label className="block text-sm font-medium text-neutral-200">
-            Endings <span className="text-xs text-neutral-500">— optional</span>
+            Endings <span className="text-xs text-neutral-500">(optional)</span>
           </label>
           <input
             type="text"
@@ -338,7 +338,7 @@ export function FastForm() {
       <FormSection
         eyebrow="3 / 4"
         title="Things you bounce off"
-        subtitle="Optional but improves recs a lot — this is the channel that keeps the system from rec'ing things adjacent to what you hated."
+        subtitle="Optional but improves recs a lot. This is the channel that keeps the system from rec'ing things adjacent to what you hated."
       >
         <div className="space-y-2">
           <label className="block text-sm font-medium text-neutral-200">

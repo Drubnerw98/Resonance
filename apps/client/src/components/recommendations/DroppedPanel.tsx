@@ -123,7 +123,7 @@ export function DroppedPanel({
       <div className="space-y-3 border-t border-neutral-800 p-3">
         {totalCount === 0 ? (
           <p className="text-sm text-emerald-300">
-            No dropped candidates — every model suggestion landed cleanly.
+            No dropped candidates. Every model suggestion landed cleanly.
           </p>
         ) : null}
 

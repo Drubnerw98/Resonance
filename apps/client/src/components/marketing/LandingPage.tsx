@@ -59,7 +59,7 @@ function Hero() {
         <p className="mt-10 max-w-xl text-base leading-relaxed text-neutral-300 sm:text-lg">
           Have a conversation about a few stories that stuck with you. Get
           recommendations grounded in the themes, archetypes, and narrative
-          shapes you actually care about — across movies, TV, anime, manga,
+          shapes you actually care about. Across movies, TV, anime, manga,
           games, and books.
         </p>
 
@@ -101,8 +101,8 @@ function Premise() {
     <section className="mx-auto max-w-3xl">
       <p className="editorial-drop-cap font-display text-2xl font-normal leading-[1.45] italic text-neutral-100 sm:text-[28px]">
         Most recommenders flatten you into a cohort. Resonance reads what
-        actually resonates — the themes, archetypes, and narrative shapes
-        you keep returning to — and finds them across every format you
+        actually resonates: the themes, archetypes, and narrative shapes
+        you keep returning to. Then finds them across every format you
         consume.
       </p>
     </section>

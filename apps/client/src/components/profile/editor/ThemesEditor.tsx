@@ -141,7 +141,7 @@ function TitleRefListEditor({
     <div className="space-y-1.5">
       <div className="flex items-baseline gap-2">
         <span className="text-xs text-neutral-500">{label}</span>
-        <span className="text-[10px] text-neutral-600">— {hint}</span>
+        <span className="text-[10px] text-neutral-600">· {hint}</span>
       </div>
       {items.length > 0 && (
         <ul className="space-y-1.5">

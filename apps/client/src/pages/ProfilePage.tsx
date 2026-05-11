@@ -73,7 +73,7 @@ export function ProfilePage() {
         "  • Your taste profile and all profile versions\n" +
         "  • Your onboarding chat history\n\n" +
         "These will NOT be deleted (clear them separately if you want):\n" +
-        "  • Your recommendations and lists\n" +
+        "  • Your recommendations and batches\n" +
         "  • Your imported library\n\n" +
         "After reset you'll be sent back to onboarding to build a fresh profile.",
     );

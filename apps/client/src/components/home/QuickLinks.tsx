@@ -59,8 +59,8 @@ export function QuickLinks() {
         }
       />
       <QuickLink
-        to="/lists"
-        title="Lists"
+        to="/batches"
+        title="Batches"
         description="Rename and organize your batches."
         icon={
           <svg

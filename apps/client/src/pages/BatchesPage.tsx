@@ -49,13 +49,13 @@ function deriveLabel(b: BatchSummary): string {
   return `Default · ${new Date(b.createdAt).toLocaleDateString()}`;
 }
 
-export function ListsPage() {
+export function BatchesPage() {
   const { status, batches, error, rename, remove } = useBatches();
 
   if (status === "loading") {
     return (
       <section className="space-y-6">
-        <PageHeader title="Your lists" />
+        <PageHeader title="Your batches" />
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-16 w-full rounded-md" />
@@ -76,21 +76,21 @@ export function ListsPage() {
   return (
     <section className="space-y-6">
       <PageHeader
-        title="Your lists"
+        title="Your batches"
         subtitle="Every batch you've generated. Click to view, rename, or delete."
         action={
           <Link
             to="/recommendations"
             className="rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-neutral-200"
           >
-            New list
+            New batch
           </Link>
         }
       />
 
       {batches.length === 0 ? (
         <EmptyState
-          title="No lists yet"
+          title="No batches yet"
           description={
             <>
               You haven&apos;t generated any batches. Head to{" "}
@@ -163,7 +163,7 @@ function BatchRow({
             aria-label={`View ${deriveLabel(batch)}`}
             className="shrink-0"
           >
-            {/* Stacked cover thumbnails — visual identity for the list.
+            {/* Stacked cover thumbnails — visual identity for the batch.
                 Negative margin overlap creates a deck effect; rotated
                 slightly for warmth. */}
             <div className="flex">

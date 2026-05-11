@@ -15,7 +15,7 @@ interface NavItem {
 const links: NavItem[] = [
   { to: "/recommendations", label: "Recommendations", protected: true },
   { to: "/watchlist", label: "Watchlist", protected: true },
-  { to: "/lists", label: "Lists", protected: true },
+  { to: "/batches", label: "Batches", protected: true },
   { to: "/evaluate", label: "Evaluate", protected: true },
   { to: "/profile", label: "Profile", protected: true },
 ];

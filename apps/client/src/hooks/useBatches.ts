@@ -15,7 +15,7 @@ export interface BatchSummary {
    * fallback smart label when the user hasn't set a name. */
   topTags: string[];
   /** Up to 4 cover image URLs from the batch's highest-scoring recs.
-   * Rendered as small thumbnails on the lists page for visual identity. */
+   * Rendered as small thumbnails on the batches page for visual identity. */
   coverUrls: string[];
 }
 
@@ -45,7 +45,7 @@ export function useBatches(): UseBatches {
       setStatus("ready");
     } catch (err) {
       setStatus("error");
-      setError(err instanceof Error ? err.message : "Failed to load lists");
+      setError(err instanceof Error ? err.message : "Failed to load batches");
     }
   }, [api]);
 

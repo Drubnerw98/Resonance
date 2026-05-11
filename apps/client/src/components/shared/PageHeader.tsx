@@ -14,7 +14,7 @@ import type { ReactNode } from "react";
  *   <PageHeader
  *     eyebrow="Library"
  *     title="Recommendations"
- *     subtitle="32 picks across 4 lists."
+ *     subtitle="32 picks across 4 batches."
  *     action={<button>Clear history</button>}
  *   />
  */

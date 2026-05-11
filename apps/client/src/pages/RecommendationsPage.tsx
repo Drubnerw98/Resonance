@@ -288,7 +288,7 @@ export function RecommendationsPage() {
 
   const subtitle = focusedBatch ? (
     <>
-      Viewing one list ·{" "}
+      Viewing one batch ·{" "}
       <button
         onClick={clearBatchFilter}
         className="underline hover:text-neutral-300"
@@ -299,7 +299,7 @@ export function RecommendationsPage() {
   ) : recs.recommendations.length === 0 ? (
     "Generate a fresh batch grounded in your taste DNA."
   ) : (
-    `${recs.recommendations.length} picks across ${grouped.length} ${grouped.length === 1 ? "list" : "lists"}.`
+    `${recs.recommendations.length} picks across ${grouped.length} ${grouped.length === 1 ? "batch" : "batches"}.`
   );
 
   return (
@@ -313,7 +313,7 @@ export function RecommendationsPage() {
               onClick={() => {
                 if (
                   confirm(
-                    "Delete all your recommendations and lists? (Profile and onboarding stay.)",
+                    "Delete all your recommendations and batches? (Profile and onboarding stay.)",
                   )
                 ) {
                   void recs.clear();
@@ -391,11 +391,7 @@ export function RecommendationsPage() {
           disabled={recs.isGenerating}
           className="rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {recs.isGenerating
-            ? "Generating…"
-            : promptDraft.trim()
-              ? "Generate list"
-              : "Generate batch"}
+          {recs.isGenerating ? "Generating…" : "Generate batch"}
         </button>
       </form>
 

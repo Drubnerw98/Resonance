@@ -31,11 +31,7 @@ export function Footer() {
               cross-format recommendations grounded in your taste DNA
             </span>
           </div>
-          <EcosystemSwitcher
-            current="resonance"
-            accentClassName="text-emerald-300"
-            size="md"
-          />
+          <EcosystemSwitcher current="resonance" size="md" />
         </div>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-neutral-900 pt-4">
           <a

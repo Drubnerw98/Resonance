@@ -38,25 +38,17 @@ export function Nav() {
         <NavLink
           to="/"
           end
-          className="flex shrink-0 flex-col items-start gap-0.5 text-neutral-100 transition-colors hover:text-white"
+          className="flex shrink-0 items-center gap-2 text-neutral-100 transition-colors hover:text-white"
           onClick={() => setMenuOpen(false)}
         >
-          {/* Eyebrow caption — shared across the three sibling apps in their
-              chrome (RESONANCE · CONSTELLATION · ENSEMBLE) so the family
-              reads consistently when flipping between deploys. */}
-          <span className="font-['IBM_Plex_Mono'] text-[9px] tracking-[0.28em] text-neutral-500 uppercase">
-            Resonance
+          <span className="text-emerald-300/90">
+            <Logo size={20} />
           </span>
-          <span className="flex items-center gap-2">
-            <span className="text-emerald-300/90">
-              <Logo size={18} />
-            </span>
-            {/* Plex Serif Italic at the wordmark slot — chrome harmonization
-                across the ecosystem. Body editorial still uses Newsreader
-                (font-display); this is a chrome-only override. */}
-            <span className="font-['IBM_Plex_Serif'] text-lg font-medium italic">
-              Resonance
-            </span>
+          {/* Plex Serif Italic at the wordmark slot — chrome harmonization
+              across the ecosystem. Body editorial still uses Newsreader
+              (font-display); this is a chrome-only override. */}
+          <span className="font-['IBM_Plex_Serif'] text-lg font-medium italic">
+            Resonance
           </span>
         </NavLink>
 

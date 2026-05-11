@@ -19,11 +19,11 @@ function TitleChip({
 }) {
   const cls =
     tone === "anchor"
-      ? "border-neutral-700 bg-neutral-950 text-neutral-200"
-      : "border-neutral-800 bg-neutral-900/60 text-neutral-400";
+      ? "border-emerald-700/35 bg-emerald-950/15 text-neutral-100"
+      : "border-neutral-800/60 bg-transparent text-neutral-400";
   return (
     <li
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs ${cls}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] transition-colors duration-200 ${cls}`}
     >
       <span aria-hidden className="text-[10px] opacity-70">
         {FORMAT_GLYPH[ref_.mediaType] ?? "•"}
@@ -66,18 +66,23 @@ const FORMAT_BAR_COLOR: Record<string, string> = {
 
 function WeightBar({
   value,
-  colorClass = "bg-emerald-500",
+  colorClass = "bg-emerald-400/80",
 }: {
   value: number;
   colorClass?: string;
 }) {
   const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
   return (
-    <div className="h-1.5 w-24 overflow-hidden rounded-full bg-neutral-800">
-      <div
-        className={`h-full rounded-full ${colorClass}`}
-        style={{ width: `${pct}%` }}
-      />
+    <div className="flex items-baseline gap-2">
+      <div className="h-px w-24 bg-neutral-800 sm:w-32">
+        <div
+          className={`h-full ${colorClass}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="font-display text-sm tabular-nums text-neutral-500">
+        {pct}
+      </span>
     </div>
   );
 }
@@ -131,31 +136,36 @@ export function ProfileView({
       : `Refined ${refinedCount}${refinedCount === 1 ? " time" : " times"} · last updated ${updatedRelative}`;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-16 sm:space-y-20">
       <PageHeader
+        eyebrow="Dossier"
         title="Your taste DNA"
         subtitle={subtitle}
         action={
           (onContinueOnboarding || onRefine) && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
               {onContinueOnboarding && (
                 <button
                   onClick={onContinueOnboarding}
                   disabled={isStartingSession}
-                  className="rounded-md border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="group inline-flex items-baseline gap-2 text-[13px] text-neutral-300 transition-colors hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
                   title="Start a new onboarding chat to add nuance to your profile"
                 >
-                  {isStartingSession ? "Starting…" : "Continue onboarding"}
+                  <span className="border-b border-neutral-700 pb-0.5 transition-colors group-hover:border-neutral-400">
+                    {isStartingSession ? "Starting…" : "Continue onboarding"}
+                  </span>
                 </button>
               )}
               {onRefine && (
                 <button
                   onClick={onRefine}
                   disabled={isRefining}
-                  className="rounded-md border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="group inline-flex items-baseline gap-2 text-[13px] text-neutral-300 transition-colors hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
                   title="Re-run profile extraction using your recent feedback"
                 >
-                  {isRefining ? "Refining…" : "Refine from feedback"}
+                  <span className="border-b border-emerald-500/50 pb-0.5 transition-colors group-hover:border-emerald-300">
+                    {isRefining ? "Refining…" : "Refine from feedback"}
+                  </span>
                 </button>
               )}
             </div>
@@ -163,8 +173,12 @@ export function ProfileView({
         }
       />
 
-      <Section title="Themes" hint="What stories resonate with you and why">
-        <ul className="space-y-3">
+      <Section
+        n={1}
+        title="Themes"
+        hint="What stories resonate with you and why"
+      >
+        <ul className="space-y-10">
           {profile.themes.map((t, i) => {
             const accent = THEME_ACCENTS[i % THEME_ACCENTS.length]!;
             // Display summary if present; fall back to legacy evidence for
@@ -175,34 +189,53 @@ export function ProfileView({
             const anchors = t.anchors ?? [];
             const reinforcedBy = t.reinforcedBy ?? [];
             return (
-              <li
-                key={i}
-                className={`rounded-md border border-l-4 border-neutral-800 bg-neutral-900 p-3 ${accent.border}`}
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <span className="font-medium">{t.label}</span>
+              <li key={i} className="editorial-hairline space-y-4 pt-6">
+                <div className="flex flex-wrap items-baseline justify-between gap-3">
+                  <h3 className="font-display text-xl font-medium leading-tight text-neutral-50 sm:text-2xl">
+                    {t.label}
+                  </h3>
                   <WeightBar value={t.weight} colorClass={accent.bar} />
                 </div>
                 {body && (
-                  <p className="mt-1 text-sm text-neutral-300">{body}</p>
+                  <p className="max-w-2xl text-[15px] leading-relaxed text-neutral-300">
+                    {body}
+                  </p>
                 )}
-                {anchors.length > 0 && (
-                  <ul className="mt-2 flex flex-wrap gap-1.5">
-                    {anchors.map((a, j) => (
-                      <TitleChip key={`anchor-${j}`} ref_={a} tone="anchor" />
-                    ))}
-                  </ul>
-                )}
-                {reinforcedBy.length > 0 && (
-                  <ul className="mt-1.5 flex flex-wrap gap-1.5">
-                    {reinforcedBy.map((r, j) => (
-                      <TitleChip
-                        key={`reinforce-${j}`}
-                        ref_={r}
-                        tone="reinforce"
-                      />
-                    ))}
-                  </ul>
+                {(anchors.length > 0 || reinforcedBy.length > 0) && (
+                  <div className="space-y-2 pt-1">
+                    {anchors.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                        <span className="editorial-eyebrow shrink-0">
+                          Anchored in
+                        </span>
+                        <ul className="flex flex-wrap gap-1.5">
+                          {anchors.map((a, j) => (
+                            <TitleChip
+                              key={`anchor-${j}`}
+                              ref_={a}
+                              tone="anchor"
+                            />
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {reinforcedBy.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                        <span className="editorial-eyebrow shrink-0">
+                          Reinforced by
+                        </span>
+                        <ul className="flex flex-wrap gap-1.5">
+                          {reinforcedBy.map((r, j) => (
+                            <TitleChip
+                              key={`reinforce-${j}`}
+                              ref_={r}
+                              tone="reinforce"
+                            />
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 )}
               </li>
             );
@@ -210,80 +243,76 @@ export function ProfileView({
         </ul>
       </Section>
 
-      <Section title="Archetypes" hint="Character types you're drawn to">
-        <ul className="space-y-3">
+      <Section n={2} title="Archetypes" hint="Character types you're drawn to">
+        <ul className="space-y-8">
           {profile.archetypes.map((a, i) => (
-            <li
-              key={i}
-              className="rounded-md border border-neutral-800 bg-neutral-900 p-3"
-            >
-              <p className="font-medium">{a.label}</p>
-              <p className="mt-1 text-sm text-neutral-400">{a.attraction}</p>
+            <li key={i} className="editorial-hairline space-y-3 pt-6">
+              <h3 className="font-display text-xl font-medium leading-tight text-neutral-50 sm:text-2xl">
+                {a.label}
+              </h3>
+              <p className="max-w-2xl text-[15px] leading-relaxed text-neutral-300">
+                {a.attraction}
+              </p>
             </li>
           ))}
         </ul>
       </Section>
 
       <Section
+        n={3}
         title="Narrative preferences"
         hint="The shape of stories that fit"
       >
-        <div className="space-y-3 rounded-md border border-neutral-800 bg-neutral-900 p-4">
-          <NarrativePill label="Pacing">
-            <span className="rounded-full border border-emerald-900/50 bg-emerald-950/30 px-2.5 py-0.5 text-xs text-emerald-200">
+        <dl className="editorial-hairline grid gap-x-6 gap-y-4 pt-6 sm:grid-cols-[140px_1fr]">
+          <NarrativeRow label="Pacing">
+            <span className="font-display text-lg italic text-neutral-100">
               {profile.narrativePrefs.pacing}
             </span>
-          </NarrativePill>
-          <NarrativePill label="Complexity">
-            <span className="rounded-full border border-sky-900/50 bg-sky-950/30 px-2.5 py-0.5 text-xs text-sky-200">
+          </NarrativeRow>
+          <NarrativeRow label="Complexity">
+            <span className="font-display text-lg italic text-neutral-100">
               {profile.narrativePrefs.complexity}
             </span>
-          </NarrativePill>
-          <NarrativePill label="Tone">
+          </NarrativeRow>
+          <NarrativeRow label="Tone">
             <div className="flex flex-wrap gap-1.5">
               {profile.narrativePrefs.tone.map((t, i) => (
                 <span
                   key={i}
-                  className="rounded-full border border-amber-900/50 bg-amber-950/30 px-2.5 py-0.5 text-xs text-amber-200"
+                  className="rounded-full border border-amber-700/40 bg-amber-950/10 px-2.5 py-0.5 text-[12px] text-amber-200"
                 >
                   {t}
                 </span>
               ))}
             </div>
-          </NarrativePill>
-          <NarrativePill label="Endings">
-            <span className="text-sm text-neutral-200">
+          </NarrativeRow>
+          <NarrativeRow label="Endings">
+            <span className="text-[15px] leading-relaxed text-neutral-200">
               {profile.narrativePrefs.endings}
             </span>
-          </NarrativePill>
-        </div>
+          </NarrativeRow>
+        </dl>
       </Section>
 
-      <Section title="Media affinities" hint="Formats you've engaged with">
-        <ul className="space-y-2">
+      <Section n={4} title="Media affinities" hint="Formats you've engaged with">
+        <ul className="space-y-6">
           {profile.mediaAffinities.map((m, i) => (
-            <li
-              key={i}
-              className="rounded-md border border-neutral-800 bg-neutral-900 p-3"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <span className="flex items-center gap-2 font-medium">
+            <li key={i} className="editorial-hairline space-y-2 pt-5">
+              <div className="flex flex-wrap items-baseline justify-between gap-3">
+                <span className="flex items-baseline gap-2.5 font-display text-lg font-medium text-neutral-50">
                   <span
-                    className={`h-2 w-2 rounded-full ${FORMAT_BAR_COLOR[m.format] ?? "bg-emerald-500"}`}
+                    className={`h-1.5 w-1.5 rounded-full ${FORMAT_BAR_COLOR[m.format] ?? "bg-emerald-500"}`}
                     aria-hidden
                   />
                   {FORMAT_LABEL[m.format] ?? m.format}
                 </span>
-                <div className="flex items-center gap-2 text-xs text-neutral-500">
-                  <span>comfort</span>
-                  <WeightBar
-                    value={m.comfort}
-                    colorClass={FORMAT_BAR_COLOR[m.format] ?? "bg-emerald-500"}
-                  />
-                </div>
+                <WeightBar
+                  value={m.comfort}
+                  colorClass={FORMAT_BAR_COLOR[m.format] ?? "bg-emerald-500"}
+                />
               </div>
               {m.favorites.length > 0 && (
-                <p className="mt-1 text-sm text-neutral-400">
+                <p className="text-[13px] leading-relaxed text-neutral-400">
                   {m.favorites.join(" · ")}
                 </p>
               )}
@@ -292,40 +321,49 @@ export function ProfileView({
         </ul>
       </Section>
 
-      <Section title="Avoidances" hint="Patterns you bounce off">
+      <Section n={5} title="Avoidances" hint="Patterns you bounce off">
         {profile.avoidances.length === 0 ? (
-          <p className="text-sm text-neutral-500">None recorded.</p>
+          <p className="editorial-hairline pt-6 text-[14px] italic text-neutral-500">
+            None recorded.
+          </p>
         ) : (
-          <ul className="flex flex-wrap gap-2">
-            {profile.avoidances.map((a, i) => (
-              <li
-                key={i}
-                className="rounded-full border border-rose-900 bg-rose-950/40 px-3 py-1 text-sm text-rose-200"
-              >
-                {a}
-              </li>
-            ))}
-          </ul>
+          <div className="editorial-hairline pt-6">
+            <ul className="flex flex-wrap gap-2">
+              {profile.avoidances.map((a, i) => (
+                <li
+                  key={i}
+                  className="rounded-full border border-rose-700/35 bg-rose-950/15 px-3 py-1 text-[13px] text-rose-200"
+                >
+                  {a}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </Section>
 
       <Section
+        n={6}
         title="Disliked titles"
         hint="Specific works you've told us not to recommend"
       >
         {(profile.dislikedTitles ?? []).length === 0 ? (
-          <p className="text-sm text-neutral-500">None recorded.</p>
+          <p className="editorial-hairline pt-6 text-[14px] italic text-neutral-500">
+            None recorded.
+          </p>
         ) : (
-          <ul className="flex flex-wrap gap-2">
-            {(profile.dislikedTitles ?? []).map((t, i) => (
-              <li
-                key={i}
-                className="rounded-full border border-rose-900 bg-rose-950/40 px-3 py-1 text-sm text-rose-200"
-              >
-                {t}
-              </li>
-            ))}
-          </ul>
+          <div className="editorial-hairline pt-6">
+            <ul className="flex flex-wrap gap-2">
+              {(profile.dislikedTitles ?? []).map((t, i) => (
+                <li
+                  key={i}
+                  className="rounded-full border border-rose-700/35 bg-rose-950/15 px-3 py-1 text-[13px] text-rose-200"
+                >
+                  {t}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </Section>
     </div>
@@ -333,26 +371,36 @@ export function ProfileView({
 }
 
 function Section({
+  n,
   title,
   hint,
   children,
 }: {
+  n: number;
   title: string;
   hint: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3">
-      <div>
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="text-xs text-neutral-500">{hint}</p>
+    <section className="grid gap-x-10 gap-y-5 sm:grid-cols-[auto_1fr]">
+      <div className="space-y-2">
+        <span
+          className="editorial-numeral block text-3xl leading-none font-normal text-emerald-300/30 sm:text-4xl"
+          aria-hidden
+        >
+          {n.toString().padStart(2, "0")}
+        </span>
+        <h2 className="font-display text-2xl font-medium leading-tight tracking-tight text-neutral-50 sm:text-3xl">
+          {title}
+        </h2>
+        <p className="text-[13px] italic text-neutral-500">{hint}</p>
       </div>
-      {children}
+      <div className="min-w-0">{children}</div>
     </section>
   );
 }
 
-function NarrativePill({
+function NarrativeRow({
   label,
   children,
 }: {
@@ -360,11 +408,9 @@ function NarrativePill({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="w-20 text-xs uppercase tracking-wide text-neutral-500">
-        {label}
-      </span>
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
+    <>
+      <dt className="editorial-eyebrow self-baseline">{label}</dt>
+      <dd className="min-w-0">{children}</dd>
+    </>
   );
 }

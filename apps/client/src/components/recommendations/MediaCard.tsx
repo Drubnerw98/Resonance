@@ -73,18 +73,18 @@ export function MediaCard({
     };
   }
 
-  // Tone the entire card based on its feedback state.
-  const cardClasses = [
-    "flex gap-4 rounded-lg border p-4 transition-all duration-200",
-    isSaved
-      ? "border-emerald-700 bg-emerald-950/20"
-      : "border-neutral-800 bg-neutral-900 hover:border-neutral-600 hover:bg-neutral-900/80",
-    isSkipped ? "opacity-40 saturate-50" : "opacity-100",
+  // Editorial direction: no bordered card enclosure. Hairline rule above
+  // anchors each rec as a clipping. Saved/skipped states are signaled by
+  // a thin left-margin accent + opacity instead of full card-bg color.
+  const articleClasses = [
+    "editorial-hairline group flex gap-5 pt-6 transition-opacity duration-200 sm:gap-7",
+    isSkipped ? "opacity-40" : "opacity-100",
+    isSaved ? "border-l border-emerald-500/60 pl-5 sm:pl-6" : "",
     pulse ? "animate-feedback-pulse" : "",
   ].join(" ");
 
   return (
-    <article className={cardClasses}>
+    <article className={articleClasses}>
       <a
         href={media.externalUrl}
         target="_blank"
@@ -96,67 +96,97 @@ export function MediaCard({
             src={media.imageUrl}
             alt={media.title}
             loading="lazy"
-            className="h-32 w-24 rounded-md object-cover sm:h-44 sm:w-32"
+            className="h-32 w-24 rounded-sm object-cover transition-transform duration-300 group-hover:-translate-y-0.5 sm:h-44 sm:w-32"
           />
         ) : (
-          <div className="flex h-32 w-24 items-center justify-center rounded-md bg-neutral-800 text-xs text-neutral-500 sm:h-44 sm:w-32">
+          <div className="flex h-32 w-24 items-center justify-center rounded-sm border border-neutral-800 text-[10px] text-neutral-500 sm:h-44 sm:w-32">
             no image
           </div>
         )}
       </a>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <header className="space-y-0.5">
-          <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-500">
-            <span>{FORMAT_LABEL[media.mediaType] ?? media.mediaType}</span>
-            {media.year && <span>· {media.year}</span>}
-            {media.runtime != null && (
-              <span>· {formatRuntime(media.runtime, media.mediaType)}</span>
-            )}
-            {media.rating != null && <span>· ★ {media.rating.toFixed(1)}</span>}
-          </div>
-          <h3 className="font-display text-lg font-medium leading-tight tracking-tight text-neutral-50">
-            <a
-              href={media.externalUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="transition-colors hover:text-white hover:underline"
-            >
-              {media.title}
-            </a>
-          </h3>
-        </header>
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
+        <div className="flex items-baseline justify-between gap-4">
+          <header className="min-w-0 space-y-1.5">
+            <div className="editorial-eyebrow flex flex-wrap items-baseline gap-x-1.5">
+              <span>{FORMAT_LABEL[media.mediaType] ?? media.mediaType}</span>
+              {media.year && <span>· {media.year}</span>}
+              {media.runtime != null && (
+                <span>· {formatRuntime(media.runtime, media.mediaType)}</span>
+              )}
+              {media.rating != null && (
+                <span>· ★ {media.rating.toFixed(1)}</span>
+              )}
+            </div>
+            <h3 className="font-display text-xl font-medium leading-[1.15] tracking-tight text-neutral-50 sm:text-2xl">
+              <a
+                href={media.externalUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="transition-colors hover:text-white"
+              >
+                {media.title}
+              </a>
+            </h3>
+          </header>
+          {/* Match score as a magazine numeral — large, recessive color,
+              tabular figures. Replaces "94% match" badge with a
+              typographic moment. */}
+          <button
+            type="button"
+            onClick={() => onRescore(rec.id)}
+            disabled={isRescoring}
+            title="Match score · click to rescore against your current taste profile"
+            aria-label={isRescoring ? "Rescoring" : `Match score ${scorePct}, click to rescore`}
+            className={
+              "shrink-0 text-right transition-opacity duration-200 disabled:opacity-50 " +
+              (isRescoring ? "animate-pulse" : "")
+            }
+          >
+            <span className="font-display text-3xl leading-none font-medium tabular-nums text-emerald-300 sm:text-4xl">
+              {scorePct}
+            </span>
+            <span className="editorial-eyebrow ml-1 text-emerald-300/60">
+              match
+            </span>
+          </button>
+        </div>
 
-        <p className="text-sm leading-relaxed text-neutral-300">
+        <p className="text-[14px] leading-relaxed text-neutral-300 sm:text-[15px]">
           {explanation}
         </p>
 
-        <ul className="flex flex-wrap gap-1.5">
-          {tasteTags.map((tag, i) => (
-            <li
-              key={i}
-              className="rounded-full border border-emerald-900/50 bg-emerald-950/30 px-2.5 py-0.5 text-xs text-emerald-200/90"
-            >
-              {tag}
-            </li>
-          ))}
-        </ul>
+        {tasteTags.length > 0 && (
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
+            <span className="editorial-eyebrow shrink-0">Tagged</span>
+            <ul className="flex flex-wrap gap-1.5">
+              {tasteTags.map((tag, i) => (
+                <li
+                  key={i}
+                  className="rounded-full border border-emerald-700/35 bg-emerald-950/15 px-2.5 py-0.5 text-[12px] text-neutral-100"
+                >
+                  {tag}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {crossReferences.length > 0 && (
-          <div className="space-y-1.5">
-            <p className="text-xs uppercase tracking-wide text-neutral-500">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
+            <span className="editorial-eyebrow shrink-0">
               Because you loved
-            </p>
+            </span>
             <ul className="flex flex-wrap gap-1.5">
               {crossReferences.map((cr, i) => (
                 <li key={i}>
                   <button
                     type="button"
                     onClick={() => setActiveCrossRef(cr)}
-                    className="rounded-full border border-amber-700/50 bg-amber-950/20 px-2.5 py-0.5 text-xs text-amber-200 transition-colors hover:border-amber-500 hover:bg-amber-900/30 hover:text-amber-100"
+                    className="rounded-full border border-amber-700/40 bg-amber-950/15 px-2.5 py-0.5 text-[12px] text-amber-200 transition-colors duration-200 hover:border-amber-400/60 hover:text-amber-100"
                     aria-label={`See why ${cr.title} anchored this rec`}
                   >
-                    ↗ {cr.title}
+                    {cr.title}
                   </button>
                 </li>
               ))}
@@ -171,29 +201,6 @@ export function MediaCard({
           onFeedback={withPulse(onFeedback)}
           onPlanTo={withPulse(() => onPlanTo(rec))}
         />
-
-        <div className="flex items-center justify-end gap-2 pt-1">
-          <button
-            onClick={() => onRescore(rec.id)}
-            disabled={isRescoring}
-            title="Rescore against your current taste profile"
-            aria-label="Rescore"
-            className="rounded-md p-1 text-xs text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200 disabled:opacity-50"
-          >
-            <span className={isRescoring ? "inline-block animate-spin" : ""}>
-              ↻
-            </span>
-          </button>
-          <span
-            className={
-              "text-xs font-medium " +
-              (isRescoring ? "text-neutral-500" : "text-emerald-400")
-            }
-            title="match score"
-          >
-            {isRescoring ? "rescoring…" : `${scorePct}% match`}
-          </span>
-        </div>
       </div>
       <CrossReferenceModal
         open={activeCrossRef !== null}
@@ -249,49 +256,85 @@ function FeedbackRow({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 pt-2">
-      <button
-        onClick={toggleSave}
-        className={
-          "rounded-md px-2 py-1 text-xs font-medium transition-colors " +
-          (isSaved
-            ? "bg-emerald-700 text-white"
-            : "border border-neutral-700 text-neutral-300 hover:bg-neutral-800")
-        }
-        aria-pressed={isSaved}
-      >
-        {isSaved ? "✓ Saved" : "Save"}
-      </button>
-      <button
+    <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2.5 pt-2">
+      <ActionLink onClick={toggleSave} active={isSaved} accent="emerald">
+        {isSaved ? "Saved" : "Save"}
+      </ActionLink>
+      <ActionLink
         onClick={onPlanTo}
         disabled={isPlanTo}
-        title="Add to your watchlist. Won't be re-recommended."
-        className={
-          "rounded-md px-2 py-1 text-xs font-medium transition-colors disabled:cursor-default " +
-          (isPlanTo
-            ? "bg-amber-700 text-white"
-            : "border border-neutral-700 text-neutral-300 hover:bg-neutral-800")
-        }
-        aria-pressed={isPlanTo}
+        active={isPlanTo}
+        accent="amber"
       >
-        {isPlanTo ? "★ On watchlist" : "Plan to"}
-      </button>
-      <button
-        onClick={toggleSkip}
-        className={
-          "rounded-md px-2 py-1 text-xs font-medium transition-colors " +
-          (isSkipped
-            ? "border border-neutral-700 bg-neutral-800 text-neutral-400"
-            : "border border-neutral-700 text-neutral-300 hover:bg-neutral-800")
-        }
-        aria-pressed={isSkipped}
-      >
-        {isSkipped ? "✗ Skipped" : "Skip"}
-      </button>
+        {isPlanTo ? "On watchlist" : "Plan to"}
+      </ActionLink>
+      <ActionLink onClick={toggleSkip} active={isSkipped} accent="neutral">
+        {isSkipped ? "Skipped" : "Skip"}
+      </ActionLink>
       {/* Stars reflect the rating column directly — independent of status.
-          Saved + rated 4★ shows both: emerald Save button + filled stars. */}
+          Saved + rated 4★ shows both: emerald underline + filled stars. */}
       <Stars value={rating ?? 0} onChange={setRating} />
     </div>
+  );
+}
+
+/**
+ * Editorial text-link action. Replaces the bordered/filled button trio with
+ * Save · Plan to · Skip rendered as text with a hairline underline that
+ * highlights to the accent on hover. Active state keeps the underline at
+ * full accent and recolors the text. Less SaaS-action-row, more editorial.
+ */
+function ActionLink({
+  onClick,
+  disabled,
+  active,
+  accent,
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  active: boolean;
+  accent: "emerald" | "amber" | "neutral";
+  children: React.ReactNode;
+}) {
+  const accentBase = {
+    emerald: {
+      activeUnderline: "border-emerald-400",
+      activeText: "text-emerald-200",
+      restUnderline: "border-neutral-700",
+      hoverUnderline: "group-hover:border-emerald-400",
+    },
+    amber: {
+      activeUnderline: "border-amber-400",
+      activeText: "text-amber-200",
+      restUnderline: "border-neutral-700",
+      hoverUnderline: "group-hover:border-amber-400",
+    },
+    neutral: {
+      activeUnderline: "border-neutral-400",
+      activeText: "text-neutral-400",
+      restUnderline: "border-neutral-700",
+      hoverUnderline: "group-hover:border-neutral-300",
+    },
+  }[accent];
+  const underline = active
+    ? accentBase.activeUnderline
+    : `${accentBase.restUnderline} ${accentBase.hoverUnderline}`;
+  const text = active ? accentBase.activeText : "text-neutral-300";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active}
+      className="group inline-flex items-baseline text-[13px] transition-colors duration-200 disabled:cursor-default disabled:opacity-60"
+    >
+      <span
+        className={`border-b pb-0.5 transition-colors duration-200 ${underline} ${text}`}
+      >
+        {children}
+      </span>
+    </button>
   );
 }
 
@@ -309,7 +352,7 @@ function Stars({
   const display = hover || value;
   return (
     <div
-      className="flex items-center gap-0.5"
+      className="ml-auto flex items-center gap-0.5"
       role="radiogroup"
       aria-label="Rating"
       onMouseLeave={() => setHover(0)}
@@ -323,12 +366,12 @@ function Stars({
             onClick={() => onChange(n)}
             onMouseEnter={() => setHover(n)}
             className={
-              "px-0.5 text-base leading-none transition-colors " +
+              "px-0.5 text-[15px] leading-none transition-colors duration-200 " +
               (filled
                 ? isPreview
                   ? "text-amber-300/80"
                   : "text-amber-400"
-                : "text-neutral-600 hover:text-neutral-400")
+                : "text-neutral-700 hover:text-neutral-400")
             }
             aria-checked={filled}
             role="radio"

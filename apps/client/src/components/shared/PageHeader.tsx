@@ -29,18 +29,14 @@ interface Props {
 
 export function PageHeader({ title, subtitle, eyebrow, action }: Props) {
   return (
-    <header className="flex flex-col gap-5 border-b border-neutral-800 pb-6 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
-      <div className="min-w-0 flex-1 space-y-2">
-        {eyebrow && (
-          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500">
-            {eyebrow}
-          </p>
-        )}
-        <h1 className="font-display text-3xl font-medium leading-[1.1] tracking-tight text-neutral-50 sm:text-4xl">
+    <header className="flex flex-col gap-5 border-b border-neutral-800/60 pb-8 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+      <div className="min-w-0 flex-1 space-y-3">
+        {eyebrow && <p className="editorial-eyebrow">{eyebrow}</p>}
+        <h1 className="font-display text-3xl font-medium leading-[1.05] tracking-tight text-neutral-50 sm:text-5xl">
           {title}
         </h1>
         {subtitle && (
-          <p className="max-w-2xl text-sm leading-relaxed text-neutral-400">
+          <p className="max-w-2xl text-[15px] leading-relaxed text-neutral-400">
             {subtitle}
           </p>
         )}

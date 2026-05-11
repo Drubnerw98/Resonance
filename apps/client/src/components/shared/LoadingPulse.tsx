@@ -17,7 +17,7 @@ interface Props {
 
 export function LoadingPulse({ message, size = 64 }: Props) {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-lg border border-emerald-900/40 bg-gradient-to-br from-emerald-950/20 to-neutral-900 px-6 py-10 text-center">
+    <div className="editorial-hairline flex flex-col items-center gap-5 px-6 py-14 text-center sm:py-20">
       <div className="relative" style={{ width: size, height: size }}>
         {/* Static rings + center dot */}
         <div className="text-emerald-300">
@@ -26,16 +26,18 @@ export function LoadingPulse({ message, size = 64 }: Props) {
         {/* Outer ripples — two staggered ping rings so the "wave" effect is
             perpetually in motion rather than blinking off between cycles. */}
         <span
-          className="absolute inset-0 animate-ping rounded-full border-2 border-emerald-400 opacity-60"
+          className="absolute inset-0 animate-ping rounded-full border border-emerald-400/70"
           aria-hidden
         />
         <span
-          className="absolute inset-2 animate-ping rounded-full border-2 border-emerald-500/70 opacity-50 [animation-delay:600ms]"
+          className="absolute inset-2 animate-ping rounded-full border border-emerald-500/50 [animation-delay:600ms]"
           aria-hidden
         />
       </div>
       {message && (
-        <p className="mx-auto max-w-md text-sm text-neutral-300">{message}</p>
+        <p className="mx-auto max-w-md text-[14px] italic leading-relaxed text-neutral-300">
+          {message}
+        </p>
       )}
     </div>
   );

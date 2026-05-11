@@ -25,17 +25,21 @@ interface Props {
 
 export function EmptyState({ title, description, action }: Props) {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-lg border border-neutral-800 bg-neutral-900 px-6 py-10 text-center">
-      <Logo size={36} />
-      <div className="space-y-1.5">
-        <h2 className="text-base font-semibold text-neutral-100">{title}</h2>
+    <div className="editorial-hairline flex flex-col items-center gap-5 px-6 py-14 text-center sm:py-20">
+      <div className="text-emerald-300/60">
+        <Logo size={32} />
+      </div>
+      <div className="space-y-3">
+        <h2 className="font-display text-xl font-medium italic leading-tight text-neutral-100 sm:text-2xl">
+          {title}
+        </h2>
         {description && (
-          <p className="mx-auto max-w-md text-sm text-neutral-400">
+          <p className="mx-auto max-w-md text-[14px] leading-relaxed text-neutral-400">
             {description}
           </p>
         )}
       </div>
-      {action && <div className="pt-1">{action}</div>}
+      {action && <div className="pt-3">{action}</div>}
     </div>
   );
 }

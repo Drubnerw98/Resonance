@@ -1,0 +1,3 @@
+ALTER TABLE "library_items" ADD COLUMN "media_cache_id" uuid;--> statement-breakpoint
+ALTER TABLE "library_items" ADD CONSTRAINT "library_items_media_cache_id_media_cache_id_fk" FOREIGN KEY ("media_cache_id") REFERENCES "public"."media_cache"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "library_items_media_cache_id_idx" ON "library_items" USING btree ("media_cache_id");

@@ -219,6 +219,18 @@ export const libraryItems = pgTable(
      * future regen logic identify stale annotations without timestamp
      * comparisons. NULL for un-annotated rows. */
     annotatedAtProfileVersion: integer("annotated_at_profile_version"),
+    /** Optional link into the shared media_cache row carrying poster /
+     * runtime / blurb / etc. Populated by the enrichment pipeline
+     * (`enrichLibraryItem`) when the user adds an item manually, marks a
+     * rec as plan-to, or imports a watchlist. Lets the same canonical
+     * metadata flow into watchlist rows that the recommender already uses
+     * for its candidates — one source of truth across the app.
+     *
+     * `onDelete: restrict` matches `recommendations.media_cache_id`:
+     * we never garbage-collect cache rows that something refers to. */
+    mediaCacheId: uuid("media_cache_id").references(() => mediaCache.id, {
+      onDelete: "restrict",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -230,6 +242,7 @@ export const libraryItems = pgTable(
       t.mediaType,
       t.title,
     ),
+    index("library_items_media_cache_id_idx").on(t.mediaCacheId),
   ],
 );
 
@@ -418,6 +431,10 @@ export const libraryItemsRelations = relations(libraryItems, ({ one }) => ({
     fields: [libraryItems.userId],
     references: [users.id],
   }),
+  media: one(mediaCache, {
+    fields: [libraryItems.mediaCacheId],
+    references: [mediaCache.id],
+  }),
 }));
 
 export const tasteProfilesRelations = relations(
@@ -453,6 +470,7 @@ export const onboardingSessionsRelations = relations(
 
 export const mediaCacheRelations = relations(mediaCache, ({ many }) => ({
   recommendations: many(recommendations),
+  libraryItems: many(libraryItems),
 }));
 
 export const recommendationsRelations = relations(

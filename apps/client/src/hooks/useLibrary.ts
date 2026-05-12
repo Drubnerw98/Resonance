@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { MediaType } from "@resonance/shared";
+import type { MediaItem, MediaType } from "@resonance/shared";
 import { useApi } from "./useApi.ts";
 import { ApiError } from "../lib/api.ts";
 
@@ -14,10 +14,49 @@ export interface LibraryItem {
   rating: number | null;
   year: number | null;
   createdAt: string;
+  /** Canonical metadata from media_cache (poster, description, runtime,
+   * genres, external link). Populated by the enrichment pipeline on add /
+   * mark-watched / post-import drain. Null when the row hasn't been
+   * enriched yet — UI falls back to text-only rendering. */
+  media: MediaItem | null;
+}
+
+interface ServerLibraryItem {
+  id: string;
+  title: string;
+  mediaType: MediaType;
+  source: string;
+  status: LibraryItemStatus;
+  rating: number | null;
+  year: number | null;
+  createdAt: string;
+  /** Server ships the joined media_cache row. Drizzle returns the cache
+   * row shape; only `normalizedData` (the MediaItem) is interesting to
+   * the client. */
+  media: { normalizedData: MediaItem } | null;
+}
+
+interface EnrichBatchResult {
+  enriched: number;
+  attempted: number;
 }
 
 interface ListResponse {
-  items: LibraryItem[];
+  items: ServerLibraryItem[];
+}
+
+function normalize(item: ServerLibraryItem): LibraryItem {
+  return {
+    id: item.id,
+    title: item.title,
+    mediaType: item.mediaType,
+    source: item.source,
+    status: item.status,
+    rating: item.rating,
+    year: item.year,
+    createdAt: item.createdAt,
+    media: item.media?.normalizedData ?? null,
+  };
 }
 
 interface ImportResult {
@@ -62,6 +101,10 @@ export interface UseLibrary {
    * deleted. */
   clear: (source?: string) => Promise<number>;
   refresh: () => Promise<void>;
+  /** After a bulk import (CSV / Steam), pulls posters + metadata for the
+   * just-imported rows in 50-at-a-time batches. UI refreshes between
+   * batches so rows light up progressively. */
+  drainEnrichment: () => Promise<void>;
 }
 
 export function useLibrary(): UseLibrary {
@@ -74,13 +117,35 @@ export function useLibrary(): UseLibrary {
   const refresh = useCallback(async () => {
     try {
       const res = await api<ListResponse>("/library");
-      setItems(res.items);
+      setItems(res.items.map(normalize));
       setStatus("ready");
     } catch (err) {
       setStatus("error");
       setError(err instanceof Error ? err.message : "Failed to load library");
     }
   }, [api]);
+
+  /** Drain the un-enriched library rows via the server's batch endpoint.
+   * Used by import flows: after a CSV / Steam import returns success, the
+   * client kicks this off so posters fill in without blocking the import
+   * response itself. Polls until the server reports zero attempted rows
+   * (everything already enriched) or a hard cap is hit. */
+  const drainEnrichment = useCallback(async () => {
+    for (let i = 0; i < 8; i++) {
+      try {
+        const res = await api<EnrichBatchResult>("/library/enrich-batch", {
+          method: "POST",
+        });
+        if (res.attempted === 0) break;
+        // Trickle refreshed rows back to UI so posters appear as they land
+        // — without this the page stays bare until the whole drain finishes.
+        await refresh();
+        if (res.enriched === 0) break;
+      } catch {
+        break;
+      }
+    }
+  }, [api, refresh]);
 
   useEffect(() => {
     void refresh();
@@ -97,6 +162,10 @@ export function useLibrary(): UseLibrary {
           body: { source, csv },
         });
         await refresh();
+        // Backfill posters / metadata for the just-imported rows. Fire and
+        // forget — the import has already returned; the drain trickles
+        // results in over the next few seconds.
+        void drainEnrichment();
         return res;
       } catch (err) {
         setError(
@@ -111,7 +180,7 @@ export function useLibrary(): UseLibrary {
         setImporting(false);
       }
     },
-    [api, importing, refresh],
+    [api, importing, refresh, drainEnrichment],
   );
 
   const importSteam = useCallback(
@@ -125,6 +194,7 @@ export function useLibrary(): UseLibrary {
           body: { steamIdOrUrl },
         });
         await refresh();
+        void drainEnrichment();
         return res;
       } catch (err) {
         setError(
@@ -139,7 +209,7 @@ export function useLibrary(): UseLibrary {
         setImporting(false);
       }
     },
-    [api, importing, refresh],
+    [api, importing, refresh, drainEnrichment],
   );
 
   const add = useCallback(
@@ -245,5 +315,6 @@ export function useLibrary(): UseLibrary {
     setItemRating,
     clear,
     refresh,
+    drainEnrichment,
   };
 }

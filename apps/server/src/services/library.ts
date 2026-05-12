@@ -3,6 +3,7 @@ import type { MediaType } from "@resonance/shared";
 import { db } from "../db/index.js";
 import {
   libraryItems,
+  mediaCache,
   type LibraryItemRow,
   type NewLibraryItemRow,
 } from "../db/schema.js";
@@ -375,13 +376,30 @@ export async function importLibraryItems(
   return inserted.length;
 }
 
+export type LibraryItemWithMedia = LibraryItemRow & {
+  /** Joined media_cache row (when this item has been enriched). Holds the
+   * canonical poster URL, runtime, blurb, etc. that the watchlist UI
+   * renders. Null when enrichment hasn't run or returned 0 hits. */
+  media: typeof mediaCache.$inferSelect | null;
+};
+
 export async function listLibraryItems(
   userId: string,
-): Promise<LibraryItemRow[]> {
-  return db.query.libraryItems.findMany({
-    where: eq(libraryItems.userId, userId),
-    orderBy: [desc(libraryItems.createdAt)],
-  });
+): Promise<LibraryItemWithMedia[]> {
+  // Hand-rolled LEFT JOIN instead of db.query.libraryItems.findMany({ with:
+  // { media: true } }) so the response shape matches LibraryItemRow + a
+  // single `media` field (rather than the relations-API's nested object
+  // builder, which produces a deeper shape).
+  const rows = await db
+    .select({
+      item: libraryItems,
+      media: mediaCache,
+    })
+    .from(libraryItems)
+    .leftJoin(mediaCache, eq(libraryItems.mediaCacheId, mediaCache.id))
+    .where(eq(libraryItems.userId, userId))
+    .orderBy(desc(libraryItems.createdAt));
+  return rows.map((r) => ({ ...r.item, media: r.media }));
 }
 
 export async function deleteLibraryItem(

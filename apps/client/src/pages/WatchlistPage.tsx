@@ -12,6 +12,9 @@ import { EmptyState } from "../components/shared/EmptyState.tsx";
 import { LoadingPulse } from "../components/shared/LoadingPulse.tsx";
 import { Skeleton } from "../components/shared/Skeleton.tsx";
 import { FormatGlyph } from "../components/shared/FormatGlyph.tsx";
+import { TabButton } from "../components/recommendations/TabButton.tsx";
+
+type FilterKey = "all" | MediaType;
 
 const FORMAT_LABEL: Record<MediaType, string> = {
   movie: "Movies",
@@ -53,10 +56,30 @@ export function WatchlistPage() {
   const lib = useLibrary();
   const decide = useWatchlistDecide();
   const [draft, setDraft] = useState("");
+  const [filter, setFilter] = useState<FilterKey>("all");
 
   const watchlist = useMemo(
     () => lib.items.filter((i) => i.status === "watchlist"),
     [lib.items],
+  );
+
+  // Per-format counts drive the tab badges and which tabs are visible.
+  // Tabs with zero items hide so a books-only watchlist doesn't show six
+  // empty filters.
+  const countsByFormat = useMemo(() => {
+    const out: Partial<Record<MediaType, number>> = {};
+    for (const it of watchlist) {
+      out[it.mediaType] = (out[it.mediaType] ?? 0) + 1;
+    }
+    return out;
+  }, [watchlist]);
+
+  const filteredWatchlist = useMemo(
+    () =>
+      filter === "all"
+        ? watchlist
+        : watchlist.filter((i) => i.mediaType === filter),
+    [watchlist, filter],
   );
 
   function handlePickRandom() {
@@ -233,11 +256,50 @@ export function WatchlistPage() {
           }
         />
       ) : (
-        <WatchlistByFormat
-          items={watchlist}
-          onMarkWatched={(id) => void lib.setItemStatus(id, "consumed")}
-          onRate={(id, rating) => void lib.setItemRating(id, rating)}
-        />
+        <>
+          {/* Format-filter tabs above the list. "All" preserves the
+              grouped-by-format layout; picking a single format flattens
+              into a single ordered list. Zero-count tabs hide. */}
+          <nav className="flex gap-1 overflow-x-auto border-b border-neutral-800 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <TabButton
+              label="All"
+              count={watchlist.length}
+              active={filter === "all"}
+              onClick={() => setFilter("all")}
+            />
+            {FORMAT_ORDER.flatMap((f) => {
+              const count = countsByFormat[f] ?? 0;
+              if (count === 0) return [];
+              return [
+                <TabButton
+                  key={f}
+                  label={FORMAT_LABEL[f]}
+                  count={count}
+                  active={filter === f}
+                  onClick={() => setFilter(f)}
+                />,
+              ];
+            })}
+          </nav>
+          {filter === "all" ? (
+            <WatchlistByFormat
+              items={filteredWatchlist}
+              onMarkWatched={(id) => void lib.setItemStatus(id, "consumed")}
+              onRate={(id, rating) => void lib.setItemRating(id, rating)}
+            />
+          ) : (
+            <ul className="space-y-2">
+              {filteredWatchlist.map((it) => (
+                <WatchlistRow
+                  key={it.id}
+                  item={it}
+                  onMarkWatched={() => void lib.setItemStatus(it.id, "consumed")}
+                  onRate={(stars) => void lib.setItemRating(it.id, stars)}
+                />
+              ))}
+            </ul>
+          )}
+        </>
       )}
     </section>
   );
@@ -335,7 +397,13 @@ function WatchlistByFormat({
  * AI annotation server-side (the row joins the profile signal). Rating sets
  * a 1-5 value; clicking the active star clears it. Promotion + rating in
  * one click: rate stars first, then "Mark watched" or vice versa — both
- * land in the same PATCH cycle. */
+ * land in the same PATCH cycle.
+ *
+ * When the row has been enriched (item.media set), shows the poster +
+ * runtime/year/description; falls back to text-only when un-enriched. The
+ * fallback path keeps the row useful even if the enrichment pipeline can't
+ * find a match (rare titles, niche games, etc).
+ */
 function WatchlistRow({
   item,
   onMarkWatched,
@@ -345,27 +413,123 @@ function WatchlistRow({
   onMarkWatched: () => void;
   onRate: (rating: number | null) => void;
 }) {
+  const media = item.media;
+  const posterUrl = media?.imageUrl ?? null;
+  const description = media?.description ?? null;
+  const runtime = media?.runtime ?? null;
+  const externalUrl = media?.externalUrl ?? null;
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm">
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-neutral-100">{item.title}</span>
-        <span className="text-xs text-neutral-500">
-          {item.year != null ? `${item.year} · ` : ""}from {item.source}
-        </span>
-      </span>
-      <div className="flex items-center gap-4">
-        <RowStars value={item.rating ?? 0} onChange={onRate} />
-        <button
-          type="button"
-          onClick={onMarkWatched}
-          className="rounded-md border border-emerald-800/60 bg-emerald-950/30 px-2.5 py-1 text-xs text-emerald-200 transition-colors hover:border-emerald-500/70 hover:bg-emerald-900/50 hover:text-emerald-100"
-          title="Mark as watched / consumed. Promotes to the consumed library so it can feed your profile."
-        >
-          Mark watched
-        </button>
+    <li className="flex gap-3 rounded-md border border-neutral-800 bg-neutral-900/60 p-3 sm:gap-4">
+      <PosterThumb
+        posterUrl={posterUrl}
+        title={item.title}
+        externalUrl={externalUrl}
+        mediaType={item.mediaType}
+      />
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <h3 className="min-w-0 truncate text-sm font-semibold leading-snug text-neutral-100 sm:text-base">
+            {externalUrl ? (
+              <a
+                href={externalUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-white"
+              >
+                {item.title}
+              </a>
+            ) : (
+              item.title
+            )}
+          </h3>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-1.5 text-[11px] uppercase tracking-wide text-neutral-500">
+          <FormatGlyph
+            format={item.mediaType}
+            size={9}
+            className={FORMAT_TEXT_COLOR[item.mediaType]}
+          />
+          <span>{FORMAT_LABEL[item.mediaType]}</span>
+          {item.year != null && <span>· {item.year}</span>}
+          {runtime != null && <span>· {formatRuntime(runtime, item.mediaType)}</span>}
+          <span>· from {item.source}</span>
+        </div>
+        {description && (
+          <p className="line-clamp-2 text-xs leading-relaxed text-neutral-400 sm:text-sm">
+            {description}
+          </p>
+        )}
+        <div className="mt-auto flex items-center gap-3 pt-1">
+          <RowStars value={item.rating ?? 0} onChange={onRate} />
+          <button
+            type="button"
+            onClick={onMarkWatched}
+            className="rounded-md border border-emerald-800/60 bg-emerald-950/30 px-2.5 py-1 text-xs text-emerald-200 transition-colors hover:border-emerald-500/70 hover:bg-emerald-900/50 hover:text-emerald-100"
+            title="Mark as watched / consumed. Promotes to the consumed library so it can feed your profile."
+          >
+            Mark watched
+          </button>
+        </div>
       </div>
     </li>
   );
+}
+
+function PosterThumb({
+  posterUrl,
+  title,
+  externalUrl,
+  mediaType,
+}: {
+  posterUrl: string | null;
+  title: string;
+  externalUrl: string | null;
+  mediaType: MediaType;
+}) {
+  const sizeClasses = "h-20 w-14 sm:h-24 sm:w-16";
+  const inner = posterUrl ? (
+    <img
+      src={posterUrl}
+      alt={title}
+      loading="lazy"
+      className={`${sizeClasses} shrink-0 rounded-sm border border-neutral-800 object-cover`}
+    />
+  ) : (
+    <div
+      className={`${sizeClasses} flex shrink-0 flex-col items-center justify-center gap-1 rounded-sm border border-dashed border-neutral-800 bg-neutral-950/60 text-neutral-600`}
+      aria-label={`${title} (no cover)`}
+    >
+      <FormatGlyph
+        format={mediaType}
+        size={14}
+        className={FORMAT_TEXT_COLOR[mediaType] ?? "text-neutral-500"}
+      />
+      <span className="text-[8px] uppercase tracking-wider">no cover</span>
+    </div>
+  );
+  if (!externalUrl) return inner;
+  return (
+    <a
+      href={externalUrl}
+      target="_blank"
+      rel="noreferrer"
+      className="shrink-0"
+      aria-label={`Open ${title}`}
+    >
+      {inner}
+    </a>
+  );
+}
+
+/** "2h 14m" for movies; "45 min/ep" for TV/anime. */
+function formatRuntime(minutes: number, mediaType: MediaType): string {
+  if (mediaType === "tv" || mediaType === "anime") return `${minutes} min/ep`;
+  if (minutes >= 60) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+  return `${minutes}m`;
 }
 
 function RowStars({

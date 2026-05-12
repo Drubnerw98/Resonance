@@ -20,6 +20,10 @@ import {
   persistAnnotation,
 } from "../services/ai/libraryAnnotation.js";
 import { checkRateLimit } from "../services/rateLimit.js";
+import {
+  enrichLibraryItem,
+  enrichLibraryItemsForUser,
+} from "../services/libraryEnrich.js";
 import { logger } from "../lib/logger.js";
 
 export const libraryRouter: Router = Router();
@@ -87,6 +91,13 @@ libraryRouter.post("/", async (req, res, next) => {
       return;
     }
 
+    // Inline enrichment — best-effort, swallowed on failure. One TMDB / IGDB
+    // / Jikan / Open Library lookup (~300ms) so the watchlist row renders
+    // with a poster instead of just text. The row is already saved so a
+    // network blip here is non-fatal.
+    const enrichedRow = await enrichLibraryItem(row.id);
+    const baseRow = enrichedRow ?? row;
+
     // Inline annotation for manual + consumed items. Watchlist items skip —
     // a "fitNote" presupposes engagement the user hasn't had; Constellation
     // positions watchlist nodes via title-substring fallback. Imports never
@@ -95,12 +106,12 @@ libraryRouter.post("/", async (req, res, next) => {
     // Best-effort: annotation failure does NOT roll back the insert. Row is
     // already saved; the user gets the un-annotated item. A subsequent
     // backfill or manual re-trigger can fill in fitNote later.
-    let annotated = row;
-    if (row.source === "manual" && row.status === "consumed") {
+    let annotated = baseRow;
+    if (baseRow.source === "manual" && baseRow.status === "consumed") {
       try {
         checkRateLimit(req.user!.id, "library.annotate");
-        const result = await annotateLibraryItem(req.user!.id, row.id);
-        const persisted = await persistAnnotation(row.id, result);
+        const result = await annotateLibraryItem(req.user!.id, baseRow.id);
+        const persisted = await persistAnnotation(baseRow.id, result);
         if (persisted) annotated = persisted;
       } catch (err) {
         // Don't surface 429 to the user as a hard failure — they added the
@@ -110,7 +121,7 @@ libraryRouter.post("/", async (req, res, next) => {
         logger.warn(
           {
             userId: req.user!.id,
-            itemId: row.id,
+            itemId: baseRow.id,
             err: err instanceof Error ? err.message : String(err),
           },
           "library: annotation failed, returning un-annotated row",
@@ -118,6 +129,26 @@ libraryRouter.post("/", async (req, res, next) => {
       }
     }
     res.status(201).json({ item: annotated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/library/enrich-batch
+ * Drain endpoint — backfills media_cache_id on the user's un-enriched
+ * library items. Fired by the client after a CSV / Steam import returns,
+ * so a 200-item Letterboxd watchlist gets posters without making the
+ * import itself wait for ~200 TMDB roundtrips.
+ *
+ * Caps at 50 items per call so a single drain stays within rate budget;
+ * the client polls until the response reports zero remaining work or a
+ * hard cap is hit.
+ */
+libraryRouter.post("/enrich-batch", async (req, res, next) => {
+  try {
+    const result = await enrichLibraryItemsForUser(req.user!.id, 50);
+    res.json(result);
   } catch (err) {
     next(err);
   }

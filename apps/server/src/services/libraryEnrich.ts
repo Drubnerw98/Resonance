@@ -84,17 +84,30 @@ export async function enrichLibraryItem(
  *
  * `Promise.allSettled` so one rate-limit or 404 doesn't kill the batch.
  * Returns the count of rows that successfully picked up a cache id.
+ *
+ * Default status filter is "watchlist" because that's currently the only
+ * UI surface that renders posters. A long-history consumed library
+ * (1300+ Letterboxd entries is normal) would otherwise eat the entire
+ * enrichment budget before the user's actual watchlist sees any
+ * posters. Pass "all" to drain consumed + watchlist together; pass
+ * "consumed" to enrich only consumed.
  */
 export async function enrichLibraryItemsForUser(
   userId: string,
   limit = 50,
+  statusFilter: "watchlist" | "consumed" | "all" = "watchlist",
 ): Promise<{ enriched: number; attempted: number }> {
+  const whereClauses = [
+    eq(libraryItems.userId, userId),
+    isNull(libraryItems.mediaCacheId),
+  ];
+  if (statusFilter !== "all") {
+    whereClauses.push(eq(libraryItems.status, statusFilter));
+  }
   const rows = await db
     .select({ id: libraryItems.id })
     .from(libraryItems)
-    .where(
-      and(eq(libraryItems.userId, userId), isNull(libraryItems.mediaCacheId)),
-    )
+    .where(and(...whereClauses))
     .limit(limit);
   if (rows.length === 0) return { enriched: 0, attempted: 0 };
 
@@ -105,10 +118,8 @@ export async function enrichLibraryItemsForUser(
   // a mediaCacheId set after the call. Failed lookups still resolve with
   // the un-enriched row, so we have to inspect the result.
   let enriched = 0;
-  const enrichedIds: string[] = [];
   for (const r of results) {
     if (r.status === "fulfilled" && r.value?.mediaCacheId) {
-      enrichedIds.push(r.value.id);
       enriched++;
     }
   }

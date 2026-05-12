@@ -135,11 +135,16 @@ libraryRouter.post("/", async (req, res, next) => {
 });
 
 /**
- * POST /api/library/enrich-batch
+ * POST /api/library/enrich-batch?status=watchlist|consumed|all
  * Drain endpoint — backfills media_cache_id on the user's un-enriched
  * library items. Fired by the client after a CSV / Steam import returns,
  * so a 200-item Letterboxd watchlist gets posters without making the
  * import itself wait for ~200 TMDB roundtrips.
+ *
+ * Defaults to status=watchlist because that's currently the only UI
+ * surface using posters. Without the filter, a long consumed library
+ * starves the watchlist of enrichment budget. Pass status=all to drain
+ * the whole library (slow on big imports, low UI payoff today).
  *
  * Caps at 50 items per call so a single drain stays within rate budget;
  * the client polls until the response reports zero remaining work or a
@@ -147,7 +152,12 @@ libraryRouter.post("/", async (req, res, next) => {
  */
 libraryRouter.post("/enrich-batch", async (req, res, next) => {
   try {
-    const result = await enrichLibraryItemsForUser(req.user!.id, 50);
+    const raw = req.query.status;
+    const status: "watchlist" | "consumed" | "all" =
+      raw === "consumed" || raw === "all" || raw === "watchlist"
+        ? raw
+        : "watchlist";
+    const result = await enrichLibraryItemsForUser(req.user!.id, 50, status);
     res.json(result);
   } catch (err) {
     next(err);

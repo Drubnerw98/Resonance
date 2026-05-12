@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import type { MediaType } from "@resonance/shared";
 import { useLibrary, type LibraryItem } from "../hooks/useLibrary.ts";
@@ -81,6 +81,24 @@ export function WatchlistPage() {
         : watchlist.filter((i) => i.mediaType === filter),
     [watchlist, filter],
   );
+
+  // Auto-backfill posters/metadata for pre-existing watchlist items the
+  // first time the page mounts with un-enriched rows visible. Items added
+  // *after* the enrichment feature shipped get enriched inline by the
+  // server; this catches everything that pre-dates it. Single-shot per
+  // mount via a ref so we don't loop while the drain is in progress (the
+  // drain itself refreshes the watchlist between batches, which would
+  // re-fire this effect without the guard).
+  const { drainEnrichment } = lib;
+  const libStatus = lib.status;
+  const drainAttempted = useRef(false);
+  useEffect(() => {
+    if (drainAttempted.current) return;
+    if (libStatus !== "ready") return;
+    if (!watchlist.some((i) => i.media == null)) return;
+    drainAttempted.current = true;
+    void drainEnrichment();
+  }, [libStatus, watchlist, drainEnrichment]);
 
   function handlePickRandom() {
     if (watchlist.length === 0) return;

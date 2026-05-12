@@ -38,6 +38,7 @@ Cross-format media recommender (movies, TV, anime, manga, games, books) built ar
 - Shared `FormatGlyph` component matching Constellation's glyph vocabulary (circle/triangle/hexagon/diamond/star) used on profile chips, inspiration chips, watchlist headers
 - Watchlist: per-row 5-star rating, *Mark watched* promotion (triggers existing AI annotation pipeline), *Pick for me* random fallback in the decider
 - `ProfileSavedToast` — animated sparkle + slide-up toast on manual profile save, surfaces the new version number
+- Watchlist enrichment — new `media_cache_id` FK on `library_items` linking watchlist rows into the same `media_cache` the recommender uses. `services/libraryEnrich.ts` dispatches by mediaType through the existing TMDB / IGDB / Jikan / Open Library adapters. Inline enrichment on `POST /api/library`; `POST /api/library/enrich-batch?status=watchlist` drains un-enriched watchlist rows 50 at a time. `/watchlist` auto-fires the drain on first mount when un-enriched rows are present.
 - Auto-refinement banner when feedback PATCH crosses the threshold
 - Save + rate visually independent (rated 4★ + saved coexist)
 - Signed-out landing page (hero / how-it-works / differentiator / format showcase / closing CTA)

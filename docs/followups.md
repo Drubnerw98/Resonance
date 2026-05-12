@@ -7,40 +7,13 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
 ## Contents
 
 - [Active](#active)
-  - [2026-05-11 — TMDB / external-DB enrichment for watchlist items](#2026-05-11--tmdb--external-db-enrichment-for-watchlist-items)
   - [2026-05-11 — Past-batches compact rendering on recommendations page](#2026-05-11--past-batches-compact-rendering-on-recommendations-page)
+  - [2026-05-11 — Mark un-enrichable library items so they stop retrying](#2026-05-11--mark-un-enrichable-library-items-so-they-stop-retrying)
 - [Resolved](#resolved)
+  - [2026-05-11 — TMDB / external-DB enrichment for watchlist items](#2026-05-11--tmdb--external-db-enrichment-for-watchlist-items-resolved)
 - [Abandoned](#abandoned)
 
 ## Active
-
-### 2026-05-11 — TMDB / external-DB enrichment for watchlist items
-
-**What:** Watchlist rows on `/watchlist` currently render `title · year · source` and nothing else. Recs already get rich metadata via `media_cache` (poster image, plot, runtime, external links) at score time; watchlist items skip this because they're plan-to-consume, not actively recommended. With a long watchlist this reads thin — no posters, no plot blurb, no way to differentiate a remembered title from a stale one.
-
-**Why noticed:** Surfaced during Kevin's UX pass on 2026-05-11. Kevin's framing: "if people have a lot of titles on their watchlist it could be bad, maybe import the tmdb data". The pick-for-me / mark-watched / rate work shipped in the same session; this is the fourth quadrant of that feedback that needed server work and was deferred.
-
-**Anchors:**
-
-- `apps/server/src/api/library.ts` (add path + steam-import path — where watchlist items land)
-- `apps/server/src/services/mediaCache.ts` (the existing enrichment surface — would be the source of truth)
-- `apps/server/src/db/schema.ts` (library_items table — needs an optional `media_cache_id` link or denormalized poster fields)
-- `apps/client/src/pages/WatchlistPage.tsx` (`WatchlistRow` — current rendering surface)
-
-**What's been considered:**
-
-- Backfill-on-add: when a library item is created with `status="watchlist"`, fire a background lookup against the same enrichment pipeline recs use. Cache the result on the library row.
-- Lazy enrichment: only enrich when the user actually opens the watchlist page; first-fetch hits the cache, subsequent fetches are fast.
-- Imported-watchlists (Letterboxd, Goodreads, MAL) can be hundreds of items — enrichment cost is real. The pipeline already has per-user daily rate limits; this would compete with rec generation.
-- Display-side fallback: even without backfill, the watchlist row could lazy-fetch a single TMDB search result client-side on render. Cheap, but adds latency to every page open.
-
-**Shape of work:** Server: extend the library `add` path to look up media metadata via the existing aggregator and write the result onto the row (or store a media_cache_id). Decide whether to do this synchronously (slow add) or as a job (added complexity but better UX). Client: render poster + brief plot/runtime line. Backfill migration for existing watchlist items optional — could run lazily as users open the page. Estimate: a day's work, mostly because of the design call between sync / job / lazy.
-
-**Open questions:**
-
-- Sync, job, or lazy? Each has tradeoffs and is one decision to make in `decisions.md`-style language.
-- Imported-watchlists are the dominant volume. Do we backfill them eagerly (cost on import time) or on first watchlist-page open?
-- Posters or just text metadata first? Posters are the highest visual gain but add bytes and require image hosting trust.
 
 ### 2026-05-11 — Past-batches compact rendering on recommendations page
 
@@ -61,9 +34,33 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
 - How does this compose with the existing view-mode toggle (Grid vs One-at-a-time)? Either it's orthogonal (collapse-past applies in both modes) or it only applies in Grid mode.
 - Is "first batch" defined as "newest in time" (current chronological order) or "the one just generated this session"? The latter requires tracking session state; the former is easier and probably fine.
 
+### 2026-05-11 — Mark un-enrichable library items so they stop retrying
+
+**What:** When `enrichLibraryItem` runs an adapter lookup that returns zero hits (rare title, obscure indie game, year ambiguity), the row stays with `media_cache_id = null`. Every subsequent `/watchlist` visit re-fires the drain, which picks up the same row in its `isNull(mediaCacheId)` filter and re-runs the same lookup. The lookup re-fails, we re-log the warn, the row stays un-enriched. Per-user this is bounded by page visits; across many users with niche items in their watchlists it could become a meaningful chunk of wasted TMDB / Jikan / IGDB / Open Library budget.
+
+**Why noticed:** Surfaced during the post-ship audit of watchlist enrichment on 2026-05-11. drub asked whether the auto-drain could hurt performance long-term; the answer is mostly no, but this retry-on-every-visit pattern is the one small inefficiency worth a follow-up if scale reveals it.
+
+**Anchors:**
+
+- `apps/server/src/services/libraryEnrich.ts` (`enrichLibraryItem`, `enrichLibraryItemsForUser`)
+- `apps/server/src/db/schema.ts` (`libraryItems` — would gain a new timestamp column)
+
+**Shape of work:** Add a nullable `media_cache_enrich_tried_at: timestamp` column on `library_items`. When `enrichLibraryItem` returns from the adapter with zero hits (or the adapter call throws), set this timestamp. Drain SQL gets an additional clause: `OR media_cache_enrich_tried_at IS NULL OR media_cache_enrich_tried_at < NOW() - INTERVAL '7 days'`. Successful enrichments leave the column null since `media_cache_id` is set. Tiny migration, three-line code change. Estimate: 30 min.
+
+**Open questions:**
+
+- Retry interval — 7 days feels right (catches new TMDB entries within a week of release without thrashing). Could be longer if we want to be conservative.
+- Should manual user action ("re-enrich this row") be exposed? Probably not until users actually ask.
+
 ## Resolved
 
-(items move here when ticketed and shipped, or fixed inline — keep for historical context, prune when the file gets long)
+### 2026-05-11 — TMDB / external-DB enrichment for watchlist items (resolved)
+
+**What was deferred:** Watchlist rows on `/watchlist` rendered `title · year · source` as plain text — visually thin compared to recs (which already had posters via `media_cache`). Kevin's framing: "if people have a lot of titles on their watchlist it could be bad, maybe import the tmdb data".
+
+**Resolved 2026-05-11 (commits `8f7bc5e`, `3789264`, `197fe7a` on Resonance main):** Schema added nullable `media_cache_id` FK on `library_items` (migration `0010_library_media_cache_link.sql`, applied to prod). New `services/libraryEnrich.ts` dispatches by mediaType through the existing TMDB / IGDB / Jikan / Open Library adapters via `searchAndCacheByTitle`, year-disambiguates the match, and links the FK. Failures are swallowed + logged. `POST /api/library` runs enrichment inline (~300ms one external call) on every manual add / plan-to. `POST /api/library/enrich-batch?status=watchlist` drains un-enriched rows 50 at a time; defaults to `status=watchlist` so a long consumed-library history doesn't starve the watchlist of enrichment budget. Client side: `LibraryItem` shape gains `media: MediaItem | null` from a server-side leftJoin, `WatchlistRow` rewritten to render a `loading="lazy"` poster + linked title + per-format glyph + year/runtime/source + 2-line description. Format-filter tabs above the list (zero-count tabs hide). `/watchlist` auto-fires the drain on first mount when un-enriched rows are present, via a `drainAttempted` ref so the drain refreshing the library between batches doesn't re-fire the effect.
+
+**Anchors:** `apps/server/src/services/libraryEnrich.ts`, `apps/server/src/api/library.ts`, `apps/server/src/db/migrations/0010_library_media_cache_link.sql`, `apps/client/src/pages/WatchlistPage.tsx`, `apps/client/src/hooks/useLibrary.ts`.
 
 ## Abandoned
 

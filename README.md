@@ -220,6 +220,12 @@ Three decisions where I overruled or extended what the model would have done by 
 
 The architecture decisions in [ARCHITECTURE.md](./ARCHITECTURE.md) are mine. The shape of every subsystem (the four-mode AI partition, the persistent-batch model, the format hard-filter pattern, the schema-as-contract-and-validator pattern, the cross-batch series-variant dedup) reflects calls I made about what mattered for this product, often against the grain of "just do what's typical." Claude wrote the code that implemented those calls and pushed back when my plans had holes. That collaboration shape, model as fast collaborator, human as system designer, is the thing the project is most a portfolio piece of.
 
+## What's next
+
+The next chunk of work on Resonance is an **MCP server** exposing the recommendation pipeline as a tool agents can call — so Claude, Cursor, or any MCP-aware client can recommend against a user's actual taste profile rather than starting from scratch each session. Paired with a small evaluation harness (real users' profiles + a held-out set of titles, scored against the recommendation output) so improvements are measurable rather than vibes-based.
+
+See [IMPROVEMENT_PLAN.md](./IMPROVEMENT_PLAN.md) for the current sequence.
+
 ## License
 
 This is a portfolio project. Not currently licensed for redistribution.

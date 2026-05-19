@@ -1,0 +1,24 @@
+{
+  "name": "@resonance/eval",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Evaluation harness for Resonance's recommendation pipeline.",
+  "scripts": {
+    "eval": "tsx src/run.ts",
+    "eval:invariants": "tsx src/run.ts --suite invariants",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
+    "@resonance/shared": "workspace:*",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.45.2",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

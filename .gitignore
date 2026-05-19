@@ -29,3 +29,6 @@ pnpm-debug.log*
 
 # Drizzle
 drizzle/meta/_journal.json.bak
+
+# Eval reports — runs are local-only; commit notable baselines by hand.
+apps/eval/runs/*.md

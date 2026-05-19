@@ -416,6 +416,54 @@ export const jobs = pgTable(
 export type JobRow = typeof jobs.$inferSelect;
 export type NewJobRow = typeof jobs.$inferInsert;
 
+// Per-user API tokens that authenticate MCP clients (Claude Desktop, Cursor,
+// etc.) into the user's Resonance account. Distinct auth path from Clerk —
+// Clerk gates the web app; these gate the MCP server at /mcp. Multiple
+// tokens per user (named, GitHub-PAT style) so revoking one device doesn't
+// nuke them all. We store a SHA-256 hash of the raw token; the raw value is
+// returned exactly once at mint time and never again.
+export const mcpTokens = pgTable(
+  "mcp_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Display name, e.g. "Claude Desktop on laptop". User-supplied at mint. */
+    name: text("name").notNull(),
+    /** SHA-256 hex of the full raw token. Tokens are high-entropy random
+     * (32 bytes b64url), so a fast hash is fine — bcrypt's slow-hash design
+     * is for low-entropy passwords. Unique so we can look up O(1) on verify. */
+    tokenHash: text("token_hash").notNull(),
+    /** First ~12 chars of the raw token ("rsn_mcp_abc1"). Stored plaintext
+     * so the management UI can show users which token is which without
+     * revealing the full secret. */
+    tokenPrefix: text("token_prefix").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** Bumped on every successful verify. Lets users see which tokens are
+     * still in active use before revoking. */
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    /** Soft-delete. A verify on a revoked token fails closed; the row stays
+     * for audit ("this token was revoked at T"). */
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("mcp_tokens_token_hash_uniq").on(t.tokenHash),
+    // (userId, name) must be unique among LIVE tokens. A user can re-use a
+    // revoked token's name later. Partial index keyed on revokedAt IS NULL
+    // makes this naturally idempotent without a lookup.
+    uniqueIndex("mcp_tokens_user_name_live_uniq")
+      .on(t.userId, t.name)
+      .where(sql`${t.revokedAt} IS NULL`),
+    index("mcp_tokens_user_id_idx").on(t.userId),
+  ],
+);
+
+export type McpTokenRow = typeof mcpTokens.$inferSelect;
+export type NewMcpTokenRow = typeof mcpTokens.$inferInsert;
+
 export const usersRelations = relations(users, ({ one, many }) => ({
   tasteProfile: one(tasteProfiles, {
     fields: [users.id],

@@ -6,6 +6,7 @@ import { ProfileEditor } from "../components/profile/ProfileEditor.tsx";
 import { ProfileSavedToast } from "../components/profile/ProfileSavedToast.tsx";
 import { ProfileTimeline } from "../components/profile/ProfileTimeline.tsx";
 import { LibrarySection } from "../components/profile/LibrarySection.tsx";
+import { McpTokensSection } from "../components/profile/McpTokensSection.tsx";
 import { Skeleton } from "../components/shared/Skeleton.tsx";
 import { MaturityBadge } from "../components/shared/MaturityBadge.tsx";
 import { useProfile } from "../hooks/useProfile.ts";
@@ -194,6 +195,8 @@ export function ProfilePage() {
       )}
 
       <LibrarySection />
+
+      <McpTokensSection />
 
       {savedToastVersion != null && (
         <ProfileSavedToast

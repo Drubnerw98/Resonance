@@ -9,6 +9,7 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
 - [Active](#active)
   - [2026-05-11 — Past-batches compact rendering on recommendations page](#2026-05-11--past-batches-compact-rendering-on-recommendations-page)
   - [2026-05-11 — Mark un-enrichable library items so they stop retrying](#2026-05-11--mark-un-enrichable-library-items-so-they-stop-retrying)
+  - [2026-05-19 — Sequel-aware cross-references can fabricate anchors](#2026-05-19--sequel-aware-cross-references-can-fabricate-anchors)
 - [Resolved](#resolved)
   - [2026-05-11 — TMDB / external-DB enrichment for watchlist items](#2026-05-11--tmdb--external-db-enrichment-for-watchlist-items-resolved)
 - [Abandoned](#abandoned)
@@ -51,6 +52,28 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
 
 - Retry interval — 7 days feels right (catches new TMDB entries within a week of release without thrashing). Could be longer if we want to be conservative.
 - Should manual user action ("re-enrich this row") be exposed? Probably not until users actually ask.
+
+### 2026-05-19 — Sequel-aware cross-references can fabricate anchors
+
+**What:** First run of the eval harness (`apps/eval`, `pnpm eval`) flagged a real cross-ref fabrication. Rec `7c88c090…` (Hades II) shipped with `crossReferences: [{ title: "Hades", reason: "Direct sequel that deepens the themes of the original — if Zagreus' story landed…" }]` but "Hades" doesn't appear anywhere in the user's library or profile (no favorite, no theme evidence, no archetype attraction, no dislikedTitle). The model inferred sequel-implies-familiarity rather than anchoring to a title the user actually named — the same failure mode the cross-ref rule is supposed to prevent.
+
+**Why noticed:** The `cross-reference-anchored` invariant in `apps/eval/src/invariants.ts` walks every persisted batch and checks each `crossReferences[].title` against `titleAppearsIn` of the user's full anchor blob. 23 batches × 153 recs gave one violation — caught on the first run.
+
+**Anchors:**
+
+- `apps/server/src/services/ai/prompts/recommendScore.ts` (the scoring prompt that emits crossReferences)
+- `apps/server/src/services/ai/recommender.ts` `scoreCandidates` (~line 762)
+- `apps/server/src/services/ai/schemas.ts` `ScoredCandidatesOutputSchema` (the crossReferences shape)
+
+**Shape of work:** Two paths, not mutually exclusive.
+
+1. **Tighten the prompt.** The current cross-ref rule says "title must come from the user's library, mediaAffinities favorites, or theme.evidence / archetype.attraction." Add an explicit anti-fabrication example using the sequel-of-rec case ("if you're recommending Hades II and the user has never named Hades, do NOT cite Hades as the anchor"). Worked good/bad examples are how every other prompt failure mode in this repo got fixed.
+2. **Server-side validation.** After scoring, run the same `titleAppearsIn` check the eval uses; drop any unanchored `crossReferences[]` entries before persistence. Belt-and-suspenders against future model regressions. ~10 lines.
+
+**Open questions:**
+
+- Should the validation drop the whole rec or just the unanchored xref entry? Dropping just the entry preserves the rec; dropping the whole rec is more conservative but loses signal. Lean toward dropping the entry.
+- The eval currently checks against the user's CURRENT profile. Profiles evolve — a rec made against an older profile that had "Hades" in it would now fail the invariant after the user edited Hades out. For accuracy we'd want to use the profile_version closest to the batch's createdAt. Worth the complexity if false-positive rate grows.
 
 ## Resolved
 

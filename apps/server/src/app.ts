@@ -19,6 +19,9 @@ import { libraryRouter } from "./api/library.js";
 import { evaluateRouter } from "./api/evaluate.js";
 import { discoverRouter } from "./api/discover.js";
 import { watchlistRouter } from "./api/watchlist.js";
+import { mcpTokensRouter } from "./api/mcpTokens.js";
+import { mcpBearerAuth } from "./middleware/mcpAuth.js";
+import { mcpTransportHandler } from "./mcp/transport.js";
 import { errorHandler } from "./middleware/error.js";
 
 /**
@@ -94,6 +97,13 @@ export function createApp(): Express {
     res.json({ ok: true });
   });
 
+  // MCP server — mounted ABOVE clerkMiddleware so agent requests
+  // (Authorization: Bearer rsn_mcp_...) don't get parsed by Clerk's session
+  // logic, which would attempt to interpret the same Authorization header
+  // and emit warnings. mcpBearerAuth validates the token, attaches the
+  // AuthInfo, and only then hands off to the Streamable HTTP transport.
+  app.post("/mcp", mcpBearerAuth, mcpTransportHandler);
+
   // Parse Clerk session for everything below. Routes that require a user
   // additionally apply requireUser from middleware/auth.ts.
   app.use(clerkMiddleware());
@@ -108,6 +118,7 @@ export function createApp(): Express {
   app.use("/api/evaluate", evaluateRouter);
   app.use("/api/discover", discoverRouter);
   app.use("/api/watchlist", watchlistRouter);
+  app.use("/api/mcp-tokens", mcpTokensRouter);
 
   app.use(errorHandler);
 

@@ -149,6 +149,33 @@ export async function getUserLibrary(
 export interface GenerateOptions {
   /** Free-text prompt scoping this batch ("a movie that'll make me cry"). */
   prompt?: string;
+  /**
+   * Optional pipeline-step progress hook. Called once per major boundary
+   * (1..4 of 4) with a human-readable summary of what just completed.
+   *
+   * The web flow (jobs router) leaves this unset — its progress signal is
+   * the job's status/result row. The MCP transport sets it to forward
+   * `notifications/progress` messages back to the connected agent, so a
+   * 60-second `recommend_media` call surfaces motion instead of looking
+   * hung. Failures inside the callback are swallowed; progress is best-
+   * effort and must not block the pipeline.
+   */
+  onProgress?: (step: number, message: string) => void;
+}
+
+const PROGRESS_TOTAL_STEPS = 4;
+
+function safeProgress(
+  cb: GenerateOptions["onProgress"],
+  step: number,
+  message: string,
+): void {
+  if (!cb) return;
+  try {
+    cb(step, message);
+  } catch (err) {
+    logger.warn({ err, step }, "rec: progress callback threw, ignoring");
+  }
 }
 
 export interface GenerateResult {
@@ -187,6 +214,7 @@ export async function generateRecommendations(
   }
   const profile = profileRow.profileData;
   const prompt = options.prompt?.trim() || null;
+  const { onProgress } = options;
 
   // Drop accumulator threaded through the pipeline. We persist whatever's
   // accumulated at every checkpoint where the pipeline can fail — the user
@@ -255,6 +283,11 @@ export async function generateRecommendations(
     },
     "rec: plan generated",
   );
+  safeProgress(
+    onProgress,
+    1,
+    `Proposed ${plan.titleSuggestions.length} titles + ${plan.discoveryQueries.length} discovery queries — validating against media APIs…`,
+  );
 
   // Step 2 — validate against real APIs, deduping and excluding seen items
   // (already-recommended cache rows + profile favorites + avoid-list).
@@ -293,6 +326,11 @@ export async function generateRecommendations(
     },
     "rec: validated cache rows after dedupe + seen-filter",
   );
+  safeProgress(
+    onProgress,
+    2,
+    `Validated ${candidates.length} real candidates (${dropped.length} dropped) — scoring against your profile…`,
+  );
   if (candidates.length === 0) {
     // Persist drops even on the no-candidates failure path — the user
     // benefits from seeing WHY nothing landed (e.g. all dropped as
@@ -315,6 +353,11 @@ export async function generateRecommendations(
   logger.info(
     { count: scored.recommendations.length },
     "rec: scored recommendations returned by model",
+  );
+  safeProgress(
+    onProgress,
+    3,
+    `Scored ${scored.recommendations.length} recommendations — persisting batch…`,
   );
 
   // Step 4 — persist scored recs against the batch.
@@ -367,6 +410,12 @@ export async function generateRecommendations(
   // Persist drops on the batch row. Best-effort: a failure here doesn't
   // unwind the recs we already persisted — we log and move on.
   await persistDroppedCandidates(batch.id, dropped);
+
+  safeProgress(
+    onProgress,
+    PROGRESS_TOTAL_STEPS,
+    `Saved batch with ${saved.length} recommendations.`,
+  );
 
   return { batch, recs: saved };
 }

@@ -15,6 +15,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerRecommendMediaTool } from "./tools/recommend.js";
 import { registerGetTasteProfileTool } from "./tools/profile.js";
 import { registerListRecentBatchesTool } from "./tools/batches.js";
+import { registerEvaluateTitleTool } from "./tools/evaluate.js";
 
 const SERVER_INFO = { name: "resonance-mcp", version: "0.1.0" } as const;
 
@@ -28,5 +29,6 @@ export function createMcpServer(): McpServer {
   registerRecommendMediaTool(server);
   registerGetTasteProfileTool(server);
   registerListRecentBatchesTool(server);
+  registerEvaluateTitleTool(server);
   return server;
 }

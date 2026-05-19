@@ -78,6 +78,75 @@ Posters and full synopses are intentionally trimmed — agents don't render imag
 
 The rate-limit bucket is shared with the web flow's `recommendations.generate` (25/day). Switching transports doesn't double a user's budget.
 
+### `get_taste_profile`
+
+Read-only access to the authenticated user's persistent `TasteProfile` — themes, archetypes, format affinities, avoidances, disliked titles — plus its version number, last-updated timestamp, and how many recommendations they've acted on. No model call, no rate-limit budget.
+
+Useful as a grounding step before calling `recommend_media` when the user references their taste obliquely ("you know what I like"), or for answering meta questions ("what does the system think I like?").
+
+**Input:** none.
+
+**Output:** `structuredContent` carries `{ version, updatedAt, actedRecCount, profile, profileUrl }`. The `profile` field is the full `TasteProfile` JSONB — see `packages/shared/src/profile.ts` for the type definition.
+
+### `list_recent_batches`
+
+List the user's recent recommendation batches (newest first) so the agent can reason about "have I tried this angle before" without spending an AI call. No model call.
+
+**Input:**
+
+```json
+{ "limit": 5 }
+```
+
+`limit` is optional, default 5, max 20.
+
+**Output:** `structuredContent` carries `{ batches: BatchSummary[] }` where each summary is:
+
+```ts
+{
+  id: string;
+  name: string | null;       // user-set name, or null for unnamed
+  prompt: string | null;     // original prompt
+  createdAt: string;         // ISO
+  count: number;
+  formatCounts: Record<string, number>;
+  topTags: string[];         // 3 most-common taste tags
+  batchUrl: string;          // deep link to /batches/<id>
+}
+```
+
+### `evaluate_title`
+
+Give an honest verdict on a specific named work against the user's taste profile and library. **The model is allowed to say no** — this is the differentiator from `recommend_media`, which biases toward inclusion. The verdict prompt explicitly addresses prior negative signal (dislikedTitles, rejected recs) rather than hiding it.
+
+**Input:**
+
+```json
+{ "title": "The Bear", "mediaType": "tv" }
+```
+
+`mediaType` is required for disambiguation. Top external-API hit is used; ambiguous titles may resolve to the wrong work — be specific.
+
+**Output:** `structuredContent` carries:
+
+```ts
+{
+  matched: { title, mediaType, year, externalUrl };
+  matchScore: number;        // 0–100 (normalized from the 0–1 verdict score)
+  verdict: string;
+  tasteTags: string[];
+  status: {
+    inLibrary: boolean;
+    inSavedRecs: boolean;
+    rejectedBefore: boolean;
+    inDislikedTitles: boolean;
+    previouslyRecommended: boolean;
+  };
+}
+```
+
+**Errors:** `isError: true` for no profile (with onboarding URL), no search hits, or rate-limit. One Anthropic call per invocation; shares the existing `evaluate.score` rate-limit bucket (100/day).
+
 ## Client configuration
 
 ### Claude Desktop
@@ -126,4 +195,4 @@ Inspector renders progress notifications inline, so a 60s call surfaces as visib
 - **Render free-tier cold start.** First request after 15 min idle takes ~30s. Acceptable for testing; surface a warning to your users if you're demoing.
 - **In-memory rate-limit counters** are single-instance only — same constraint as the rest of the backend (`services/rateLimit.ts`). Going multi-replica would require Postgres-backing the counters first.
 - **No OAuth.** PAT is the only auth path for now. See trade-off discussion above.
-- **`recommend_media` is the only tool today.** `get_taste_profile`, `evaluate_title`, and `list_recent_batches` are next on the roadmap; see [IMPROVEMENT_PLAN.md §1](../../../../IMPROVEMENT_PLAN.md).
+- **Evaluation harness not yet built.** `apps/eval/` is the next chunk — see [IMPROVEMENT_PLAN.md §2](../../../../IMPROVEMENT_PLAN.md). Until then, quality regressions surface only through manual testing.

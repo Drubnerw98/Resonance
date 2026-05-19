@@ -3,21 +3,21 @@ import type {
   MediaCacheRow,
   RecommendationBatchRow,
   RecommendationRow,
-} from "../db/schema.js";
+} from "../../db/schema.js";
 
 // The MCP server module pulls in env validation at import time. Stub it here
 // so the test runs without real env wiring — same shape used by other tests
 // in this codebase (see services/ai/recommender.test.ts).
-vi.mock("../env.js", () => ({
+vi.mock("../../env.js", () => ({
   env: { FRONTEND_ORIGIN: "https://resonance-client.vercel.app" },
 }));
 
-vi.mock("../db/index.js", () => ({ db: {} }));
-vi.mock("../lib/logger.js", () => ({
+vi.mock("../../db/index.js", () => ({ db: {} }));
+vi.mock("../../lib/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-import { buildRecommendResponse } from "./server.js";
+import { buildRecommendResponse } from "./recommend.js";
 
 function fakeBatch(
   overrides: Partial<RecommendationBatchRow> = {},

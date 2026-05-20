@@ -12,6 +12,7 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
   - [2026-05-19 — Sequel-aware cross-references can fabricate anchors](#2026-05-19--sequel-aware-cross-references-can-fabricate-anchors)
   - [2026-05-19 — Candidate-plan max_tokens truncates structured output on large libraries](#2026-05-19--candidate-plan-max_tokens-truncates-structured-output-on-large-libraries)
   - [2026-05-19 — Dedup misses Roman-vs-Arabic numeral variants](#2026-05-19--dedup-misses-roman-vs-arabic-numeral-variants)
+  - [2026-05-20 — Split account/settings concerns out of /profile into a /settings route](#2026-05-20--split-accountsettings-concerns-out-of-profile-into-a-settings-route)
 - [Resolved](#resolved)
   - [2026-05-11 — TMDB / external-DB enrichment for watchlist items](#2026-05-11--tmdb--external-db-enrichment-for-watchlist-items-resolved)
 - [Abandoned](#abandoned)
@@ -112,6 +113,30 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
 
 - Direction: normalize Roman→Arabic or Arabic→Roman? Arabic is the more common store-listing form; normalize toward it.
 - Worth catching "VII" (7) and higher, or just ii-v? Sequels past 5 are rare enough that ii-v covers ~95% of cases — start there.
+
+### 2026-05-20 — Split account/settings concerns out of /profile into a /settings route
+
+**What:** `/profile` has accreted four unrelated concerns stacked in one scroll: the taste profile + the "How your profile sharpened" timeline (identity + history), the Library (the user's works), MCP access tokens, and the Danger zone (account/integration settings). drub flagged that everything from "Your Library" down reads as out-of-place — the page no longer meshes as a single coherent surface.
+
+**Why noticed:** Reviewing the profile page after the MCP-tokens section landed there. In Phase 1 of the MCP work, `McpTokensSection` was deliberately placed on `/profile` to avoid a nav change — flagged at the time as the "smallest reasonable UI" call. This followup is that decision coming due.
+
+**Decision:** A new **`/settings` route** (drub picked this over in-page tabs). MCP tokens + the Danger zone move there. The taste profile + evolution timeline stay on `/profile` as the coherent "your taste DNA" surface.
+
+**Anchors:**
+
+- `apps/client/src/App.tsx` — new `<Route path="settings">` under `RequireAuth`
+- `apps/client/src/pages/SettingsPage.tsx` — NEW
+- `apps/client/src/pages/ProfilePage.tsx` — remove `<McpTokensSection />` and the inline Danger-zone `<section>` (~lines 206-221)
+- `apps/client/src/components/profile/McpTokensSection.tsx` — re-homed under SettingsPage (consider moving the file out of `components/profile/`)
+- `apps/client/src/components/shared/Nav.tsx` — decide the nav surface
+
+**Shape of work:** New `SettingsPage` rendering `McpTokensSection` + the danger-zone block (currently inline JSX in `ProfilePage` — lift it into its own component or inline it in SettingsPage). Register the route. Wire up how Settings is reached. Roughly a half-session.
+
+**Open questions:**
+
+- **Nav surface** — a top-level "Settings" nav entry, a gear-link from `/profile`, or tuck it into the Clerk `UserButton` menu? A nav entry is most discoverable; a gear-link keeps the nav lean. drub leaned toward not polluting the primary nav originally — worth re-deciding now that there's real content behind it.
+- **Library** — arguably a third distinct concern (the user's works, separate from both taste DNA and settings). Could eventually become its own `/library` surface. Out of scope here unless it falls out naturally.
+- The `#mcp-tokens` scroll-anchor moves with the section — anything linking to `/profile#mcp-tokens` would need updating to `/settings`.
 
 ## Resolved
 

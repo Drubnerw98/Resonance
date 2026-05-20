@@ -10,6 +10,8 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
   - [2026-05-11 — Past-batches compact rendering on recommendations page](#2026-05-11--past-batches-compact-rendering-on-recommendations-page)
   - [2026-05-11 — Mark un-enrichable library items so they stop retrying](#2026-05-11--mark-un-enrichable-library-items-so-they-stop-retrying)
   - [2026-05-19 — Sequel-aware cross-references can fabricate anchors](#2026-05-19--sequel-aware-cross-references-can-fabricate-anchors)
+  - [2026-05-19 — Candidate-plan max_tokens truncates structured output on large libraries](#2026-05-19--candidate-plan-max_tokens-truncates-structured-output-on-large-libraries)
+  - [2026-05-19 — Dedup misses Roman-vs-Arabic numeral variants](#2026-05-19--dedup-misses-roman-vs-arabic-numeral-variants)
 - [Resolved](#resolved)
   - [2026-05-11 — TMDB / external-DB enrichment for watchlist items](#2026-05-11--tmdb--external-db-enrichment-for-watchlist-items-resolved)
 - [Abandoned](#abandoned)
@@ -92,6 +94,24 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
 
 - Is the truncation happening because the prompt has too many anchors, or because the model is being too thorough in the reasons? If the latter, a prompt-level "reason ≤ 25 words" rule might tighten output and avoid the budget pressure entirely.
 - Other model calls in the pipeline (`scoreCandidates` at `max_tokens: 8192`) are less at risk but worth a stress test as the library grows. The eval is the right place to surface this.
+
+### 2026-05-19 — Dedup misses Roman-vs-Arabic numeral variants
+
+**What:** The LLM-judge eval flagged a 2/5 rec — "Red Dead Redemption II: Ultimate Edition" — sitting in the same batch as "Red Dead Redemption 2". Same game, two `recommendations` rows. `canonicalizeTitle` (`services/ai/titleMatching.ts`) strips the "Ultimate Edition" suffix correctly but leaves the numeral untouched: `"red dead redemption 2"` vs `"red dead redemption ii"` don't collapse, so within-batch dedup let both through.
+
+**Why noticed:** Two-layer eval catch. The `no-canonical-duplicates-within-batch` invariant did NOT flag it — the eval's intentionally-simple `simpleCanonicalize` has the same numeral blind spot. The LLM-judge caught it instead, scoring the second rec 2/5 with the note "mostly justifies why it's a bundle duplicate rather than articulating [the] arc." Independent eval layers covering each other's blind spots — which is the argument for having more than one.
+
+**Anchors:**
+
+- `apps/server/src/services/ai/titleMatching.ts` `canonicalizeTitle` — needs a Roman↔Arabic numeral normalization pass.
+- `apps/eval/src/canonicalize.ts` `simpleCanonicalize` — same gap; arguably leave it (the eval is meant to be coarse) but worth a comment noting the known miss.
+
+**Shape of work:** Add a numeral-normalization step to `canonicalizeTitle` — map the common low Roman numerals (ii→2, iii→3, iv→4, v→5) to Arabic (or vice versa) before the suffix strips. Scope it to numerals that appear as standalone tokens so "Final Fantasy VII" → "final fantasy 7" but "Civ V" edge cases get considered. Add a test case to the `titleMatching` suite pinning the RDR2 collapse.
+
+**Open questions:**
+
+- Direction: normalize Roman→Arabic or Arabic→Roman? Arabic is the more common store-listing form; normalize toward it.
+- Worth catching "VII" (7) and higher, or just ii-v? Sequels past 5 are rare enough that ii-v covers ~95% of cases — start there.
 
 ## Resolved
 

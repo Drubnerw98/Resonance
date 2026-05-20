@@ -59,7 +59,8 @@ The five things that make Resonance more than a chat wrapper:
 ```
 apps/
   client/           # Vite + React 19 frontend
-  server/           # Express + Drizzle backend
+  server/           # Express + Drizzle backend (MCP server under src/mcp/)
+  eval/             # Evaluation harness — invariants, recall, LLM-judge
 packages/
   shared/           # Shared TypeScript types (MediaItem, TasteProfile, ...)
 docs/               # Audit notes, historical implementation plans
@@ -193,7 +194,9 @@ Resonance is set up for a **split deploy**: frontend on Vercel, backend on Rende
 - Per-user daily rate limits on AI-bound endpoints.
 - Postgres-backed job tracker with mount-time resume on page reload, plus boot-time orphan recovery.
 - Streaming filter with 28-case test covering chunk-boundary splits and malformed tags.
-- Vitest suite (~70 cases) covering streaming, AI schema validators, rate-limit math, and the recommendation-pipeline filter logic. CI runs lint + typecheck + tests + build on push and PR.
+- **MCP server** at `POST /mcp` exposing four tools (`recommend_media`, `get_taste_profile`, `evaluate_title`, `list_recent_batches`) to agentic clients, behind per-user Bearer tokens minted from the profile page. See [apps/server/src/mcp/README.md](./apps/server/src/mcp/README.md).
+- **Evaluation harness** (`apps/eval`) — three independent layers (deterministic invariants, held-out recall, Opus-as-judge) so recommendation-quality changes are measurable, not vibes-based. See [apps/eval/README.md](./apps/eval/README.md).
+- Vitest suite (114 cases) covering streaming, AI schema validators, rate-limit math, the recommendation-pipeline filter logic, MCP token + tool response shapes. CI runs lint + typecheck + tests + build on push and PR.
 - Mobile nav (hamburger), iOS focus auto-zoom fix, branded 404, signed-out landing page.
 
 **Deferred (intentional):**
@@ -222,9 +225,18 @@ The architecture decisions in [ARCHITECTURE.md](./ARCHITECTURE.md) are mine. The
 
 ## What's next
 
-The next chunk of work on Resonance is an **MCP server** exposing the recommendation pipeline as a tool agents can call — so Claude, Cursor, or any MCP-aware client can recommend against a user's actual taste profile rather than starting from scratch each session. Paired with a small evaluation harness (real users' profiles + a held-out set of titles, scored against the recommendation output) so improvements are measurable rather than vibes-based.
+The **MCP server** and the **evaluation harness** — the two big items that
+used to live here — have shipped (see the sections above). What remains:
 
-See [IMPROVEMENT_PLAN.md](./IMPROVEMENT_PLAN.md) for the current sequence.
+- **Published tool definition.** Package the MCP server as an installable
+  artifact so other agentic clients integrate without reading the source.
+  Deferred until the MCP distribution ecosystem settles.
+- **Two eval-surfaced quality bugs.** The first eval runs caught a
+  sequel-aware cross-reference fabrication and a Roman/Arabic numeral dedup
+  gap — both tracked in [docs/followups.md](./docs/followups.md) with fix
+  shapes, slated for a focused pass.
+
+See [IMPROVEMENT_PLAN.md](./IMPROVEMENT_PLAN.md) for the full sequence.
 
 ## License
 

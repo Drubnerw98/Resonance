@@ -42,6 +42,8 @@ Cross-format media recommender (movies, TV, anime, manga, games, books) built ar
 - Auto-refinement banner when feedback PATCH crosses the threshold
 - Save + rate visually independent (rated 4★ + saved coexist)
 - Signed-out landing page (hero / how-it-works / differentiator / format showcase / closing CTA)
+- MCP server (`apps/server/src/mcp/`) — `POST /mcp`, Streamable HTTP transport, four tools (`recommend_media`, `get_taste_profile`, `evaluate_title`, `list_recent_batches`). Per-user Bearer-token auth: `mcp_tokens` table, SHA-256 hashed, minted/revoked from the MCP-tokens section on `/profile` via `/api/mcp-tokens`. The recommendation logic stays in `services/ai/recommender.ts` — the MCP layer is transport-only. `generateRecommendations` gained two non-invasive optional hooks (`onProgress`, `excludeLibraryTitles`); the web flow leaves both unset. Verified end-to-end against the deployed backend.
+- Evaluation harness (`apps/eval/`) — three layers: deterministic invariants (every PR-safe, no AI cost), held-out recall@K, Opus-as-judge. `pnpm --filter @resonance/eval eval`. Reports write to `apps/eval/runs/` (gitignored). First runs surfaced three real findings — see `docs/followups.md`.
 
 **Deferred (intentional):**
 
@@ -120,15 +122,17 @@ apps/
       styles/           # globals.css (Tailwind + a few keyframes)
   server/
     src/
-      api/              # one .ts per resource (onboarding, recommendations, feedback, profile, library, evaluate, discover, media, me)
+      api/              # one .ts per resource (onboarding, recommendations, feedback, profile, library, evaluate, discover, media, me, mcpTokens)
       db/               # schema.ts + migrations/
       lib/              # rateLimiter.ts (token bucket for adapters), sse.ts (SSE writer)
-      middleware/       # auth.ts, error.ts
+      middleware/       # auth.ts (Clerk), mcpAuth.ts (Bearer), error.ts
+      mcp/              # MCP server — server.ts factory + transport.ts + shared.ts + tools/
       services/
         ai/             # one file per AI mode + prompts/ + schemas.ts + aiHelpers.ts + client.ts + streaming.ts
         media/          # one adapter per source + aggregator.ts
         # plus: jobs.ts, rateLimit.ts, library.ts, steam.ts, profile.ts, feedback.ts,
-        #       mediaCache.ts, onboardingSessions.ts, users.ts
+        #       mediaCache.ts, mcpTokens.ts, onboardingSessions.ts, users.ts
+  eval/                 # evaluation harness — invariants, held-out recall, LLM-judge
 packages/
   shared/               # MediaItem, TasteProfile, DiscoveryTheme, RecommendationStatus, etc.
 ARCHITECTURE.md         # full design reference

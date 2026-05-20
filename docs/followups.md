@@ -75,6 +75,24 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
 - Should the validation drop the whole rec or just the unanchored xref entry? Dropping just the entry preserves the rec; dropping the whole rec is more conservative but loses signal. Lean toward dropping the entry.
 - The eval currently checks against the user's CURRENT profile. Profiles evolve — a rec made against an older profile that had "Hades" in it would now fail the invariant after the user edited Hades out. For accuracy we'd want to use the profile_version closest to the batch's createdAt. Worth the complexity if false-positive rate grows.
 
+### 2026-05-19 — Candidate-plan `max_tokens` truncates structured output on large libraries
+
+**What:** First held-out probe against drub's account (231 library items) failed with `AnthropicError: Failed to parse structured output: Error: Failed to parse structured output as JSON: Unterminated string at position 8667` — the model hit `max_tokens: 2048` in the middle of a "reason" string, returned unparseable JSON, and the recommender crashed. Reliably reproducible on the second attempt (truncated at 9091 on the retry).
+
+**Why noticed:** The held-out eval (`apps/eval`, `pnpm eval --suite heldout`) calls `generateRecommendations` directly. Normal web-flow batches against drub's current library presumably also hit this when triggered — the cap is borderline at ~200 items, and the model's reason verbosity scales with library size as it tries to anchor each suggestion against more anchors.
+
+**Anchors:**
+
+- `apps/server/src/services/ai/recommender.ts` line 568 (the `client.messages.parse({...max_tokens: 2048})` call inside `generateCandidatePlan`)
+- `apps/server/src/services/ai/schemas.ts` `CandidatesOutputSchema` (the shape that's getting truncated)
+
+**Fix:** Bumped to `max_tokens: 4096` in the same session — 2x headroom, bounded cost increase. The base schema (15-20 titles + 3-8 queries) lands well under that even with verbose reasons; 4096 should be ample.
+
+**Open questions:**
+
+- Is the truncation happening because the prompt has too many anchors, or because the model is being too thorough in the reasons? If the latter, a prompt-level "reason ≤ 25 words" rule might tighten output and avoid the budget pressure entirely.
+- Other model calls in the pipeline (`scoreCandidates` at `max_tokens: 8192`) are less at risk but worth a stress test as the library grows. The eval is the right place to surface this.
+
 ## Resolved
 
 ### 2026-05-11 — TMDB / external-DB enrichment for watchlist items (resolved)

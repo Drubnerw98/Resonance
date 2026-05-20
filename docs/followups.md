@@ -11,9 +11,9 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
   - [2026-05-11 — Mark un-enrichable library items so they stop retrying](#2026-05-11--mark-un-enrichable-library-items-so-they-stop-retrying)
   - [2026-05-19 — Sequel-aware cross-references can fabricate anchors](#2026-05-19--sequel-aware-cross-references-can-fabricate-anchors)
   - [2026-05-19 — Candidate-plan max_tokens truncates structured output on large libraries](#2026-05-19--candidate-plan-max_tokens-truncates-structured-output-on-large-libraries)
-  - [2026-05-19 — Dedup misses Roman-vs-Arabic numeral variants](#2026-05-19--dedup-misses-roman-vs-arabic-numeral-variants)
 - [Resolved](#resolved)
   - [2026-05-11 — TMDB / external-DB enrichment for watchlist items](#2026-05-11--tmdb--external-db-enrichment-for-watchlist-items-resolved)
+  - [2026-05-19 — Dedup misses Roman-vs-Arabic numeral variants](#2026-05-19--dedup-misses-roman-vs-arabic-numeral-variants-resolved)
   - [2026-05-20 — Split account/settings concerns off /profile into a /settings route](#2026-05-20--split-accountsettings-concerns-off-profile-into-a-settings-route-resolved)
 - [Abandoned](#abandoned)
 
@@ -96,24 +96,6 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
 - Is the truncation happening because the prompt has too many anchors, or because the model is being too thorough in the reasons? If the latter, a prompt-level "reason ≤ 25 words" rule might tighten output and avoid the budget pressure entirely.
 - Other model calls in the pipeline (`scoreCandidates` at `max_tokens: 8192`) are less at risk but worth a stress test as the library grows. The eval is the right place to surface this.
 
-### 2026-05-19 — Dedup misses Roman-vs-Arabic numeral variants
-
-**What:** The LLM-judge eval flagged a 2/5 rec — "Red Dead Redemption II: Ultimate Edition" — sitting in the same batch as "Red Dead Redemption 2". Same game, two `recommendations` rows. `canonicalizeTitle` (`services/ai/titleMatching.ts`) strips the "Ultimate Edition" suffix correctly but leaves the numeral untouched: `"red dead redemption 2"` vs `"red dead redemption ii"` don't collapse, so within-batch dedup let both through.
-
-**Why noticed:** Two-layer eval catch. The `no-canonical-duplicates-within-batch` invariant did NOT flag it — the eval's intentionally-simple `simpleCanonicalize` has the same numeral blind spot. The LLM-judge caught it instead, scoring the second rec 2/5 with the note "mostly justifies why it's a bundle duplicate rather than articulating [the] arc." Independent eval layers covering each other's blind spots — which is the argument for having more than one.
-
-**Anchors:**
-
-- `apps/server/src/services/ai/titleMatching.ts` `canonicalizeTitle` — needs a Roman↔Arabic numeral normalization pass.
-- `apps/eval/src/canonicalize.ts` `simpleCanonicalize` — same gap; arguably leave it (the eval is meant to be coarse) but worth a comment noting the known miss.
-
-**Shape of work:** Add a numeral-normalization step to `canonicalizeTitle` — map the common low Roman numerals (ii→2, iii→3, iv→4, v→5) to Arabic (or vice versa) before the suffix strips. Scope it to numerals that appear as standalone tokens so "Final Fantasy VII" → "final fantasy 7" but "Civ V" edge cases get considered. Add a test case to the `titleMatching` suite pinning the RDR2 collapse.
-
-**Open questions:**
-
-- Direction: normalize Roman→Arabic or Arabic→Roman? Arabic is the more common store-listing form; normalize toward it.
-- Worth catching "VII" (7) and higher, or just ii-v? Sequels past 5 are rare enough that ii-v covers ~95% of cases — start there.
-
 ## Resolved
 
 ### 2026-05-11 — TMDB / external-DB enrichment for watchlist items (resolved)
@@ -123,6 +105,14 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
 **Resolved 2026-05-11 (commits `8f7bc5e`, `3789264`, `197fe7a` on Resonance main):** Schema added nullable `media_cache_id` FK on `library_items` (migration `0010_library_media_cache_link.sql`, applied to prod). New `services/libraryEnrich.ts` dispatches by mediaType through the existing TMDB / IGDB / Jikan / Open Library adapters via `searchAndCacheByTitle`, year-disambiguates the match, and links the FK. Failures are swallowed + logged. `POST /api/library` runs enrichment inline (~300ms one external call) on every manual add / plan-to. `POST /api/library/enrich-batch?status=watchlist` drains un-enriched rows 50 at a time; defaults to `status=watchlist` so a long consumed-library history doesn't starve the watchlist of enrichment budget. Client side: `LibraryItem` shape gains `media: MediaItem | null` from a server-side leftJoin, `WatchlistRow` rewritten to render a `loading="lazy"` poster + linked title + per-format glyph + year/runtime/source + 2-line description. Format-filter tabs above the list (zero-count tabs hide). `/watchlist` auto-fires the drain on first mount when un-enriched rows are present, via a `drainAttempted` ref so the drain refreshing the library between batches doesn't re-fire the effect.
 
 **Anchors:** `apps/server/src/services/libraryEnrich.ts`, `apps/server/src/api/library.ts`, `apps/server/src/db/migrations/0010_library_media_cache_link.sql`, `apps/client/src/pages/WatchlistPage.tsx`, `apps/client/src/hooks/useLibrary.ts`.
+
+### 2026-05-19 — Dedup misses Roman-vs-Arabic numeral variants (resolved)
+
+**What was wrong:** `canonicalizeTitle` (`services/ai/titleMatching.ts`) stripped edition suffixes but left numerals untouched, so "Red Dead Redemption II" and "Red Dead Redemption 2" canonicalized differently and within-/cross-batch dedup let both through. Surfaced by the LLM-judge eval (the coarse `simpleCanonicalize` invariant shares the blind spot).
+
+**Resolved 2026-05-20:** Added a Roman→Arabic numeral pass to `canonicalizeTitle`, applied after suffix stripping. Deviated from the followup's suggested ii–v range: normalizes **multi-character** numerals only (ii, iii, iv, vi–xx), skipping single-character I/V/X. Single chars as a standalone title token are far more often a word or character name ("I Am Legend", "V for Vendetta", "Mega Man X") — a blanket V→5 would mis-collapse them. Multi-char-only is both safer on the dangerous cases and broader on the safe ones (catches VII, VIII, IX, XII… that ii–v missed). The `\b`-anchored regex matches whole tokens only. Test pairs pinning the RDR2 + FF7 collapses plus a guard test for single-char non-normalization were added to the `canonicalizeTitle` suite in `recommender.test.ts`; the eval's `simpleCanonicalize` was left coarse-by-design with a comment noting the known miss.
+
+**Anchors:** `apps/server/src/services/ai/titleMatching.ts`, `apps/server/src/services/ai/recommender.test.ts`, `apps/eval/src/canonicalize.ts`.
 
 ### 2026-05-20 — Split account/settings concerns off /profile into a /settings route (resolved)
 

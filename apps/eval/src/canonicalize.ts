@@ -9,6 +9,11 @@
  * The system's canonicalizer should make any collision the eval catches
  * also collide system-side; a finding here means the recommender's
  * canonicalizer let something slip.
+ *
+ * Known coarse miss: this does NOT normalize Roman-vs-Arabic numerals (the
+ * system canonicalizer does), so "Game II" / "Game 2" duplicates slip past
+ * the within-batch dedup invariant — by design; the LLM-judge layer is the
+ * backstop for those.
  */
 export function simpleCanonicalize(title: string): string {
   return title

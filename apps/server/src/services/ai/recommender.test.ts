@@ -400,9 +400,24 @@ describe("canonicalizeTitle", () => {
     ["Planescape: Torment Enhanced Edition", "Planescape: Torment"],
     ["Republic, The", "Republic"],
     ["Avatar (2009)", "Avatar"],
+    // Roman-vs-Arabic sequel numerals collapse to one canonical so within-
+    // and cross-batch dedup catches "RDR2" / "RDR II" style duplicates.
+    ["Red Dead Redemption II: Ultimate Edition", "Red Dead Redemption 2"],
+    ["Final Fantasy VII", "Final Fantasy 7"],
   ];
 
   it.each(pairs)("collapses %s and %s to the same canonical", (a, b) => {
     expect(canonicalizeTitle(a)).toBe(canonicalizeTitle(b));
+  });
+
+  it("does not normalize single-character Roman numerals", () => {
+    // "I"/"V"/"X" as a standalone token are far more often a word or title
+    // letter than a sequel number — normalizing them would wreck "I Am
+    // Legend", "V for Vendetta", "Mega Man X". Only multi-character numerals
+    // (II, VII, …) collapse.
+    expect(canonicalizeTitle("V for Vendetta")).not.toBe(
+      canonicalizeTitle("5 for Vendetta"),
+    );
+    expect(canonicalizeTitle("I Am Legend")).toBe("i am legend");
   });
 });

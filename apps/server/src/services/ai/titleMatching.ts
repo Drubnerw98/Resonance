@@ -9,6 +9,36 @@ import { libraryItems, recommendations } from "../../db/schema.js";
  * work — collapses "Planescape: Torment" / "Planescape: Torment Enhanced
  * Edition" / "Final Fantasy VII Remastered" / "The Last of Us" / etc.
  */
+// Roman → Arabic numerals for sequel-title normalization. Only MULTI-character
+// numerals are mapped — single-character "I"/"V"/"X" are skipped because as a
+// standalone title token they're far more often a word or character name
+// ("I Am Legend", "V for Vendetta", "Mega Man X") than a sequel number. The
+// \b-anchored regex matches whole tokens only, so "VII" collapses but the
+// "ii" inside "skiing" and the "iv" inside "xiv" never do.
+const ROMAN_TO_ARABIC: Record<string, string> = {
+  ii: "2",
+  iii: "3",
+  iv: "4",
+  vi: "6",
+  vii: "7",
+  viii: "8",
+  ix: "9",
+  xi: "11",
+  xii: "12",
+  xiii: "13",
+  xiv: "14",
+  xv: "15",
+  xvi: "16",
+  xvii: "17",
+  xviii: "18",
+  xix: "19",
+  xx: "20",
+};
+const ROMAN_NUMERAL_RE = new RegExp(
+  `\\b(?:${Object.keys(ROMAN_TO_ARABIC).join("|")})\\b`,
+  "g",
+);
+
 export function canonicalizeTitle(s: string): string {
   let t = s.toLowerCase().trim();
 
@@ -36,6 +66,12 @@ export function canonicalizeTitle(s: string): string {
     for (const re of suffixes) t = t.replace(re, "");
     if (t === before) break;
   }
+
+  // Collapse Roman-numeral sequels to Arabic so "Red Dead Redemption II" and
+  // "Red Dead Redemption 2" canonicalize identically. Runs after suffix
+  // stripping; the suffix patterns don't reference numerals, so order is free.
+  t = t.replace(ROMAN_NUMERAL_RE, (m) => ROMAN_TO_ARABIC[m] ?? m);
+
   return t.trim();
 }
 

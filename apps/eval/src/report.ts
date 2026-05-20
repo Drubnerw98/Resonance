@@ -12,6 +12,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { HeldOutRunResult } from "./heldOut.js";
 import type { InvariantsRunResult } from "./invariants.js";
+import type { JudgeRunResult } from "./judge.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const RUNS_DIR = resolve(here, "..", "runs");
@@ -173,6 +174,58 @@ export function formatHeldOutMarkdown(
     if (result.skipped.length > 25) {
       lines.push("");
       lines.push(`_…and ${result.skipped.length - 25} more, omitted for brevity._`);
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+export function formatJudgeMarkdown(
+  result: JudgeRunResult,
+  ctx: ReportContext,
+): string {
+  const lines: string[] = [];
+  lines.push(
+    `# Resonance eval — LLM-judge: ${result.averages.overall.toFixed(2)}/5 overall`,
+  );
+  lines.push("");
+  lines.push(`- **Started:** ${ctx.startedAt.toISOString()}`);
+  lines.push(`- **Finished:** ${ctx.finishedAt.toISOString()}`);
+  lines.push(`- **Scope:** ${ctx.scope}`);
+  lines.push(
+    `- **Batch judged:** \`${result.batchId.slice(0, 8)}…\` — ${result.batchLabel}`,
+  );
+  lines.push(`- **Recs judged:** ${result.judgedCount}`);
+  lines.push("");
+  lines.push(
+    "**Methodology.** Each recommendation's explanation is scored 0-5 against a rubric by Opus 4.7 — a deliberately *more capable* model than the Sonnet 4.6 generator. Rubric: **specificity** (cites concrete profile elements vs generic praise), **alignment** (reasoning actually follows from the profile), **anchoring** (cross-references are honest and earned).",
+  );
+  lines.push("");
+  lines.push(
+    "**Caveat.** Judge and generator are the same model family. A stronger judge reduces self-grading bias but does not eliminate it — treat absolute scores as directional, and trust score *deltas between runs* more than any single number.",
+  );
+  lines.push("");
+
+  lines.push("## Averages");
+  lines.push("");
+  lines.push("| Dimension | Score |");
+  lines.push("| --- | ---: |");
+  lines.push(`| Specificity | ${result.averages.specificity.toFixed(2)} |`);
+  lines.push(`| Alignment | ${result.averages.alignment.toFixed(2)} |`);
+  lines.push(`| Anchoring | ${result.averages.anchoring.toFixed(2)} |`);
+  lines.push(`| **Overall** | **${result.averages.overall.toFixed(2)}** |`);
+  lines.push("");
+
+  if (result.recs.length > 0) {
+    lines.push("## Per-rec");
+    lines.push("");
+    lines.push("| Title | Format | Match% | Spec | Align | Anchor | Overall | Note |");
+    lines.push("| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |");
+    for (const r of result.recs) {
+      const v = r.verdict;
+      lines.push(
+        `| ${r.title} | ${r.mediaType} | ${r.matchScore} | ${v.specificity} | ${v.alignment} | ${v.anchoring} | ${v.overall} | ${v.note} |`,
+      );
     }
     lines.push("");
   }

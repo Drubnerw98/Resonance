@@ -71,7 +71,10 @@ export function buildRecommendResponse(
       title: r.media.title,
       mediaType: r.media.mediaType,
       year: r.media.normalizedData.year ?? null,
-      matchScore: r.matchScore,
+      // matchScore is stored 0-1 (doublePrecision); scale to 0-100 to match
+      // the README contract, evaluate_title's output, and how the web
+      // MediaCard renders it (Math.round(matchScore * 100)).
+      matchScore: Math.round(r.matchScore * 100),
       explanation: r.explanation,
       tasteTags: r.tasteTags ?? [],
       crossReferences: r.crossReferences ?? [],

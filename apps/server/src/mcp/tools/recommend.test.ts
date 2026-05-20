@@ -86,10 +86,11 @@ function fakeRec(
 
 describe("buildRecommendResponse", () => {
   it("trims posters + synopses, keeps externalUrl, sorts by matchScore desc", () => {
+    // matchScore is stored 0-1; buildRecommendResponse scales to 0-100.
     const recs = [
-      fakeRec("Lower", 2020, 60),
-      fakeRec("Higher", 2021, 92),
-      fakeRec("Middle", 2019, 75),
+      fakeRec("Lower", 2020, 0.6),
+      fakeRec("Higher", 2021, 0.92),
+      fakeRec("Middle", 2019, 0.75),
     ];
     const out = buildRecommendResponse(fakeBatch(), recs, Date.now() - 12345);
 
@@ -144,10 +145,19 @@ describe("buildRecommendResponse", () => {
   it("normalizes null crossReferences to empty array", () => {
     const out = buildRecommendResponse(
       fakeBatch(),
-      [fakeRec("X", 2020, 50)],
+      [fakeRec("X", 2020, 0.5)],
       Date.now(),
     );
     expect(out.recommendations[0]!.crossReferences).toEqual([]);
+  });
+
+  it("scales matchScore from stored 0-1 to 0-100", () => {
+    const out = buildRecommendResponse(
+      fakeBatch(),
+      [fakeRec("X", 2020, 0.93)],
+      Date.now(),
+    );
+    expect(out.recommendations[0]!.matchScore).toBe(93);
   });
 
   it("preserves runtime seconds rounded to 1 decimal", () => {

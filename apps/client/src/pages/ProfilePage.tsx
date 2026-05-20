@@ -6,9 +6,9 @@ import { ProfileEditor } from "../components/profile/ProfileEditor.tsx";
 import { ProfileSavedToast } from "../components/profile/ProfileSavedToast.tsx";
 import { ProfileTimeline } from "../components/profile/ProfileTimeline.tsx";
 import { LibrarySection } from "../components/profile/LibrarySection.tsx";
-import { McpTokensSection } from "../components/profile/McpTokensSection.tsx";
 import { Skeleton } from "../components/shared/Skeleton.tsx";
 import { MaturityBadge } from "../components/shared/MaturityBadge.tsx";
+import { GearIcon } from "../components/shared/GearIcon.tsx";
 import { useProfile } from "../hooks/useProfile.ts";
 import { useApi } from "../hooks/useApi.ts";
 import { computeProfileMaturity } from "../lib/profileMaturity.ts";
@@ -70,30 +70,6 @@ export function ProfilePage() {
       setContinueError(
         err instanceof Error ? err.message : "Failed to start session",
       );
-    } finally {
-      setIsStartingSession(false);
-    }
-  }
-
-  async function handleResetProfile() {
-    const ok = confirm(
-      "Start over from scratch?\n\n" +
-        "This will delete:\n" +
-        "  • Your taste profile and all profile versions\n" +
-        "  • Your onboarding chat history\n\n" +
-        "These will NOT be deleted (clear them separately if you want):\n" +
-        "  • Your recommendations and batches\n" +
-        "  • Your imported library\n\n" +
-        "After reset you'll be sent back to onboarding to build a fresh profile.",
-    );
-    if (!ok) return;
-    setIsStartingSession(true);
-    setContinueError(null);
-    try {
-      await api("/profile/reset", { method: "POST" });
-      navigate("/onboarding");
-    } catch (err) {
-      setContinueError(err instanceof Error ? err.message : "Failed to reset");
     } finally {
       setIsStartingSession(false);
     }
@@ -166,7 +142,15 @@ export function ProfilePage() {
         />
       ) : (
         <>
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Link
+              to="/settings"
+              aria-label="Settings"
+              title="MCP access tokens and account settings"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-neutral-700 text-neutral-300 hover:bg-neutral-900"
+            >
+              <GearIcon size={16} />
+            </Link>
             <button
               onClick={() => setIsEditing(true)}
               className="rounded-md border border-neutral-700 px-3 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-900"
@@ -196,8 +180,6 @@ export function ProfilePage() {
 
       <LibrarySection />
 
-      <McpTokensSection />
-
       {savedToastVersion != null && (
         <ProfileSavedToast
           key={savedToastVersion}
@@ -205,23 +187,6 @@ export function ProfilePage() {
           onDismiss={() => setSavedToastVersion(null)}
         />
       )}
-
-      <section className="space-y-2 border-t border-neutral-800 pt-4">
-        <h2 className="text-sm font-semibold text-neutral-400">Danger zone</h2>
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-rose-900/40 bg-rose-950/10 p-3">
-          <p className="text-sm text-neutral-400">
-            Wipe your taste profile and onboarding chat history, then start
-            fresh. Recommendations and library stay.
-          </p>
-          <button
-            onClick={() => void handleResetProfile()}
-            disabled={isStartingSession}
-            className="rounded-md border border-rose-900 px-3 py-1.5 text-xs font-medium text-rose-300 hover:bg-rose-950/40 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Start over from scratch
-          </button>
-        </div>
-      </section>
     </div>
   );
 }

@@ -12,9 +12,9 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
   - [2026-05-19 — Sequel-aware cross-references can fabricate anchors](#2026-05-19--sequel-aware-cross-references-can-fabricate-anchors)
   - [2026-05-19 — Candidate-plan max_tokens truncates structured output on large libraries](#2026-05-19--candidate-plan-max_tokens-truncates-structured-output-on-large-libraries)
   - [2026-05-19 — Dedup misses Roman-vs-Arabic numeral variants](#2026-05-19--dedup-misses-roman-vs-arabic-numeral-variants)
-  - [2026-05-20 — Split account/settings concerns out of /profile into a /settings route](#2026-05-20--split-accountsettings-concerns-out-of-profile-into-a-settings-route)
 - [Resolved](#resolved)
   - [2026-05-11 — TMDB / external-DB enrichment for watchlist items](#2026-05-11--tmdb--external-db-enrichment-for-watchlist-items-resolved)
+  - [2026-05-20 — Split account/settings concerns off /profile into a /settings route](#2026-05-20--split-accountsettings-concerns-off-profile-into-a-settings-route-resolved)
 - [Abandoned](#abandoned)
 
 ## Active
@@ -114,30 +114,6 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
 - Direction: normalize Roman→Arabic or Arabic→Roman? Arabic is the more common store-listing form; normalize toward it.
 - Worth catching "VII" (7) and higher, or just ii-v? Sequels past 5 are rare enough that ii-v covers ~95% of cases — start there.
 
-### 2026-05-20 — Split account/settings concerns out of /profile into a /settings route
-
-**What:** `/profile` has accreted four unrelated concerns stacked in one scroll: the taste profile + the "How your profile sharpened" timeline (identity + history), the Library (the user's works), MCP access tokens, and the Danger zone (account/integration settings). drub flagged that everything from "Your Library" down reads as out-of-place — the page no longer meshes as a single coherent surface.
-
-**Why noticed:** Reviewing the profile page after the MCP-tokens section landed there. In Phase 1 of the MCP work, `McpTokensSection` was deliberately placed on `/profile` to avoid a nav change — flagged at the time as the "smallest reasonable UI" call. This followup is that decision coming due.
-
-**Decision:** A new **`/settings` route** (drub picked this over in-page tabs). MCP tokens + the Danger zone move there. The taste profile + evolution timeline stay on `/profile` as the coherent "your taste DNA" surface.
-
-**Anchors:**
-
-- `apps/client/src/App.tsx` — new `<Route path="settings">` under `RequireAuth`
-- `apps/client/src/pages/SettingsPage.tsx` — NEW
-- `apps/client/src/pages/ProfilePage.tsx` — remove `<McpTokensSection />` and the inline Danger-zone `<section>` (~lines 206-221)
-- `apps/client/src/components/profile/McpTokensSection.tsx` — re-homed under SettingsPage (consider moving the file out of `components/profile/`)
-- `apps/client/src/components/shared/Nav.tsx` — decide the nav surface
-
-**Shape of work:** New `SettingsPage` rendering `McpTokensSection` + the danger-zone block (currently inline JSX in `ProfilePage` — lift it into its own component or inline it in SettingsPage). Register the route. Wire up how Settings is reached. Roughly a half-session.
-
-**Open questions:**
-
-- **Nav surface** — a top-level "Settings" nav entry, a gear-link from `/profile`, or tuck it into the Clerk `UserButton` menu? A nav entry is most discoverable; a gear-link keeps the nav lean. drub leaned toward not polluting the primary nav originally — worth re-deciding now that there's real content behind it.
-- **Library** — arguably a third distinct concern (the user's works, separate from both taste DNA and settings). Could eventually become its own `/library` surface. Out of scope here unless it falls out naturally.
-- The `#mcp-tokens` scroll-anchor moves with the section — anything linking to `/profile#mcp-tokens` would need updating to `/settings`.
-
 ## Resolved
 
 ### 2026-05-11 — TMDB / external-DB enrichment for watchlist items (resolved)
@@ -147,6 +123,14 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
 **Resolved 2026-05-11 (commits `8f7bc5e`, `3789264`, `197fe7a` on Resonance main):** Schema added nullable `media_cache_id` FK on `library_items` (migration `0010_library_media_cache_link.sql`, applied to prod). New `services/libraryEnrich.ts` dispatches by mediaType through the existing TMDB / IGDB / Jikan / Open Library adapters via `searchAndCacheByTitle`, year-disambiguates the match, and links the FK. Failures are swallowed + logged. `POST /api/library` runs enrichment inline (~300ms one external call) on every manual add / plan-to. `POST /api/library/enrich-batch?status=watchlist` drains un-enriched rows 50 at a time; defaults to `status=watchlist` so a long consumed-library history doesn't starve the watchlist of enrichment budget. Client side: `LibraryItem` shape gains `media: MediaItem | null` from a server-side leftJoin, `WatchlistRow` rewritten to render a `loading="lazy"` poster + linked title + per-format glyph + year/runtime/source + 2-line description. Format-filter tabs above the list (zero-count tabs hide). `/watchlist` auto-fires the drain on first mount when un-enriched rows are present, via a `drainAttempted` ref so the drain refreshing the library between batches doesn't re-fire the effect.
 
 **Anchors:** `apps/server/src/services/libraryEnrich.ts`, `apps/server/src/api/library.ts`, `apps/server/src/db/migrations/0010_library_media_cache_link.sql`, `apps/client/src/pages/WatchlistPage.tsx`, `apps/client/src/hooks/useLibrary.ts`.
+
+### 2026-05-20 — Split account/settings concerns off /profile into a /settings route (resolved)
+
+**What was deferred:** `/profile` had accreted four unrelated concerns in one scroll — taste profile + evolution timeline, Library, MCP access tokens, and the Danger zone. drub flagged everything from "Your Library" down as out-of-place. The decision was a new `/settings` route over in-page tabs.
+
+**Resolved 2026-05-20:** New `/settings` route under `RequireAuth`. `SettingsPage` renders `McpTokensSection` + a new self-contained `DangerZone` component (the profile-reset logic lifted verbatim out of `ProfilePage`, with its own `isResetting`/`resetError` state). `McpTokensSection` moved `components/profile/` → `components/settings/`; `DangerZone` lives alongside it. Reached two ways per drub's pick: a "Settings" item in the Clerk `UserButton` dropdown (custom `UserButton.Action` → `navigate("/settings")`, so the primary nav stays at 5 items) and a gear icon-link beside "Edit profile" on `/profile`. Shared `GearIcon` component for both. Taste profile + timeline + Library stay on `/profile`. No code linked `/profile#mcp-tokens`, so no anchor updates were needed. Re-homing the Library to its own `/library` surface remains deferred.
+
+**Anchors:** `apps/client/src/App.tsx`, `apps/client/src/pages/SettingsPage.tsx`, `apps/client/src/pages/ProfilePage.tsx`, `apps/client/src/components/settings/McpTokensSection.tsx`, `apps/client/src/components/settings/DangerZone.tsx`, `apps/client/src/components/shared/GearIcon.tsx`, `apps/client/src/components/shared/Nav.tsx`.
 
 ## Abandoned
 

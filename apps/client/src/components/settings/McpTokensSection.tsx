@@ -53,10 +53,7 @@ export function McpTokensSection() {
   }
 
   return (
-    <section
-      id="mcp-tokens"
-      className="scroll-mt-24 space-y-3 border-t border-neutral-800 pt-6"
-    >
+    <section id="mcp-tokens" className="scroll-mt-24 space-y-3">
       <header className="space-y-1">
         <h2 className="text-sm font-semibold text-neutral-200">
           MCP access tokens

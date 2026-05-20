@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
 import { Logo } from "./Logo.tsx";
+import { GearIcon } from "./GearIcon.tsx";
 
 interface NavItem {
   to: string;
@@ -23,6 +24,7 @@ const links: NavItem[] = [
 export function Nav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Close the mobile menu on every navigation. Without this, clicking a link
   // navigates but leaves the menu hanging open over the new page's content.
@@ -110,7 +112,15 @@ export function Nav() {
               hidden on mobile since the hamburger sits to its left. */}
           <div className="hidden h-5 w-px bg-neutral-800 sm:block" />
           <div className="shrink-0">
-            <UserButton afterSignOutUrl="/" />
+            <UserButton afterSignOutUrl="/">
+              <UserButton.MenuItems>
+                <UserButton.Action
+                  label="Settings"
+                  labelIcon={<GearIcon size={16} />}
+                  onClick={() => navigate("/settings")}
+                />
+              </UserButton.MenuItems>
+            </UserButton>
           </div>
         </SignedIn>
       </div>

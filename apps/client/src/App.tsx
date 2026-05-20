@@ -8,6 +8,7 @@ import { EvaluatePage } from "./pages/EvaluatePage.tsx";
 import { BatchesPage } from "./pages/BatchesPage.tsx";
 import { WatchlistPage } from "./pages/WatchlistPage.tsx";
 import { ProfilePage } from "./pages/ProfilePage.tsx";
+import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { MePage } from "./pages/MePage.tsx";
 import { SignInPage } from "./pages/SignInPage.tsx";
 import { SignUpPage } from "./pages/SignUpPage.tsx";
@@ -28,6 +29,7 @@ export function App() {
           <Route path="batches" element={<BatchesPage />} />
           <Route path="watchlist" element={<WatchlistPage />} />
           <Route path="profile" element={<ProfilePage />} />
+          <Route path="settings" element={<SettingsPage />} />
           <Route path="me" element={<MePage />} />
         </Route>
 

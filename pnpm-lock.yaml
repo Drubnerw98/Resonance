@@ -99,6 +99,9 @@ importers:
       '@neondatabase/serverless':
         specifier: ^0.10.4
         version: 0.10.4
+      '@resonance/server':
+        specifier: workspace:*
+        version: link:../server
       '@resonance/shared':
         specifier: workspace:*
         version: link:../../packages/shared

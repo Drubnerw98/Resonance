@@ -10,35 +10,50 @@
  */
 
 import { env } from "./env.js";
+import { runHeldOut } from "./heldOut.js";
 import { runInvariants } from "./invariants.js";
 import {
+  formatHeldOutMarkdown,
   formatInvariantsMarkdown,
   timestampSlug,
   writeReport,
 } from "./report.js";
 
-type Suite = "invariants" | "all";
+type Suite = "invariants" | "heldout" | "all";
 
-function parseArgs(argv: string[]): { suite: Suite } {
+interface ParsedArgs {
+  suite: Suite;
+  n?: number;
+}
+
+function parseArgs(argv: string[]): ParsedArgs {
   const args = argv.slice(2);
-  let suite: Suite = "all";
+  const out: ParsedArgs = { suite: "all" };
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === "--suite") {
       const next = args[++i];
-      if (next === "invariants" || next === "all") {
-        suite = next;
+      if (next === "invariants" || next === "heldout" || next === "all") {
+        out.suite = next;
       } else {
         console.error(`[eval] unknown --suite "${next}"`);
         process.exit(2);
       }
+    } else if (a === "--n") {
+      const next = args[++i];
+      const parsed = Number(next);
+      if (!Number.isInteger(parsed) || parsed < 1) {
+        console.error(`[eval] --n must be a positive integer, got "${next}"`);
+        process.exit(2);
+      }
+      out.n = parsed;
     }
   }
-  return { suite };
+  return out;
 }
 
 async function main(): Promise<void> {
-  const { suite } = parseArgs(process.argv);
+  const { suite, n } = parseArgs(process.argv);
   const startedAt = new Date();
   const scope = env.EVAL_USER_ID
     ? `single user (${env.EVAL_USER_ID})`
@@ -67,6 +82,45 @@ async function main(): Promise<void> {
     }
     console.log(
       `[eval] batches: ${result.totalBatches} · recs: ${result.totalRecs}`,
+    );
+  }
+
+  if (suite === "heldout" || suite === "all") {
+    if (!env.EVAL_USER_ID) {
+      console.error(
+        "[eval] heldout suite requires EVAL_USER_ID — held-out is per-user by construction (you can't hide titles 'from all users')",
+      );
+      process.exit(2);
+    }
+    console.log(
+      `[eval] running heldout suite — user: ${env.EVAL_USER_ID}${n ? `, n=${n}` : ""}`,
+    );
+    const startedHeldOut = new Date();
+    const heldOutOptions: { userId: string; n?: number } = {
+      userId: env.EVAL_USER_ID,
+    };
+    if (n !== undefined) heldOutOptions.n = n;
+    const result = await runHeldOut(heldOutOptions);
+    const finishedHeldOut = new Date();
+    const body = formatHeldOutMarkdown(result, {
+      startedAt: startedHeldOut,
+      finishedAt: finishedHeldOut,
+      scope,
+    });
+    const path = await writeReport(`${stamp}-heldout.md`, body);
+    console.log(`[eval] heldout report → ${path}`);
+    for (const p of result.probes) {
+      const tag = p.error ? "ERR " : p.hit ? "HIT " : "MISS";
+      const where = p.batchId
+        ? `batch ${p.batchId.slice(0, 8)}…`
+        : `error: ${p.error ?? "unknown"}`;
+      console.log(
+        `  [${tag}] ${p.heldOutTitle} (${p.heldOutMediaType}) — ${p.recCount} recs in ${where}`,
+      );
+    }
+    const pct = (result.recall * 100).toFixed(0);
+    console.log(
+      `[eval] recall: ${result.hits}/${result.heldOutCount} (${pct}%)`,
     );
   }
 

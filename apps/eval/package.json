@@ -7,10 +7,12 @@
   "scripts": {
     "eval": "tsx src/run.ts",
     "eval:invariants": "tsx src/run.ts --suite invariants",
+    "eval:heldout": "tsx src/run.ts --suite heldout",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
+    "@resonance/server": "workspace:*",
     "@resonance/shared": "workspace:*",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.45.2",

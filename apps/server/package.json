@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "main": "dist/index.js",
+  "exports": {
+    "./recommender": "./src/services/ai/recommender.ts",
+    "./db/schema": "./src/db/schema.ts"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",

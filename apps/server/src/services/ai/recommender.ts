@@ -161,6 +161,14 @@ export interface GenerateOptions {
    * effort and must not block the pipeline.
    */
   onProgress?: (step: number, message: string) => void;
+  /**
+   * Titles to hide from the library context passed to scoring. Used by the
+   * held-out eval harness to ask "would the system find this title blind?"
+   * Compared canonically, so edition suffixes don't let a held-out title
+   * leak through. Unset / empty for production calls — same no-op shape as
+   * `onProgress`.
+   */
+  excludeLibraryTitles?: string[];
 }
 
 const PROGRESS_TOTAL_STEPS = 4;
@@ -260,7 +268,17 @@ export async function generateRecommendations(
     previouslyRecommendedTitles.add(canonicalizeTitle(row.title));
   }
 
-  const library = await getUserLibrary(userId, profile);
+  const rawLibrary = await getUserLibrary(userId, profile);
+  // Apply the held-out eval's hide-set, if any. Canonical comparison so an
+  // exclude entry of "Hades" hides a library row of "Hades: Definitive
+  // Edition" too. Production callers leave this unset and get rawLibrary
+  // back unchanged.
+  const excludeCanonicals = new Set(
+    (options.excludeLibraryTitles ?? []).map(canonicalizeTitle),
+  );
+  const library = excludeCanonicals.size > 0
+    ? rawLibrary.filter((l) => !excludeCanonicals.has(canonicalizeTitle(l.title)))
+    : rawLibrary;
   const librarySources = library.reduce<Record<string, number>>((acc, l) => {
     acc[l.source] = (acc[l.source] ?? 0) + 1;
     return acc;
@@ -547,7 +565,14 @@ async function generateCandidatePlan(
   const response = await withAiTimeout(() =>
     client.messages.parse({
       model: RECOMMENDER_MODEL,
-      max_tokens: 2048,
+      // 2048 reliably truncates the structured output for users with large
+      // (~200+) libraries — the model emits longer "reason" strings on every
+      // title suggestion to anchor against more anchors, hitting the cap
+      // mid-string and producing unparseable JSON. Surfaced by the held-out
+      // eval against a 231-item library. 4096 gives 2x headroom; the base
+      // schema (15-20 titles + 3-8 queries) lands well under that even with
+      // verbose reasons.
+      max_tokens: 4096,
       system: recommendCandidatesSystemPrompt(),
       messages: [{ role: "user", content: sections.join("\n\n") }],
       output_config: {

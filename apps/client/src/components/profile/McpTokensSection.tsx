@@ -2,6 +2,19 @@ import { useState } from "react";
 import { useMcpTokens, type McpToken } from "../../hooks/useMcpTokens.ts";
 
 /**
+ * Resolve the MCP endpoint URL from the same env var the app uses for
+ * /api/* calls. In dev VITE_API_BASE_URL is unset (Vite proxies relative
+ * /api to localhost:3001) — fall back to localhost:3001/mcp so the snippet
+ * is usable as-is. In prod it's a full URL ending in /api; swap for /mcp.
+ */
+function mcpEndpointUrl(): string {
+  const apiBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  return apiBase && apiBase.startsWith("http")
+    ? apiBase.replace(/\/api\/?$/, "") + "/mcp"
+    : "http://localhost:3001/mcp";
+}
+
+/**
  * Management surface for MCP API tokens — the Bearer credentials that
  * Claude Desktop, Cursor, and other MCP-aware agents use to call into the
  * authenticated user's Resonance account.
@@ -62,6 +75,8 @@ export function McpTokensSection() {
           and paste it into your client's MCP config.
         </p>
       </header>
+
+      <HowToConnect />
 
       <form
         onSubmit={(e) => void handleMint(e)}
@@ -143,6 +158,58 @@ export function McpTokensSection() {
   );
 }
 
+/**
+ * Collapsed-by-default reference for wiring a minted token into the three
+ * common MCP clients. Kept terse on purpose — the per-token panel already
+ * generates the ready-to-paste snippet; this just answers "where does it go."
+ */
+function HowToConnect() {
+  const url = mcpEndpointUrl();
+  const code = "rounded bg-neutral-900 px-1 font-mono text-[11px]";
+  return (
+    <details className="rounded-md border border-neutral-800 bg-neutral-950/40 text-xs text-neutral-400">
+      <summary className="cursor-pointer select-none px-3 py-2 font-medium text-neutral-300 hover:text-neutral-100">
+        How to connect a client
+      </summary>
+      <div className="space-y-3 border-t border-neutral-900 px-3 py-3 leading-relaxed">
+        <p>
+          Generate a token below — the panel that appears includes a
+          ready-to-paste config snippet. Then wire it into your client:
+        </p>
+        <div>
+          <p className="font-medium text-neutral-300">Claude Desktop</p>
+          <p>
+            Paste the snippet into{" "}
+            <code className={code}>claude_desktop_config.json</code> —{" "}
+            <code className={code}>%APPDATA%\Claude\</code> on Windows,{" "}
+            <code className={code}>~/Library/Application Support/Claude/</code>{" "}
+            on macOS — then fully quit and reopen the app.
+          </p>
+        </div>
+        <div>
+          <p className="font-medium text-neutral-300">Cursor</p>
+          <p>
+            Same snippet, into <code className={code}>~/.cursor/mcp.json</code>{" "}
+            (or a workspace <code className={code}>.cursor/mcp.json</code>),
+            then restart Cursor.
+          </p>
+        </div>
+        <div>
+          <p className="font-medium text-neutral-300">Claude Code</p>
+          <p>One command — substitute your token:</p>
+          <pre className="mt-1 overflow-x-auto rounded bg-neutral-950 p-2 font-mono text-[11px] text-neutral-300">
+            {`claude mcp add --scope user --transport http \\\n  resonance ${url} \\\n  --header "Authorization: Bearer <your-token>"`}
+          </pre>
+          <p className="mt-1">
+            <code className={code}>--scope user</code> makes it available in
+            every project; start a fresh session to pick it up.
+          </p>
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function TokenRow({
   token,
   onRevoke,
@@ -200,22 +267,11 @@ function JustMintedReveal({
     null,
   );
 
-  // Derive the MCP URL from the same env var the rest of the app uses for
-  // /api/* calls. In dev VITE_API_BASE_URL is unset (Vite proxies relative
-  // /api to localhost:3001) — fall back to localhost:3001/mcp directly so
-  // the snippet is usable as-is. In prod it's a full URL ending in /api;
-  // swap the suffix for /mcp.
-  const apiBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
-  const mcpUrl =
-    apiBase && apiBase.startsWith("http")
-      ? apiBase.replace(/\/api\/?$/, "") + "/mcp"
-      : "http://localhost:3001/mcp";
-
   const configSnippet = JSON.stringify(
     {
       mcpServers: {
         resonance: {
-          url: mcpUrl,
+          url: mcpEndpointUrl(),
           headers: { Authorization: `Bearer ${rawToken}` },
         },
       },

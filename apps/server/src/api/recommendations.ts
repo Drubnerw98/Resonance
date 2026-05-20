@@ -2,6 +2,7 @@ import { Router } from "express";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "../middleware/auth.js";
+import { validateUuidParam } from "../middleware/validateUuidParam.js";
 import { db } from "../db/index.js";
 import {
   recommendationBatches,
@@ -33,6 +34,8 @@ interface GenerateJobResult {
 export const recommendationsRouter: Router = Router();
 
 recommendationsRouter.use(requireUser);
+recommendationsRouter.param("id", validateUuidParam);
+recommendationsRouter.param("jobId", validateUuidParam);
 
 const generateBodySchema = z
   .object({

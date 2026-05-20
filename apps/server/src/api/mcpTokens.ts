@@ -11,6 +11,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireUser } from "../middleware/auth.js";
+import { validateUuidParam } from "../middleware/validateUuidParam.js";
 import {
   TokenNameInUseError,
   listTokens,
@@ -22,6 +23,7 @@ import type { McpTokenRow } from "../db/schema.js";
 export const mcpTokensRouter: Router = Router();
 
 mcpTokensRouter.use(requireUser);
+mcpTokensRouter.param("id", validateUuidParam);
 
 const mintBodySchema = z
   .object({ name: z.string().trim().min(1).max(80) })

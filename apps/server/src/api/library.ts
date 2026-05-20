@@ -2,6 +2,7 @@ import express, { Router } from "express";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { requireUser } from "../middleware/auth.js";
+import { validateUuidParam } from "../middleware/validateUuidParam.js";
 import { db } from "../db/index.js";
 import { libraryItems } from "../db/schema.js";
 import {
@@ -29,6 +30,7 @@ import { logger } from "../lib/logger.js";
 export const libraryRouter: Router = Router();
 
 libraryRouter.use(requireUser);
+libraryRouter.param("id", validateUuidParam);
 
 const mediaTypeEnum = z.enum(["movie", "tv", "anime", "manga", "game", "book"]);
 const librarySourceEnum = z.enum([
@@ -271,6 +273,18 @@ libraryRouter.post(
   express.json({ limit: "6mb" }),
   async (req, res, next) => {
   try {
+    try {
+      checkRateLimit(req.user!.id, "library.import");
+    } catch (err) {
+      const status =
+        err instanceof Error && "status" in err
+          ? Number((err as { status?: number }).status) || 429
+          : 429;
+      res
+        .status(status)
+        .json({ error: err instanceof Error ? err.message : "rate limited" });
+      return;
+    }
     const parsed = importBodySchema.safeParse(req.body ?? {});
     if (!parsed.success) {
       res
@@ -331,6 +345,18 @@ const importSteamBodySchema = z
  */
 libraryRouter.post("/import-steam", async (req, res, next) => {
   try {
+    try {
+      checkRateLimit(req.user!.id, "library.import");
+    } catch (err) {
+      const status =
+        err instanceof Error && "status" in err
+          ? Number((err as { status?: number }).status) || 429
+          : 429;
+      res
+        .status(status)
+        .json({ error: err instanceof Error ? err.message : "rate limited" });
+      return;
+    }
     const parsed = importSteamBodySchema.safeParse(req.body ?? {});
     if (!parsed.success) {
       res

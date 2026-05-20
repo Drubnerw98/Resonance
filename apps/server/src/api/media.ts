@@ -2,6 +2,7 @@ import { Router } from "express";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "../middleware/auth.js";
+import { validateUuidParam } from "../middleware/validateUuidParam.js";
 import { db } from "../db/index.js";
 import { mediaCache } from "../db/schema.js";
 import {
@@ -12,6 +13,7 @@ import {
 export const mediaRouter: Router = Router();
 
 mediaRouter.use(requireUser);
+mediaRouter.param("cacheId", validateUuidParam);
 
 const mediaTypeEnum = z.enum(["movie", "tv", "anime", "manga", "game", "book"]);
 

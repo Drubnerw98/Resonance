@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireUser } from "../middleware/auth.js";
+import { validateUuidParam } from "../middleware/validateUuidParam.js";
 import { logger } from "../lib/logger.js";
 import { applyFeedback } from "../services/feedback.js";
 import {
@@ -11,6 +12,7 @@ import {
 export const feedbackRouter: Router = Router();
 
 feedbackRouter.use(requireUser);
+feedbackRouter.param("id", validateUuidParam);
 
 const feedbackSchema = z.object({
   status: z.enum(["pending", "seen", "saved", "skipped", "rated", "plan_to"]),

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { requireUser } from "../middleware/auth.js";
+import { validateUuidParam } from "../middleware/validateUuidParam.js";
 import { db } from "../db/index.js";
 import {
   onboardingSessions,
@@ -18,6 +19,7 @@ import { buildProfileExport } from "../services/profileExport.js";
 export const profileRouter: Router = Router();
 
 profileRouter.use(requireUser);
+profileRouter.param("versionId", validateUuidParam);
 
 profileRouter.get("/", async (req, res, next) => {
   try {

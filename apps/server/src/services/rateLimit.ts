@@ -32,6 +32,10 @@ const LIMITS = {
   // without false-positive caps; the unique index on
   // (userId, mediaType, title) prevents trivial spam below this ceiling.
   "library.annotate": 100,
+  // Library imports — CSV/XML upload + Steam. No AI cost, but the CSV parser
+  // is a synchronous scan of up to ~5MB; cap the loop so one user can't tie
+  // up the event loop. 20/day covers every import source plus a re-import.
+  "library.import": 20,
 } as const satisfies Record<string, number>;
 
 export type RateLimitKind = keyof typeof LIMITS;

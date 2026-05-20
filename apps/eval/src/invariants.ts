@@ -11,8 +11,7 @@
  */
 
 import { desc, eq } from "drizzle-orm";
-import { titleAppearsIn } from "@resonance/shared";
-import type { TasteProfile } from "@resonance/shared";
+import { buildAnchorBlob, titleAppearsIn } from "@resonance/shared";
 import { simpleCanonicalize } from "./canonicalize.js";
 import {
   db,
@@ -56,42 +55,6 @@ export interface InvariantsRunResult {
 export interface RunInvariantsOptions {
   /** Limit to a single user. Unset = every user with batches. */
   userId?: string | undefined;
-}
-
-/**
- * Builds a per-user anchor set — every title the user has named or saved.
- * Used by the cross-reference invariant: if a rec cites a title not in this
- * set, the model fabricated it.
- */
-function buildAnchorBlob(
-  profile: TasteProfile | null,
-  libraryTitles: string[],
-): string {
-  const parts: string[] = [...libraryTitles];
-  if (profile) {
-    for (const aff of profile.mediaAffinities) {
-      for (const fav of aff.favorites) parts.push(fav);
-    }
-    for (const theme of profile.themes) {
-      if (theme.summary) parts.push(theme.summary);
-      if (theme.evidence) parts.push(theme.evidence);
-      if (theme.anchors) {
-        for (const a of theme.anchors) parts.push(a.title);
-      }
-      if (theme.reinforcedBy) {
-        for (const r of theme.reinforcedBy) parts.push(r.title);
-      }
-    }
-    for (const arch of profile.archetypes) {
-      parts.push(arch.attraction);
-    }
-    for (const title of profile.dislikedTitles ?? []) {
-      // Disliked titles are negative-signal anchors but they're still
-      // titles the user named, so they count as "named by the user."
-      parts.push(title);
-    }
-  }
-  return parts.join("\n");
 }
 
 export async function runInvariants(

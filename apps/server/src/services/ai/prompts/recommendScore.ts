@@ -66,6 +66,7 @@ For each scored candidate:
   - crossReferences (0-3, optional but encouraged): user-known titles your scoring leaned on, each with a one-line rationale. The titles MUST come from the user's library, mediaAffinities[].favorites, a profile theme's anchors / reinforcedBy / summary, or an archetype.attraction. Don't fabricate titles the user hasn't named or saved.
     Each entry: { title: string, reason: string }. The reason is one sentence on what specifically connects this rec to that prior title (a shared theme, character archetype, narrative shape — not "similar genre"). Skip the field if no honest connection exists; padding it with weak links makes the system feel dumb.
     Example: { "title": "Aftersun", "reason": "Same restraint with bittersweet, no spelled-out catharsis." }
+    Anti-fabrication — the sequel trap: recommending "Hades II" does NOT license citing "Hades" as a cross-reference unless the user actually named "Hades". A predecessor you assume they played is a fabrication, not an anchor. If the prior title is not literally present in the library / favorites / theme / archetype text above, omit the cross-reference.
 
 QUALITY BAR:
 - Match scores should reflect calibrated belief. A 0.95 has to be defensible.

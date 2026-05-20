@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { MediaItem, MediaType } from "@resonance/shared";
+import type { MediaItem, MediaType, TasteProfile } from "@resonance/shared";
 
 // The recommender module imports db/index.js and ./client.js, both of which
 // pull in env.ts and boot-validate env vars (process.exit on miss). Mock the
@@ -23,13 +23,17 @@ import {
   searchAndCacheByQuery,
   searchAndCacheByTitle,
 } from "../mediaCache.js";
-import { collectRealCandidates } from "./recommender.js";
+import {
+  collectRealCandidates,
+  dropFabricatedCrossReferences,
+  type LibraryItem,
+} from "./recommender.js";
 import { canonicalizeTitle } from "./titleMatching.js";
 import type {
   DroppedCandidate,
   MediaCacheRow,
 } from "../../db/schema.js";
-import type { CandidatesOutput } from "./schemas.js";
+import type { CandidatesOutput, ScoredCandidatesOutput } from "./schemas.js";
 
 const mockSearchByTitle = vi.mocked(searchAndCacheByTitle);
 const mockSearchByQuery = vi.mocked(searchAndCacheByQuery);
@@ -419,5 +423,80 @@ describe("canonicalizeTitle", () => {
       canonicalizeTitle("5 for Vendetta"),
     );
     expect(canonicalizeTitle("I Am Legend")).toBe("i am legend");
+  });
+});
+
+describe("dropFabricatedCrossReferences", () => {
+  // Minimal profile: one favorite the model can legitimately anchor to.
+  const profile: TasteProfile = {
+    themes: [],
+    archetypes: [],
+    narrativePrefs: {
+      pacing: "slow-burn",
+      complexity: "layered",
+      tone: [],
+      endings: "ambiguous",
+    },
+    mediaAffinities: [
+      { format: "game", comfort: 0.8, favorites: ["Disco Elysium"] },
+    ],
+    avoidances: [],
+    dislikedTitles: [],
+  };
+  const library: LibraryItem[] = [
+    { title: "Hades", mediaType: "game", source: "imported", rating: null },
+  ];
+
+  function scoredWith(
+    crossReferences: { title: string; reason: string }[],
+  ): ScoredCandidatesOutput {
+    return {
+      recommendations: [
+        {
+          candidateId: "1",
+          matchScore: 0.8,
+          explanation: "—",
+          tasteTags: [],
+          crossReferences,
+        },
+      ],
+    };
+  }
+
+  it("keeps cross-references whose title the user actually named", () => {
+    const out = dropFabricatedCrossReferences(
+      scoredWith([{ title: "Hades", reason: "shared roguelike loop" }]),
+      profile,
+      library,
+    );
+    expect(out.recommendations[0]!.crossReferences).toEqual([
+      { title: "Hades", reason: "shared roguelike loop" },
+    ]);
+  });
+
+  it("drops a cross-reference citing a title absent from profile + library", () => {
+    const out = dropFabricatedCrossReferences(
+      scoredWith([
+        { title: "Pillars of Eternity", reason: "fabricated anchor" },
+      ]),
+      profile,
+      library,
+    );
+    expect(out.recommendations[0]!.crossReferences).toBeUndefined();
+  });
+
+  it("drops only the fabricated entry, keeping anchored ones and the rec", () => {
+    const out = dropFabricatedCrossReferences(
+      scoredWith([
+        { title: "Hades", reason: "real anchor" },
+        { title: "Pillars of Eternity", reason: "fabricated anchor" },
+      ]),
+      profile,
+      library,
+    );
+    expect(out.recommendations).toHaveLength(1);
+    expect(out.recommendations[0]!.crossReferences).toEqual([
+      { title: "Hades", reason: "real anchor" },
+    ]);
   });
 });

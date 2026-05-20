@@ -5,6 +5,7 @@ import type {
   MediaType,
   TasteProfile,
 } from "@resonance/shared";
+import { buildAnchorBlob, titleAppearsIn } from "@resonance/shared";
 import { db } from "../../db/index.js";
 import { logger } from "../../lib/logger.js";
 import {
@@ -906,7 +907,49 @@ synopsis: ${truncate(item.description, 600)}`;
   if (!response.parsed_output) {
     throw new Error(`Scoring failed (stop_reason=${response.stop_reason})`);
   }
-  return ScoredCandidatesOutputSchema.parse(response.parsed_output);
+  const parsed = ScoredCandidatesOutputSchema.parse(response.parsed_output);
+  return dropFabricatedCrossReferences(parsed, profile, library);
+}
+
+/**
+ * Strip cross-reference entries that cite a title the user never named. The
+ * scoring prompt forbids fabricated anchors, but the model still infers them
+ * — e.g. recommending "Hades II" and citing "Hades" as an anchor the user
+ * loved when "Hades" is nowhere in their profile or library. Server-side
+ * enforcement is the real guarantee; the prompt rule is best-effort.
+ *
+ * Mirrors the eval's `cross-reference-anchored` invariant — same shared
+ * `buildAnchorBlob` + `titleAppearsIn` — so enforcement and measurement use
+ * one definition of "anchored". Drops only the offending entry, not the
+ * whole rec: the recommendation is still valid; just the unanchored chip
+ * goes. Exported for direct unit testing.
+ */
+export function dropFabricatedCrossReferences(
+  scored: ScoredCandidatesOutput,
+  profile: TasteProfile,
+  library: LibraryItem[],
+): ScoredCandidatesOutput {
+  const anchorBlob = buildAnchorBlob(
+    profile,
+    library.map((l) => l.title),
+  );
+  let droppedCount = 0;
+  const recommendations = scored.recommendations.map((rec) => {
+    if (!rec.crossReferences || rec.crossReferences.length === 0) return rec;
+    const kept = rec.crossReferences.filter((xref) =>
+      titleAppearsIn(xref.title, anchorBlob),
+    );
+    if (kept.length === rec.crossReferences.length) return rec;
+    droppedCount += rec.crossReferences.length - kept.length;
+    return { ...rec, crossReferences: kept.length > 0 ? kept : undefined };
+  });
+  if (droppedCount > 0) {
+    logger.warn(
+      { droppedCount },
+      "rec: dropped fabricated cross-references (cited titles absent from profile + library)",
+    );
+  }
+  return { recommendations };
 }
 
 async function persistRecommendations(

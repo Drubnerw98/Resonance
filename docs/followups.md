@@ -9,10 +9,10 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
 - [Active](#active)
   - [2026-05-11 — Past-batches compact rendering on recommendations page](#2026-05-11--past-batches-compact-rendering-on-recommendations-page)
   - [2026-05-11 — Mark un-enrichable library items so they stop retrying](#2026-05-11--mark-un-enrichable-library-items-so-they-stop-retrying)
-  - [2026-05-19 — Sequel-aware cross-references can fabricate anchors](#2026-05-19--sequel-aware-cross-references-can-fabricate-anchors)
   - [2026-05-19 — Candidate-plan max_tokens truncates structured output on large libraries](#2026-05-19--candidate-plan-max_tokens-truncates-structured-output-on-large-libraries)
 - [Resolved](#resolved)
   - [2026-05-11 — TMDB / external-DB enrichment for watchlist items](#2026-05-11--tmdb--external-db-enrichment-for-watchlist-items-resolved)
+  - [2026-05-19 — Sequel-aware cross-references can fabricate anchors](#2026-05-19--sequel-aware-cross-references-can-fabricate-anchors-resolved)
   - [2026-05-19 — Dedup misses Roman-vs-Arabic numeral variants](#2026-05-19--dedup-misses-roman-vs-arabic-numeral-variants-resolved)
   - [2026-05-20 — Split account/settings concerns off /profile into a /settings route](#2026-05-20--split-accountsettings-concerns-off-profile-into-a-settings-route-resolved)
 - [Abandoned](#abandoned)
@@ -56,28 +56,6 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
 - Retry interval — 7 days feels right (catches new TMDB entries within a week of release without thrashing). Could be longer if we want to be conservative.
 - Should manual user action ("re-enrich this row") be exposed? Probably not until users actually ask.
 
-### 2026-05-19 — Sequel-aware cross-references can fabricate anchors
-
-**What:** First run of the eval harness (`apps/eval`, `pnpm eval`) flagged a real cross-ref fabrication. Rec `7c88c090…` (Hades II) shipped with `crossReferences: [{ title: "Hades", reason: "Direct sequel that deepens the themes of the original — if Zagreus' story landed…" }]` but "Hades" doesn't appear anywhere in the user's library or profile (no favorite, no theme evidence, no archetype attraction, no dislikedTitle). The model inferred sequel-implies-familiarity rather than anchoring to a title the user actually named — the same failure mode the cross-ref rule is supposed to prevent.
-
-**Why noticed:** The `cross-reference-anchored` invariant in `apps/eval/src/invariants.ts` walks every persisted batch and checks each `crossReferences[].title` against `titleAppearsIn` of the user's full anchor blob. 23 batches × 153 recs gave one violation — caught on the first run.
-
-**Anchors:**
-
-- `apps/server/src/services/ai/prompts/recommendScore.ts` (the scoring prompt that emits crossReferences)
-- `apps/server/src/services/ai/recommender.ts` `scoreCandidates` (~line 762)
-- `apps/server/src/services/ai/schemas.ts` `ScoredCandidatesOutputSchema` (the crossReferences shape)
-
-**Shape of work:** Two paths, not mutually exclusive.
-
-1. **Tighten the prompt.** The current cross-ref rule says "title must come from the user's library, mediaAffinities favorites, or theme.evidence / archetype.attraction." Add an explicit anti-fabrication example using the sequel-of-rec case ("if you're recommending Hades II and the user has never named Hades, do NOT cite Hades as the anchor"). Worked good/bad examples are how every other prompt failure mode in this repo got fixed.
-2. **Server-side validation.** After scoring, run the same `titleAppearsIn` check the eval uses; drop any unanchored `crossReferences[]` entries before persistence. Belt-and-suspenders against future model regressions. ~10 lines.
-
-**Open questions:**
-
-- Should the validation drop the whole rec or just the unanchored xref entry? Dropping just the entry preserves the rec; dropping the whole rec is more conservative but loses signal. Lean toward dropping the entry.
-- The eval currently checks against the user's CURRENT profile. Profiles evolve — a rec made against an older profile that had "Hades" in it would now fail the invariant after the user edited Hades out. For accuracy we'd want to use the profile_version closest to the batch's createdAt. Worth the complexity if false-positive rate grows.
-
 ### 2026-05-19 — Candidate-plan `max_tokens` truncates structured output on large libraries
 
 **What:** First held-out probe against drub's account (231 library items) failed with `AnthropicError: Failed to parse structured output: Error: Failed to parse structured output as JSON: Unterminated string at position 8667` — the model hit `max_tokens: 2048` in the middle of a "reason" string, returned unparseable JSON, and the recommender crashed. Reliably reproducible on the second attempt (truncated at 9091 on the retry).
@@ -105,6 +83,19 @@ Format: see the user-level `~/.claude/CLAUDE.md` "Followup detection" section.
 **Resolved 2026-05-11 (commits `8f7bc5e`, `3789264`, `197fe7a` on Resonance main):** Schema added nullable `media_cache_id` FK on `library_items` (migration `0010_library_media_cache_link.sql`, applied to prod). New `services/libraryEnrich.ts` dispatches by mediaType through the existing TMDB / IGDB / Jikan / Open Library adapters via `searchAndCacheByTitle`, year-disambiguates the match, and links the FK. Failures are swallowed + logged. `POST /api/library` runs enrichment inline (~300ms one external call) on every manual add / plan-to. `POST /api/library/enrich-batch?status=watchlist` drains un-enriched rows 50 at a time; defaults to `status=watchlist` so a long consumed-library history doesn't starve the watchlist of enrichment budget. Client side: `LibraryItem` shape gains `media: MediaItem | null` from a server-side leftJoin, `WatchlistRow` rewritten to render a `loading="lazy"` poster + linked title + per-format glyph + year/runtime/source + 2-line description. Format-filter tabs above the list (zero-count tabs hide). `/watchlist` auto-fires the drain on first mount when un-enriched rows are present, via a `drainAttempted` ref so the drain refreshing the library between batches doesn't re-fire the effect.
 
 **Anchors:** `apps/server/src/services/libraryEnrich.ts`, `apps/server/src/api/library.ts`, `apps/server/src/db/migrations/0010_library_media_cache_link.sql`, `apps/client/src/pages/WatchlistPage.tsx`, `apps/client/src/hooks/useLibrary.ts`.
+
+### 2026-05-19 — Sequel-aware cross-references can fabricate anchors (resolved)
+
+**What was wrong:** The recommendation scorer could emit a `crossReferences[]` entry citing a title the user never named — e.g. recommending "Hades II" with `{ title: "Hades", reason: "Direct sequel…" }` when "Hades" is nowhere in their library or profile. The model inferred sequel-implies-familiarity. Caught on the eval harness's first run by the `cross-reference-anchored` invariant (1 violation across 23 batches × 153 recs).
+
+**Resolved 2026-05-20:** Both paths from the followup, since they're complementary.
+
+1. **Server-side validation (the real guarantee).** `dropFabricatedCrossReferences` in `recommender.ts` runs after `ScoredCandidatesOutputSchema.parse` inside `scoreCandidates`: it builds the anchor blob and drops any `crossReferences[]` entry whose title isn't findable via `titleAppearsIn`. Drops just the offending entry, not the rec (the followup's preferred call). Because it validates against the same profile used to score the batch, the "stale profile" concern in the followup's second open question doesn't apply to the enforcement path — only to the eval invariant.
+2. **Prompt tightening.** Added an explicit anti-fabrication "sequel trap" example to `recommendScore.ts`: recommending a sequel does not license citing a predecessor the user never named.
+
+`buildAnchorBlob` was lifted from `apps/eval/src/invariants.ts` to `packages/shared/src/titleMatch.ts` so the enforcement and the eval invariant share ONE definition of "anchored" — if they drift, the eval gives false confidence. Three unit tests pin the keep / drop-all / drop-only-the-fabricated-entry behavior.
+
+**Anchors:** `apps/server/src/services/ai/recommender.ts`, `apps/server/src/services/ai/prompts/recommendScore.ts`, `packages/shared/src/titleMatch.ts`, `apps/eval/src/invariants.ts`, `apps/server/src/services/ai/recommender.test.ts`.
 
 ### 2026-05-19 — Dedup misses Roman-vs-Arabic numeral variants (resolved)
 

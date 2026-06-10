@@ -3,6 +3,7 @@ import type { MediaType } from "@resonance/shared";
 import { PageHeader } from "../components/shared/PageHeader.tsx";
 import { FormatGlyph } from "../components/shared/FormatGlyph.tsx";
 import { Artwork } from "../components/shared/Artwork.tsx";
+import { ThemeRow } from "../components/shared/ThemeRow.tsx";
 import { formatBatchDate } from "../lib/formatDate.ts";
 import snapshot from "../demo/snapshot.json";
 
@@ -68,9 +69,16 @@ const FORMAT_ORDER: MediaType[] = [
   "book",
 ];
 
+// A cold visitor reads three themes, not eight. Full dossier treatment
+// for the strongest; the tail renders as compact rows so the batch
+// section (the payoff) stays within reach of one scroll.
+const FULL_THEME_COUNT = 3;
+
 export function DemoPage() {
   const { themes, batch, libraryCounts, libraryTotal } = snapshot;
   const maxCount = Math.max(...Object.values(libraryCounts), 1);
+  const fullThemes = themes.slice(0, FULL_THEME_COUNT);
+  const restThemes = themes.slice(FULL_THEME_COUNT);
 
   return (
     <div className="space-y-14 pb-10 sm:space-y-16">
@@ -102,7 +110,7 @@ export function DemoPage() {
 
       <Section n={1} title="Themes" hint="What stories resonate, and why">
         <ul className="space-y-10">
-          {themes.map((t, i) => (
+          {fullThemes.map((t, i) => (
             <li key={i} className="editorial-hairline space-y-4 pt-6">
               <div className="flex flex-wrap items-baseline justify-between gap-3">
                 <h3 className="font-display text-xl font-medium leading-tight text-neutral-50 sm:text-2xl">
@@ -143,22 +151,49 @@ export function DemoPage() {
             </li>
           ))}
         </ul>
+
+        {restThemes.length > 0 && (
+          <div className="editorial-hairline mt-10 space-y-4 pt-6">
+            <p className="editorial-eyebrow">
+              …and {restThemes.length} more signals
+            </p>
+            <ul className="space-y-3">
+              {restThemes.map((t, i) => (
+                <li key={i}>
+                  <ThemeRow
+                    label={t.label}
+                    weight={t.weight}
+                    colorClass={
+                      THEME_ACCENTS[
+                        (i + FULL_THEME_COUNT) % THEME_ACCENTS.length
+                      ]!
+                    }
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </Section>
 
       <Section
         n={2}
         title="A real batch"
-        hint="Generated against this profile, verified against real metadata"
+        hint="One prompt, answered from the profile above"
       >
-        <div className="editorial-hairline space-y-2 pt-6">
+        <div className="editorial-hairline space-y-3 pt-6">
           {batch.prompt && (
-            <p className="font-display text-lg italic leading-snug text-neutral-100 sm:text-xl">
-              &ldquo;{batch.prompt}&rdquo;
-            </p>
+            <>
+              <p className="editorial-eyebrow">They typed</p>
+              <p className="font-display max-w-[36ch] text-2xl italic leading-snug text-neutral-50 sm:text-3xl">
+                &ldquo;{batch.prompt}&rdquo;
+              </p>
+            </>
           )}
           <p className="text-xs text-neutral-500">
             {formatBatchDate(batch.createdAt)} · {batch.picks.length}{" "}
-            {batch.picks.length === 1 ? "pick" : "picks"}
+            {batch.picks.length === 1 ? "pick" : "picks"} · every title
+            verified against real metadata
           </p>
         </div>
         <div className="mt-8 space-y-10">

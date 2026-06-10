@@ -58,6 +58,12 @@ export function NotFoundPage() {
           >
             Sign in
           </Link>
+          <Link
+            to="/demo"
+            className="rounded-md border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-900"
+          >
+            Explore the demo
+          </Link>
         </SignedOut>
       </div>
     </section>

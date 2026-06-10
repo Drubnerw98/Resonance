@@ -10,6 +10,7 @@ import { WatchlistPage } from "./pages/WatchlistPage.tsx";
 import { ProfilePage } from "./pages/ProfilePage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { MePage } from "./pages/MePage.tsx";
+import { DemoPage } from "./pages/DemoPage.tsx";
 import { SignInPage } from "./pages/SignInPage.tsx";
 import { SignUpPage } from "./pages/SignUpPage.tsx";
 import { NotFoundPage } from "./pages/NotFoundPage.tsx";
@@ -21,6 +22,8 @@ export function App() {
         <Route index element={<HomePage />} />
         <Route path="sign-in/*" element={<SignInPage />} />
         <Route path="sign-up/*" element={<SignUpPage />} />
+        {/* Public read-only showcase — static snapshot, no auth, no API. */}
+        <Route path="demo" element={<DemoPage />} />
 
         <Route element={<RequireAuth />}>
           <Route path="onboarding" element={<OnboardingPage />} />

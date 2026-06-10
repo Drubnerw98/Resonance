@@ -231,6 +231,14 @@ export const libraryItems = pgTable(
     mediaCacheId: uuid("media_cache_id").references(() => mediaCache.id, {
       onDelete: "restrict",
     }),
+    /** When the last FAILED enrichment lookup ran (zero adapter hits or the
+     * call threw). Lets the watchlist drain skip un-enrichable rows for 7
+     * days instead of re-burning adapter budget on every page visit.
+     * Successful enrichments leave this null — `media_cache_id` being set
+     * already excludes them from the drain. */
+    mediaCacheEnrichTriedAt: timestamp("media_cache_enrich_tried_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -303,13 +311,7 @@ export type DroppedCandidateReason =
  * different reasons want different shapes. */
 export interface DroppedCandidate {
   title: string;
-  mediaType?:
-    | "movie"
-    | "tv"
-    | "anime"
-    | "manga"
-    | "game"
-    | "book";
+  mediaType?: "movie" | "tv" | "anime" | "manga" | "game" | "book";
   reason: DroppedCandidateReason;
   detail?: string;
 }

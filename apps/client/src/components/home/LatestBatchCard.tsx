@@ -6,7 +6,9 @@ import {
 } from "../../hooks/useRecommendations.ts";
 import { useBatches, type BatchSummary } from "../../hooks/useBatches.ts";
 import { Skeleton } from "../shared/Skeleton.tsx";
+import { Artwork } from "../shared/Artwork.tsx";
 import { SectionCard } from "./SectionCard.tsx";
+import { formatBatchDate } from "../../lib/formatDate.ts";
 
 const FORMAT_LABEL: Record<MediaType, string> = {
   movie: "Movies",
@@ -85,7 +87,7 @@ export function LatestBatchCard() {
 function batchSubtitle(batch: BatchSummary): string {
   if (batch.name) return batch.name;
   if (batch.prompt) return `"${batch.prompt}"`;
-  return new Date(batch.createdAt).toLocaleDateString();
+  return formatBatchDate(batch.createdAt);
 }
 
 function PosterCard({ rec }: { rec: RecommendationItem }) {
@@ -98,18 +100,12 @@ function PosterCard({ rec }: { rec: RecommendationItem }) {
       className="group block space-y-1.5"
     >
       <div className="relative aspect-[2/3] overflow-hidden rounded-md border border-neutral-800 bg-neutral-900">
-        {rec.media.imageUrl ? (
-          <img
-            src={rec.media.imageUrl}
-            alt={rec.media.title}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center px-2 text-center text-xs text-neutral-500">
-            {rec.media.title}
-          </div>
-        )}
+        <Artwork
+          url={rec.media.imageUrl}
+          title={rec.media.title}
+          mediaType={rec.media.mediaType}
+          className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+        />
         {/* Match score in the bottom corner — emerald accent for confidence */}
         <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 backdrop-blur-sm">
           {scorePct}%

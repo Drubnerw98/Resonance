@@ -1,0 +1,1 @@
+ALTER TABLE "library_items" ADD COLUMN "media_cache_enrich_tried_at" timestamp with time zone;

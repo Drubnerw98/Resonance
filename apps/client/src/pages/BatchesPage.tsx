@@ -4,6 +4,7 @@ import { useBatches, type BatchSummary } from "../hooks/useBatches.ts";
 import { Skeleton } from "../components/shared/Skeleton.tsx";
 import { PageHeader } from "../components/shared/PageHeader.tsx";
 import { EmptyState } from "../components/shared/EmptyState.tsx";
+import { formatBatchDate } from "../lib/formatDate.ts";
 
 const FORMAT_PLURAL: Record<string, [string, string]> = {
   movie: ["movie", "movies"],
@@ -46,7 +47,7 @@ function deriveLabel(b: BatchSummary): string {
     return first.length > 50 ? `${first.slice(0, 47).trimEnd()}…` : first;
   }
 
-  return `Default · ${new Date(b.createdAt).toLocaleDateString()}`;
+  return `Default · ${formatBatchDate(b.createdAt)}`;
 }
 
 export function BatchesPage() {
@@ -191,7 +192,7 @@ function BatchRow({
             {deriveLabel(batch)}
           </Link>
           <p className="text-xs text-neutral-500">
-            {new Date(batch.createdAt).toLocaleDateString()} · {batch.count}{" "}
+            {formatBatchDate(batch.createdAt)} · {batch.count}{" "}
             {batch.count === 1 ? "pick" : "picks"}
             {formatLine ? ` · ${formatLine}` : ""}
           </p>

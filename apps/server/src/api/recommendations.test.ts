@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import type { SQL } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import type { User } from "../db/schema.js";
 
@@ -28,6 +29,20 @@ vi.mock("../db/index.js", () => ({
         return { returning: () => Promise.resolve([]) };
       },
     }),
+    // The GET /batches stale-sweep builds a NOT EXISTS subquery via
+    // db.select(); a raw SQL fragment that embeds the inner WHERE is enough
+    // for the dialect to serialize the captured condition.
+    select: () => ({
+      from: () => ({
+        where: (cond: SQL) =>
+          sql`select 1 from "recommendations" where ${cond}`,
+      }),
+    }),
+    query: {
+      recommendationBatches: {
+        findMany: () => Promise.resolve([]),
+      },
+    },
   },
 }));
 
@@ -70,7 +85,11 @@ const FOREIGN_BATCH_ID = "22222222-2222-4222-8222-222222222222";
 
 const dialect = new PgDialect();
 
-async function request(method: "PATCH" | "DELETE", path: string, body?: unknown) {
+async function request(
+  method: "GET" | "PATCH" | "DELETE",
+  path: string,
+  body?: unknown,
+) {
   const app = express();
   app.use(express.json());
   app.use("/api/recommendations", recommendationsRouter);
@@ -123,5 +142,41 @@ describe("batch mutations are scoped to the requesting user", () => {
     expect(query.sql).toContain('"user_id"');
     expect(query.params).toContain(requester.id);
     expect(query.params).toContain(FOREIGN_BATCH_ID);
+  });
+});
+
+// Pins the stale empty-batch sweep on the list endpoint: failed generations
+// from before the discard-on-failure fix left "Default · 0 picks" rows
+// behind. The sweep must be user-scoped, must only touch rows older than the
+// 1-hour in-flight grace, and must spare batches that have recommendations.
+describe("GET /batches sweeps stale pick-less batches", () => {
+  beforeEach(() => {
+    capturedDeleteWhere = undefined;
+  });
+
+  it("deletes only the requester's empty batches older than one hour", async () => {
+    const res = await request("GET", "/batches");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ batches: [] });
+
+    const query = dialect.sqlToQuery(capturedDeleteWhere!);
+    expect(query.sql).toContain('"user_id"');
+    expect(query.sql).toContain('"created_at"');
+    expect(query.sql.toLowerCase()).toContain("not exists");
+    expect(query.params).toContain(requester.id);
+    // The age cutoff param sits roughly an hour in the past. Drizzle maps
+    // the Date through the timestamp column's driver value, so it arrives
+    // as a parseable string rather than a Date instance.
+    const cutoff = query.params
+      .filter(
+        (p): p is string =>
+          typeof p === "string" && /^\d{4}-\d{2}-\d{2}/.test(p),
+      )
+      .map((p) => Date.parse(p))
+      .find((t) => !Number.isNaN(t));
+    expect(cutoff).toBeDefined();
+    const ageMs = Date.now() - cutoff!;
+    expect(ageMs).toBeGreaterThanOrEqual(59 * 60 * 1000);
+    expect(ageMs).toBeLessThanOrEqual(61 * 60 * 1000);
   });
 });

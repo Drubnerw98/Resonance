@@ -80,7 +80,7 @@ export function PromptCard() {
             disabled={submitting}
             placeholder="Describe what you're in the mood for: a feeling, a shape, a comp title…"
             style={{ maxHeight: "200px" }}
-            className="flex-1 resize-none rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2.5 text-sm leading-relaxed text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-500 focus:outline-none disabled:opacity-50"
+            className="flex-1 resize-none overflow-y-auto rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2.5 text-sm leading-relaxed text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-500 focus:outline-none disabled:opacity-50"
           />
           <button
             type="submit"

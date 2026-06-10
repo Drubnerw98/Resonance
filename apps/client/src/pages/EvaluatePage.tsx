@@ -12,6 +12,7 @@ import { useProfile } from "../hooks/useProfile.ts";
 import { PageHeader } from "../components/shared/PageHeader.tsx";
 import { EmptyState } from "../components/shared/EmptyState.tsx";
 import { LoadingPulse } from "../components/shared/LoadingPulse.tsx";
+import { Artwork } from "../components/shared/Artwork.tsx";
 
 const FORMAT_OPTIONS: { value: MediaType; label: string }[] = [
   { value: "movie", label: "Movie" },
@@ -255,18 +256,12 @@ function Picker({
                     : "border-neutral-800 bg-neutral-900 hover:border-neutral-600")
                 }
               >
-                {m.item.imageUrl ? (
-                  <img
-                    src={m.item.imageUrl}
-                    alt={m.item.title}
-                    loading="lazy"
-                    className="h-20 w-14 flex-shrink-0 rounded-sm object-cover"
-                  />
-                ) : (
-                  <div className="flex h-20 w-14 flex-shrink-0 items-center justify-center rounded-sm bg-neutral-800 text-[10px] text-neutral-500">
-                    no image
-                  </div>
-                )}
+                <Artwork
+                  url={m.item.imageUrl}
+                  title={m.item.title}
+                  mediaType={m.item.mediaType}
+                  className="h-20 w-14 flex-shrink-0 rounded-sm object-cover"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium leading-snug">
                     {m.item.title}
@@ -330,17 +325,12 @@ function VerdictCard({
           rel="noreferrer"
           className="flex-shrink-0"
         >
-          {candidate.item.imageUrl ? (
-            <img
-              src={candidate.item.imageUrl}
-              alt={candidate.item.title}
-              className="h-32 w-24 rounded-md object-cover sm:h-40 sm:w-28"
-            />
-          ) : (
-            <div className="flex h-32 w-24 items-center justify-center rounded-md bg-neutral-800 text-xs text-neutral-500 sm:h-40 sm:w-28">
-              no image
-            </div>
-          )}
+          <Artwork
+            url={candidate.item.imageUrl}
+            title={candidate.item.title}
+            mediaType={candidate.item.mediaType}
+            className="h-32 w-24 rounded-md object-cover sm:h-40 sm:w-28"
+          />
         </a>
         <div className="min-w-0 flex-1 space-y-1">
           <p className="text-xs uppercase tracking-wide text-neutral-500">

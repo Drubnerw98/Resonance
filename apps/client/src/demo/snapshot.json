@@ -1,0 +1,237 @@
+{
+  "generatedAt": "2026-06-10",
+  "libraryTotal": 1312,
+  "libraryCounts": {
+    "game": 644,
+    "movie": 586,
+    "anime": 3,
+    "manga": 3,
+    "tv": 4,
+    "book": 72
+  },
+  "themes": [
+    {
+      "label": "earned sacrifice",
+      "summary": "The works that matter most here circle protagonists who pay a real price over a long arc — not martyrdom as spectacle, but the slow accumulation of choices that make the final cost feel inevitable and true.",
+      "weight": 0.99,
+      "anchors": [
+        {
+          "title": "Lightbringer (Red Rising series)",
+          "mediaType": "book"
+        },
+        {
+          "title": "Vinland Saga",
+          "mediaType": "anime"
+        },
+        {
+          "title": "NieR: Automata",
+          "mediaType": "game"
+        },
+        {
+          "title": "Berserk",
+          "mediaType": "manga"
+        }
+      ]
+    },
+    {
+      "label": "accountability without redemption shortcuts",
+      "summary": "Characters are held to the full weight of what they've done — the arc refuses the comfortable release of forgiveness or transformation, and that refusal is where the meaning lives.",
+      "weight": 0.97,
+      "anchors": [
+        {
+          "title": "Bojack Horseman",
+          "mediaType": "tv"
+        },
+        {
+          "title": "Disco Elysium",
+          "mediaType": "game"
+        },
+        {
+          "title": "Manchester by the Sea",
+          "mediaType": "movie"
+        },
+        {
+          "title": "Berserk",
+          "mediaType": "manga"
+        }
+      ]
+    },
+    {
+      "label": "fragile nobility worth grieving",
+      "summary": "A certain kind of moral seriousness — in a person, an ideal, a bond — is shown to be genuinely precious precisely because the world is indifferent or actively hostile to it, and its loss is treated as a tragedy worth sitting with.",
+      "weight": 0.98,
+      "anchors": [
+        {
+          "title": "Cowboy Bebop",
+          "mediaType": "anime"
+        },
+        {
+          "title": "Vinland Saga",
+          "mediaType": "anime"
+        },
+        {
+          "title": "Pluto: Urasawa x Tezuka",
+          "mediaType": "manga"
+        },
+        {
+          "title": "Monster",
+          "mediaType": "anime"
+        }
+      ]
+    },
+    {
+      "label": "interior barriers as emotional climax",
+      "summary": "The most devastating emotional payoff comes not from external victory but from the moment a character finally permits themselves to feel what they have been holding at bay — or, equally powerful, the moment they cannot.",
+      "weight": 0.94,
+      "anchors": [
+        {
+          "title": "A Silent Voice",
+          "mediaType": "anime"
+        },
+        {
+          "title": "March Comes In Like a Lion",
+          "mediaType": "anime"
+        },
+        {
+          "title": "Manchester by the Sea",
+          "mediaType": "movie"
+        },
+        {
+          "title": "Disco Elysium",
+          "mediaType": "game"
+        }
+      ]
+    },
+    {
+      "label": "long-form weight paying off",
+      "summary": "Satisfaction comes from narratives that honour the full length of the journey — every delayed revelation, every quietly planted grief, every choice that only registers in retrospect.",
+      "weight": 0.97,
+      "anchors": [
+        {
+          "title": "Stormlight Archive",
+          "mediaType": "book"
+        },
+        {
+          "title": "Fullmetal Alchemist: Brotherhood",
+          "mediaType": "anime"
+        },
+        {
+          "title": "Berserk",
+          "mediaType": "manga"
+        },
+        {
+          "title": "Monster",
+          "mediaType": "anime"
+        }
+      ]
+    },
+    {
+      "label": "witnessing as tragedy",
+      "summary": "The figure who watches — a narrator, a secondary character, a child — is destroyed not by what they do but by what they cannot stop seeing, and the tragedy belongs as much to the act of witness as to the events witnessed.",
+      "weight": 0.91,
+      "anchors": [
+        {
+          "title": "Berserk",
+          "mediaType": "manga"
+        },
+        {
+          "title": "The Assassination of Jesse James by the Coward Robert Ford",
+          "mediaType": "movie"
+        },
+        {
+          "title": "Pluto: Urasawa x Tezuka",
+          "mediaType": "manga"
+        },
+        {
+          "title": "Succession",
+          "mediaType": "tv"
+        }
+      ]
+    },
+    {
+      "label": "institutional machinery vs. noble intent",
+      "summary": "Systems — bureaucratic, financial, familial, political — are shown to be indifferent to individual moral aspiration, and watching good people navigate or be consumed by those systems is the engine of the drama.",
+      "weight": 0.86,
+      "anchors": [
+        {
+          "title": "The Wire",
+          "mediaType": "tv"
+        },
+        {
+          "title": "Succession",
+          "mediaType": "tv"
+        },
+        {
+          "title": "Ozark",
+          "mediaType": "tv"
+        },
+        {
+          "title": "Mindhunter",
+          "mediaType": "tv"
+        }
+      ]
+    },
+    {
+      "label": "quiet devotion as moral weight",
+      "summary": "Ordinary, unwitnessed commitment — to a child, a routine, a ruined life — is treated with the same gravity as operatic sacrifice, and the accumulation of invisible daily acts becomes the most devastating thing the narrative can show.",
+      "weight": 0.95,
+      "anchors": [
+        {
+          "title": "March Comes In Like a Lion",
+          "mediaType": "anime"
+        },
+        {
+          "title": "Wolf Children",
+          "mediaType": "manga"
+        },
+        {
+          "title": "Manchester by the Sea",
+          "mediaType": "movie"
+        },
+        {
+          "title": "The Climber",
+          "mediaType": "manga"
+        }
+      ]
+    }
+  ],
+  "batch": {
+    "prompt": "Just read Piranesi and adored it need more book's that well written with as much intrigue",
+    "name": null,
+    "createdAt": "2026-05-11T01:21:44.785Z",
+    "picks": [
+      {
+        "title": "Jonathan Strange and Mr. Norrell",
+        "mediaType": "book",
+        "year": 2001,
+        "artworkUrl": "https://covers.openlibrary.org/b/id/525391-L.jpg",
+        "matchScore": 0.97,
+        "explanation": "Jonathan Strange & Mr Norrell is the single most obvious next book after Piranesi — both are Susanna Clarke novels built on the same obsessive prose architecture, the same sense of a world with deep rules you're only partly allowed to see, and the same quality of intrigue that feels genuinely earned rather than withheld. If Piranesi's labyrinthine logic and gorgeous strangeness landed, this is where you go next."
+      },
+      {
+        "title": "The Remains of the Day",
+        "mediaType": "book",
+        "year": 1989,
+        "artworkUrl": "https://covers.openlibrary.org/b/id/95742-L.jpg",
+        "matchScore": 0.95,
+        "explanation": "The Remains of the Day is among the finest novels written in English on the theme of quiet everyday devotion as accumulated moral weight — Stevens's lifelong service, rendered in Ishiguro's achingly precise prose, lands as one of the most devastating things the form can do. The intrigue here is interior and slow, exactly like Piranesi's, and the ending arrives as peaceful devastation in the same register as Ikiru."
+      },
+      {
+        "title": "The Secret History",
+        "mediaType": "book",
+        "year": 1992,
+        "artworkUrl": "https://covers.openlibrary.org/b/id/744854-L.jpg",
+        "matchScore": 0.92,
+        "explanation": "The Secret History is exactly the kind of intrigue Piranesi gestured at — a closed, beautiful world with a terrible secret at its centre, and a narrator whose gradual understanding of what he's complicit in is the engine of the whole novel. Donna Tartt writes with the same precision and atmosphere Clarke does, and the book refuses to let anyone off the hook for what happens."
+      },
+      {
+        "title": "Monster",
+        "mediaType": "anime",
+        "year": 2004,
+        "artworkUrl": "https://cdn.myanimelist.net/images/anime/10/18793l.jpg",
+        "matchScore": 0.88,
+        "explanation": "Monster is the anime equivalent of the kind of literary thriller Piranesi belongs to — obsessive, architecturally precise, with a mystery whose stakes gradually reveal themselves as something genuinely philosophical. The accountability-without-shortcuts theme is as strong here as anywhere in Berserk or Bojack, and Urasawa's control over long-form accumulated weight is arguably unmatched in the medium."
+      }
+    ]
+  }
+}

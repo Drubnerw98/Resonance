@@ -12,6 +12,7 @@ import { EmptyState } from "../components/shared/EmptyState.tsx";
 import { LoadingPulse } from "../components/shared/LoadingPulse.tsx";
 import { Skeleton } from "../components/shared/Skeleton.tsx";
 import { FormatGlyph } from "../components/shared/FormatGlyph.tsx";
+import { Artwork } from "../components/shared/Artwork.tsx";
 import { TabButton } from "../components/recommendations/TabButton.tsx";
 
 type FilterKey = "all" | MediaType;
@@ -152,7 +153,8 @@ export function WatchlistPage() {
             What fits your mood tonight?
           </h2>
           <p className="text-xs text-neutral-500">
-            Describe a feeling or shape, and I&apos;ll rank your watchlist for it.
+            Describe a feeling or shape, and I&apos;ll rank your watchlist for
+            it.
           </p>
         </header>
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -179,9 +181,7 @@ export function WatchlistPage() {
             <button
               type="button"
               onClick={handlePickRandom}
-              disabled={
-                decide.status === "loading" || watchlist.length === 0
-              }
+              disabled={decide.status === "loading" || watchlist.length === 0}
               title="Skip the mood, just pick something at random"
               className="rounded-md border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 hover:border-emerald-700 hover:bg-emerald-950/30 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -311,7 +311,9 @@ export function WatchlistPage() {
                 <WatchlistRow
                   key={it.id}
                   item={it}
-                  onMarkWatched={() => void lib.setItemStatus(it.id, "consumed")}
+                  onMarkWatched={() =>
+                    void lib.setItemStatus(it.id, "consumed")
+                  }
                   onRate={(stars) => void lib.setItemRating(it.id, stars)}
                 />
               ))}
@@ -469,7 +471,9 @@ function WatchlistRow({
           />
           <span>{FORMAT_LABEL[item.mediaType]}</span>
           {item.year != null && <span>· {item.year}</span>}
-          {runtime != null && <span>· {formatRuntime(runtime, item.mediaType)}</span>}
+          {runtime != null && (
+            <span>· {formatRuntime(runtime, item.mediaType)}</span>
+          )}
           <span>· from {item.source}</span>
         </div>
         {description && (
@@ -504,26 +508,13 @@ function PosterThumb({
   externalUrl: string | null;
   mediaType: MediaType;
 }) {
-  const sizeClasses = "h-20 w-14 sm:h-24 sm:w-16";
-  const inner = posterUrl ? (
-    <img
-      src={posterUrl}
-      alt={title}
-      loading="lazy"
-      className={`${sizeClasses} shrink-0 rounded-sm border border-neutral-800 object-cover`}
+  const inner = (
+    <Artwork
+      url={posterUrl}
+      title={title}
+      mediaType={mediaType}
+      className="h-20 w-14 shrink-0 rounded-sm object-cover sm:h-24 sm:w-16"
     />
-  ) : (
-    <div
-      className={`${sizeClasses} flex shrink-0 flex-col items-center justify-center gap-1 rounded-sm border border-dashed border-neutral-800 bg-neutral-950/60 text-neutral-600`}
-      aria-label={`${title} (no cover)`}
-    >
-      <FormatGlyph
-        format={mediaType}
-        size={14}
-        className={FORMAT_TEXT_COLOR[mediaType] ?? "text-neutral-500"}
-      />
-      <span className="text-[8px] uppercase tracking-wider">no cover</span>
-    </div>
   );
   if (!externalUrl) return inner;
   return (

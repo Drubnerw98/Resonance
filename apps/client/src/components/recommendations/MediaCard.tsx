@@ -5,6 +5,7 @@ import type {
   RecommendationItem,
 } from "../../hooks/useRecommendations.ts";
 import { CrossReferenceModal } from "./CrossReferenceModal.tsx";
+import { Artwork } from "../shared/Artwork.tsx";
 
 const FORMAT_LABEL: Record<string, string> = {
   movie: "Movie",
@@ -52,8 +53,15 @@ export function MediaCard({
   onRescore,
   isRescoring,
 }: Props) {
-  const { media, matchScore, explanation, tasteTags, crossReferences, status, rating } =
-    rec;
+  const {
+    media,
+    matchScore,
+    explanation,
+    tasteTags,
+    crossReferences,
+    status,
+    rating,
+  } = rec;
   const [activeCrossRef, setActiveCrossRef] =
     useState<RecommendationCrossReference | null>(null);
   const scorePct = Math.round(matchScore * 100);
@@ -91,18 +99,12 @@ export function MediaCard({
         rel="noreferrer"
         className="flex-shrink-0"
       >
-        {media.imageUrl ? (
-          <img
-            src={media.imageUrl}
-            alt={media.title}
-            loading="lazy"
-            className="h-32 w-24 rounded-sm object-cover transition-transform duration-300 group-hover:-translate-y-0.5 sm:h-44 sm:w-32"
-          />
-        ) : (
-          <div className="flex h-32 w-24 items-center justify-center rounded-sm border border-neutral-800 text-[10px] text-neutral-500 sm:h-44 sm:w-32">
-            no image
-          </div>
-        )}
+        <Artwork
+          url={media.imageUrl}
+          title={media.title}
+          mediaType={media.mediaType}
+          className="h-32 w-24 rounded-sm object-cover transition-transform duration-300 group-hover:-translate-y-0.5 sm:h-44 sm:w-32"
+        />
       </a>
 
       <div className="flex min-w-0 flex-1 flex-col gap-3">
@@ -137,7 +139,11 @@ export function MediaCard({
             onClick={() => onRescore(rec.id)}
             disabled={isRescoring}
             title="Match score · click to rescore against your current taste profile"
-            aria-label={isRescoring ? "Rescoring" : `Match score ${scorePct}, click to rescore`}
+            aria-label={
+              isRescoring
+                ? "Rescoring"
+                : `Match score ${scorePct}, click to rescore`
+            }
             className={
               "shrink-0 text-right transition-opacity duration-200 disabled:opacity-50 " +
               (isRescoring ? "animate-pulse" : "")

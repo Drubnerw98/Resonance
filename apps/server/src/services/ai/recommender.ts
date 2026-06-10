@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, isNull, or } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, notExists, or, sql } from "drizzle-orm";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type {
   MediaSearchQuery,
@@ -225,9 +225,10 @@ export async function generateRecommendations(
   const prompt = options.prompt?.trim() || null;
   const { onProgress } = options;
 
-  // Drop accumulator threaded through the pipeline. We persist whatever's
-  // accumulated at every checkpoint where the pipeline can fail — the user
-  // gets best-effort visibility even if scoring crashes mid-batch.
+  // Drop accumulator threaded through the pipeline. Persisted onto the
+  // batch row once picks land; on failure paths the batch row itself is
+  // discarded (see the catch below), so accumulated drops go to the log
+  // instead.
   const dropped: DroppedCandidate[] = [];
 
   // Create the batch row first so all rec inserts can reference it.
@@ -238,205 +239,272 @@ export async function generateRecommendations(
   if (!batch) throw new Error("Failed to create recommendation batch");
   logger.info({ batchId: batch.id, prompt }, "rec: batch created");
 
-  // Pull existing recs once and derive two caches: the set of media_cache
-  // UUIDs already recommended (exact-row dedup), AND the set of canonical
-  // titles already recommended (cross-batch series-variant dedup). Without
-  // the second set, "Vinland Saga" in batch 1 doesn't prevent "Vinland Saga
-  // Season 2" from showing up in batch 2 — different cache rows, different
-  // UUIDs, but the same work-cluster from the user's perspective.
-  const existingRecs = await db.query.recommendations.findMany({
-    where: eq(recommendations.userId, userId),
-    with: { media: { columns: { id: true, title: true } } },
-  });
-  const seenCacheIds = new Set(existingRecs.map((r) => r.mediaCacheId));
-  const previouslyRecommendedTitles = new Set(
-    existingRecs.map((r) => canonicalizeTitle(r.media.title)),
-  );
-
-  // Watchlist items go into the same "already on the user's radar" set so
-  // they aren't re-surfaced as new recommendations. Different from the avoid
-  // set: the user might still want recs in the same vein, just not THIS
-  // specific work. Adding to seenCanonicals (via previouslyRecommendedTitles)
-  // is the right semantic — same as already-recommended.
-  const watchlistRows = await db.query.libraryItems.findMany({
-    where: and(
-      eq(libraryItems.userId, userId),
-      eq(libraryItems.status, "watchlist"),
-    ),
-    columns: { title: true },
-  });
-  for (const row of watchlistRows) {
-    previouslyRecommendedTitles.add(canonicalizeTitle(row.title));
-  }
-
-  const rawLibrary = await getUserLibrary(userId, profile);
-  // Apply the held-out eval's hide-set, if any. Canonical comparison so an
-  // exclude entry of "Hades" hides a library row of "Hades: Definitive
-  // Edition" too. Production callers leave this unset and get rawLibrary
-  // back unchanged.
-  const excludeCanonicals = new Set(
-    (options.excludeLibraryTitles ?? []).map(canonicalizeTitle),
-  );
-  const library = excludeCanonicals.size > 0
-    ? rawLibrary.filter((l) => !excludeCanonicals.has(canonicalizeTitle(l.title)))
-    : rawLibrary;
-  const librarySources = library.reduce<Record<string, number>>((acc, l) => {
-    acc[l.source] = (acc[l.source] ?? 0) + 1;
-    return acc;
-  }, {});
-  logger.info(
-    { count: library.length, sources: librarySources },
-    "rec: library will inform scoring",
-  );
-
-  // Step 1 — AI proposes candidates (prompt + library aware).
-  const plan = await generateCandidatePlan(profile, prompt, library);
-  const formatsInPlan = countByFormat(
-    plan.titleSuggestions.map((s) => s.mediaType),
-  );
-  logger.info(
-    {
-      titles: plan.titleSuggestions.length,
-      queries: plan.discoveryQueries.length,
-      byFormat: formatsInPlan,
-    },
-    "rec: plan generated",
-  );
-  safeProgress(
-    onProgress,
-    1,
-    `Proposed ${plan.titleSuggestions.length} titles + ${plan.discoveryQueries.length} discovery queries — validating against media APIs…`,
-  );
-
-  // Step 2 — validate against real APIs, deduping and excluding seen items
-  // (already-recommended cache rows + profile favorites + avoid-list).
-  const favorites = collectFavorites(profile);
-  const avoidTitles = await collectAvoidTitles(userId, profile);
-  logger.debug(
-    { count: favorites.size, sample: Array.from(favorites).slice(0, 12) },
-    "rec: favorites set",
-  );
-  logger.debug(
-    { count: avoidTitles.size, sample: Array.from(avoidTitles).slice(0, 12) },
-    "rec: avoid set",
-  );
-  // Enabled formats = those the user has in their TasteProfile's
-  // mediaAffinities array. Removing a format from the profile editor is
-  // the user's "disable this medium" toggle.
-  const enabledFormats = new Set<MediaType>(
-    profile.mediaAffinities.map((a) => a.format),
-  );
-  logger.debug({ formats: Array.from(enabledFormats) }, "rec: enabled formats");
-
-  const candidates = await collectRealCandidates(
-    plan,
-    seenCacheIds,
-    favorites,
-    avoidTitles,
-    previouslyRecommendedTitles,
-    enabledFormats,
-    dropped,
-  );
-  logger.info(
-    {
-      count: candidates.length,
-      byFormat: countByFormat(candidates.map((c) => c.mediaType)),
-      dropped: dropped.length,
-    },
-    "rec: validated cache rows after dedupe + seen-filter",
-  );
-  safeProgress(
-    onProgress,
-    2,
-    `Validated ${candidates.length} real candidates (${dropped.length} dropped) — scoring against your profile…`,
-  );
-  if (candidates.length === 0) {
-    // Persist drops even on the no-candidates failure path — the user
-    // benefits from seeing WHY nothing landed (e.g. all dropped as
-    // disliked-title or format-disabled).
-    await persistDroppedCandidates(batch.id, dropped);
-    const err: Error & { status: number } = Object.assign(
-      new Error(
-        "Recommendation pipeline produced 0 valid candidates — try widening the profile or onboarding more.",
-      ),
-      { status: 422 },
+  // Everything past this point can fail (AI call, adapter fan-out, zero
+  // surviving candidates). The batch row was created up front so the rec
+  // inserts and drop checkpoints have something to reference — but a batch
+  // that never gained a pick must not survive the failure, or /batches
+  // accumulates "Default · 0 picks" husks. The catch below deletes the row
+  // iff it's still pick-less, then rethrows the original error.
+  try {
+    // Pull existing recs once and derive two caches: the set of media_cache
+    // UUIDs already recommended (exact-row dedup), AND the set of canonical
+    // titles already recommended (cross-batch series-variant dedup). Without
+    // the second set, "Vinland Saga" in batch 1 doesn't prevent "Vinland Saga
+    // Season 2" from showing up in batch 2 — different cache rows, different
+    // UUIDs, but the same work-cluster from the user's perspective.
+    const existingRecs = await db.query.recommendations.findMany({
+      where: eq(recommendations.userId, userId),
+      with: { media: { columns: { id: true, title: true } } },
+    });
+    const seenCacheIds = new Set(existingRecs.map((r) => r.mediaCacheId));
+    const previouslyRecommendedTitles = new Set(
+      existingRecs.map((r) => canonicalizeTitle(r.media.title)),
     );
+
+    // Watchlist items go into the same "already on the user's radar" set so
+    // they aren't re-surfaced as new recommendations. Different from the avoid
+    // set: the user might still want recs in the same vein, just not THIS
+    // specific work. Adding to seenCanonicals (via previouslyRecommendedTitles)
+    // is the right semantic — same as already-recommended.
+    const watchlistRows = await db.query.libraryItems.findMany({
+      where: and(
+        eq(libraryItems.userId, userId),
+        eq(libraryItems.status, "watchlist"),
+      ),
+      columns: { title: true },
+    });
+    for (const row of watchlistRows) {
+      previouslyRecommendedTitles.add(canonicalizeTitle(row.title));
+    }
+
+    const rawLibrary = await getUserLibrary(userId, profile);
+    // Apply the held-out eval's hide-set, if any. Canonical comparison so an
+    // exclude entry of "Hades" hides a library row of "Hades: Definitive
+    // Edition" too. Production callers leave this unset and get rawLibrary
+    // back unchanged.
+    const excludeCanonicals = new Set(
+      (options.excludeLibraryTitles ?? []).map(canonicalizeTitle),
+    );
+    const library =
+      excludeCanonicals.size > 0
+        ? rawLibrary.filter(
+            (l) => !excludeCanonicals.has(canonicalizeTitle(l.title)),
+          )
+        : rawLibrary;
+    const librarySources = library.reduce<Record<string, number>>((acc, l) => {
+      acc[l.source] = (acc[l.source] ?? 0) + 1;
+      return acc;
+    }, {});
+    logger.info(
+      { count: library.length, sources: librarySources },
+      "rec: library will inform scoring",
+    );
+
+    // Step 1 — AI proposes candidates (prompt + library aware).
+    const plan = await generateCandidatePlan(profile, prompt, library);
+    const formatsInPlan = countByFormat(
+      plan.titleSuggestions.map((s) => s.mediaType),
+    );
+    logger.info(
+      {
+        titles: plan.titleSuggestions.length,
+        queries: plan.discoveryQueries.length,
+        byFormat: formatsInPlan,
+      },
+      "rec: plan generated",
+    );
+    safeProgress(
+      onProgress,
+      1,
+      `Proposed ${plan.titleSuggestions.length} titles + ${plan.discoveryQueries.length} discovery queries — validating against media APIs…`,
+    );
+
+    // Step 2 — validate against real APIs, deduping and excluding seen items
+    // (already-recommended cache rows + profile favorites + avoid-list).
+    const favorites = collectFavorites(profile);
+    const avoidTitles = await collectAvoidTitles(userId, profile);
+    logger.debug(
+      { count: favorites.size, sample: Array.from(favorites).slice(0, 12) },
+      "rec: favorites set",
+    );
+    logger.debug(
+      { count: avoidTitles.size, sample: Array.from(avoidTitles).slice(0, 12) },
+      "rec: avoid set",
+    );
+    // Enabled formats = those the user has in their TasteProfile's
+    // mediaAffinities array. Removing a format from the profile editor is
+    // the user's "disable this medium" toggle.
+    const enabledFormats = new Set<MediaType>(
+      profile.mediaAffinities.map((a) => a.format),
+    );
+    logger.debug(
+      { formats: Array.from(enabledFormats) },
+      "rec: enabled formats",
+    );
+
+    const candidates = await collectRealCandidates(
+      plan,
+      seenCacheIds,
+      favorites,
+      avoidTitles,
+      previouslyRecommendedTitles,
+      enabledFormats,
+      dropped,
+    );
+    logger.info(
+      {
+        count: candidates.length,
+        byFormat: countByFormat(candidates.map((c) => c.mediaType)),
+        dropped: dropped.length,
+      },
+      "rec: validated cache rows after dedupe + seen-filter",
+    );
+    safeProgress(
+      onProgress,
+      2,
+      `Validated ${candidates.length} real candidates (${dropped.length} dropped) — scoring against your profile…`,
+    );
+    if (candidates.length === 0) {
+      // The batch row is about to be discarded (pick-less batches don't
+      // survive — see the catch below), so drops can't persist to it. Log
+      // them instead: the WHY still reaches us, and the job's 422 message
+      // reaches the user.
+      logger.warn(
+        { batchId: batch.id, dropped },
+        "rec: 0 valid candidates — discarding batch",
+      );
+      const err: Error & { status: number } = Object.assign(
+        new Error(
+          "Recommendation pipeline produced 0 valid candidates — try widening the profile or onboarding more.",
+        ),
+        { status: 422 },
+      );
+      throw err;
+    }
+
+    // Step 3 — AI scores real candidates with library context.
+    const scored = await scoreCandidates(profile, candidates, {
+      prompt,
+      library,
+    });
+    logger.info(
+      { count: scored.recommendations.length },
+      "rec: scored recommendations returned by model",
+    );
+    safeProgress(
+      onProgress,
+      3,
+      `Scored ${scored.recommendations.length} recommendations — persisting batch…`,
+    );
+
+    // Step 4 — persist scored recs against the batch.
+    // The model receives all candidates but typically returns a subset (Rule 1
+    // says "drop misfits over hitting volume"). The candidates the model
+    // didn't include are scored-and-dropped — record them now.
+    const scoredCandidateIds = new Set(
+      scored.recommendations.map((r) => r.candidateId),
+    );
+    candidates.forEach((c, i) => {
+      const idx = String(i + 1);
+      if (!scoredCandidateIds.has(idx)) {
+        dropped.push({
+          title: c.normalizedData.title,
+          mediaType: c.mediaType,
+          reason: "scored-and-dropped",
+          detail: "the model judged this a poor fit after seeing the full set",
+        });
+      }
+    });
+    const saved = await persistRecommendations(
+      userId,
+      batch.id,
+      candidates,
+      scored,
+    );
+    logger.info(
+      {
+        count: saved.length,
+        batchId: batch.id,
+        byFormat: countByFormat(
+          saved.map(
+            (r) =>
+              candidates.find((c) => c.id === r.mediaCacheId)?.mediaType ??
+              "unknown",
+          ),
+        ),
+      },
+      "rec: persisted",
+    );
+
+    if (saved.length === 0) {
+      // The model returned recs but none survived persistence (unknown
+      // candidateIds, or every row collapsed into the (user, media) unique).
+      // Same user-state semantics as the 0-candidates path — 422, and the
+      // catch below discards the pick-less batch.
+      const err: Error & { status: number } = Object.assign(
+        new Error(
+          "Scoring produced no new recommendations — everything either failed validation or was already recommended. Try a different prompt.",
+        ),
+        { status: 422 },
+      );
+      throw err;
+    }
+
+    // Step 5 — enrich the persisted picks with runtime (TMDB movies/TV only).
+    // After scoring so we only spend the extra detail-fetch on items that
+    // actually became recs. Failures are non-fatal — runtime stays null on
+    // the row and the client treats null as "—" in the sort.
+    const winnerCacheIds = new Set(saved.map((r) => r.mediaCacheId));
+    const winners = candidates.filter((c) => winnerCacheIds.has(c.id));
+    await enrichWithRuntime(winners);
+
+    // Persist drops on the batch row. Best-effort: a failure here doesn't
+    // unwind the recs we already persisted — we log and move on.
+    await persistDroppedCandidates(batch.id, dropped);
+
+    safeProgress(
+      onProgress,
+      PROGRESS_TOTAL_STEPS,
+      `Saved batch with ${saved.length} recommendations.`,
+    );
+
+    return { batch, recs: saved };
+  } catch (err) {
+    await discardBatchIfEmpty(batch.id, userId);
     throw err;
   }
+}
 
-  // Step 3 — AI scores real candidates with library context.
-  const scored = await scoreCandidates(profile, candidates, {
-    prompt,
-    library,
-  });
-  logger.info(
-    { count: scored.recommendations.length },
-    "rec: scored recommendations returned by model",
-  );
-  safeProgress(
-    onProgress,
-    3,
-    `Scored ${scored.recommendations.length} recommendations — persisting batch…`,
-  );
-
-  // Step 4 — persist scored recs against the batch.
-  // The model receives all candidates but typically returns a subset (Rule 1
-  // says "drop misfits over hitting volume"). The candidates the model
-  // didn't include are scored-and-dropped — record them now.
-  const scoredCandidateIds = new Set(
-    scored.recommendations.map((r) => r.candidateId),
-  );
-  candidates.forEach((c, i) => {
-    const idx = String(i + 1);
-    if (!scoredCandidateIds.has(idx)) {
-      dropped.push({
-        title: c.normalizedData.title,
-        mediaType: c.mediaType,
-        reason: "scored-and-dropped",
-        detail: "the model judged this a poor fit after seeing the full set",
-      });
-    }
-  });
-  const saved = await persistRecommendations(
-    userId,
-    batch.id,
-    candidates,
-    scored,
-  );
-  logger.info(
-    {
-      count: saved.length,
-      batchId: batch.id,
-      byFormat: countByFormat(
-        saved.map(
-          (r) =>
-            candidates.find((c) => c.id === r.mediaCacheId)?.mediaType ??
-            "unknown",
+/**
+ * Delete a batch row that never gained a recommendation. The NOT EXISTS
+ * guard makes this safe to call from ANY failure path — if recs persisted
+ * before a later step (e.g. runtime enrichment) blew up, the batch and its
+ * picks stay. Best-effort: a cleanup failure must not mask the original
+ * pipeline error, so we log and move on.
+ */
+async function discardBatchIfEmpty(
+  batchId: string,
+  userId: string,
+): Promise<void> {
+  try {
+    await db.delete(recommendationBatches).where(
+      and(
+        eq(recommendationBatches.id, batchId),
+        eq(recommendationBatches.userId, userId),
+        notExists(
+          db
+            .select({ one: sql`1` })
+            .from(recommendations)
+            .where(eq(recommendations.batchId, batchId)),
         ),
       ),
-    },
-    "rec: persisted",
-  );
-
-  // Step 5 — enrich the persisted picks with runtime (TMDB movies/TV only).
-  // After scoring so we only spend the extra detail-fetch on items that
-  // actually became recs. Failures are non-fatal — runtime stays null on
-  // the row and the client treats null as "—" in the sort.
-  const winnerCacheIds = new Set(saved.map((r) => r.mediaCacheId));
-  const winners = candidates.filter((c) => winnerCacheIds.has(c.id));
-  await enrichWithRuntime(winners);
-
-  // Persist drops on the batch row. Best-effort: a failure here doesn't
-  // unwind the recs we already persisted — we log and move on.
-  await persistDroppedCandidates(batch.id, dropped);
-
-  safeProgress(
-    onProgress,
-    PROGRESS_TOTAL_STEPS,
-    `Saved batch with ${saved.length} recommendations.`,
-  );
-
-  return { batch, recs: saved };
+    );
+  } catch (cleanupErr) {
+    logger.warn(
+      { batchId, err: cleanupErr },
+      "rec: failed to clean up empty batch",
+    );
+  }
 }
 
 /**
@@ -564,26 +632,29 @@ async function generateCandidatePlan(
   sections.push(`# Task\n\nGenerate candidate recommendations.`);
 
   const response = await withAiTimeout(() =>
-    client.messages.parse({
-      model: RECOMMENDER_MODEL,
-      // 2048 reliably truncates the structured output for users with large
-      // (~200+) libraries — the model emits longer "reason" strings on every
-      // title suggestion to anchor against more anchors, hitting the cap
-      // mid-string and producing unparseable JSON. Surfaced by the held-out
-      // eval against a 231-item library. 4096 gives 2x headroom; the base
-      // schema (15-20 titles + 3-8 queries) lands well under that even with
-      // verbose reasons.
-      max_tokens: 4096,
-      system: recommendCandidatesSystemPrompt(),
-      messages: [{ role: "user", content: sections.join("\n\n") }],
-      output_config: {
-        format: zodOutputFormat(
-          CandidatesOutputSchema as unknown as Parameters<
-            typeof zodOutputFormat
-          >[0],
-        ),
+    client.messages.parse(
+      {
+        model: RECOMMENDER_MODEL,
+        // 2048 reliably truncates the structured output for users with large
+        // (~200+) libraries — the model emits longer "reason" strings on every
+        // title suggestion to anchor against more anchors, hitting the cap
+        // mid-string and producing unparseable JSON. Surfaced by the held-out
+        // eval against a 231-item library. 4096 gives 2x headroom; the base
+        // schema (15-20 titles + 3-8 queries) lands well under that even with
+        // verbose reasons.
+        max_tokens: 4096,
+        system: recommendCandidatesSystemPrompt(),
+        messages: [{ role: "user", content: sections.join("\n\n") }],
+        output_config: {
+          format: zodOutputFormat(
+            CandidatesOutputSchema as unknown as Parameters<
+              typeof zodOutputFormat
+            >[0],
+          ),
+        },
       },
-    }, { signal: aiTimeoutSignal() }),
+      { signal: aiTimeoutSignal() },
+    ),
   );
 
   if (!response.parsed_output) {
@@ -647,7 +718,9 @@ export async function collectRealCandidates(
     if (droppedCanonicals.has(canon)) return;
     droppedCanonicals.add(canon);
     dropped.push(
-      detail ? { title, mediaType, reason, detail } : { title, mediaType, reason },
+      detail
+        ? { title, mediaType, reason, detail }
+        : { title, mediaType, reason },
     );
   }
 
@@ -884,24 +957,27 @@ synopsis: ${truncate(item.description, 600)}`;
   );
 
   const response = await withAiTimeout(() =>
-    client.messages.parse({
-      model: RECOMMENDER_MODEL,
-      // 8192 because each scored rec carries explanation + tasteTags + 0-3
-      // crossReferences ({title, reason}). At 25+ recs that's well over
-      // 4096; mid-string truncation surfaces as a JSON parse error from the
-      // SDK. Sonnet 4.6 caps far higher; 8192 is comfortable headroom
-      // without paying for unused output budget.
-      max_tokens: 8192,
-      system: recommendScoreSystemPrompt(),
-      messages: [{ role: "user", content: sections.join("\n\n") }],
-      output_config: {
-        format: zodOutputFormat(
-          ScoredCandidatesOutputSchema as unknown as Parameters<
-            typeof zodOutputFormat
-          >[0],
-        ),
+    client.messages.parse(
+      {
+        model: RECOMMENDER_MODEL,
+        // 8192 because each scored rec carries explanation + tasteTags + 0-3
+        // crossReferences ({title, reason}). At 25+ recs that's well over
+        // 4096; mid-string truncation surfaces as a JSON parse error from the
+        // SDK. Sonnet 4.6 caps far higher; 8192 is comfortable headroom
+        // without paying for unused output budget.
+        max_tokens: 8192,
+        system: recommendScoreSystemPrompt(),
+        messages: [{ role: "user", content: sections.join("\n\n") }],
+        output_config: {
+          format: zodOutputFormat(
+            ScoredCandidatesOutputSchema as unknown as Parameters<
+              typeof zodOutputFormat
+            >[0],
+          ),
+        },
       },
-    }, { signal: aiTimeoutSignal() }),
+      { signal: aiTimeoutSignal() },
+    ),
   );
 
   if (!response.parsed_output) {

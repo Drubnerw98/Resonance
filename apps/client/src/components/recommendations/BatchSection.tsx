@@ -6,12 +6,13 @@ import {
 } from "../../hooks/useRecommendations.ts";
 import { MediaCard } from "./MediaCard.tsx";
 import { DroppedPanel } from "./DroppedPanel.tsx";
+import { formatBatchDate } from "../../lib/formatDate.ts";
 
 /** Human-readable label for a batch. Prefer name → prompt → date. */
 function batchLabel(batch: BatchInfo): string {
   if (batch.name) return batch.name;
   if (batch.prompt) return `"${batch.prompt}"`;
-  return `Default · ${new Date(batch.createdAt).toLocaleDateString()}`;
+  return `Default · ${formatBatchDate(batch.createdAt)}`;
 }
 
 /**
@@ -90,7 +91,7 @@ export function BatchSection({
             {refining ? "Cancel" : "Refine"}
           </button>
           <span className="text-xs text-neutral-500">
-            {new Date(batch.createdAt).toLocaleDateString()} · {items.length}{" "}
+            {formatBatchDate(batch.createdAt)} · {items.length}{" "}
             {items.length === 1 ? "pick" : "picks"}
           </span>
         </div>

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, lt, notExists, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "../middleware/auth.js";
 import { validateUuidParam } from "../middleware/validateUuidParam.js";
@@ -170,6 +170,26 @@ recommendationsRouter.get("/active-job", async (req, res, next) => {
  */
 recommendationsRouter.get("/batches", async (req, res, next) => {
   try {
+    // Self-healing sweep: pick-less batches older than an hour are leftovers
+    // from generation failures that predate the discard-on-failure fix (or
+    // from a crash inside the discard window). The 1-hour grace keeps an
+    // in-flight generation's just-created row alive while its picks land.
+    await db.delete(recommendationBatches).where(
+      and(
+        eq(recommendationBatches.userId, req.user!.id),
+        lt(
+          recommendationBatches.createdAt,
+          new Date(Date.now() - 60 * 60 * 1000),
+        ),
+        notExists(
+          db
+            .select({ one: sql`1` })
+            .from(recommendations)
+            .where(eq(recommendations.batchId, recommendationBatches.id)),
+        ),
+      ),
+    );
+
     const rows = await db.query.recommendationBatches.findMany({
       where: eq(recommendationBatches.userId, req.user!.id),
       orderBy: [desc(recommendationBatches.createdAt)],
@@ -271,9 +291,10 @@ recommendationsRouter.get("/batches/:id/drops", async (req, res, next) => {
   }
 });
 
-function summarizeDropped(
-  dropped: DroppedCandidate[],
-): { count: number; byReason: Record<DroppedCandidateReason, number> } {
+function summarizeDropped(dropped: DroppedCandidate[]): {
+  count: number;
+  byReason: Record<DroppedCandidateReason, number>;
+} {
   const byReason: Record<DroppedCandidateReason, number> = {
     avoidance: 0,
     "disliked-title": 0,

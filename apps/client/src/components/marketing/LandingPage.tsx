@@ -79,6 +79,17 @@ function Hero() {
               →
             </span>
           </Link>
+          <Link
+            to="/demo"
+            className="group inline-flex items-baseline gap-2 text-[15px] text-neutral-300 transition-colors hover:text-neutral-100"
+          >
+            <span className="border-b border-neutral-700 pb-1 transition-colors group-hover:border-neutral-400">
+              Explore a live profile
+            </span>
+            <span aria-hidden className="text-emerald-300/60">
+              →
+            </span>
+          </Link>
           <a
             href="#how-it-works"
             className="text-[13px] text-neutral-500 transition-colors hover:text-neutral-200"
@@ -101,9 +112,8 @@ function Premise() {
     <section className="mx-auto max-w-3xl">
       <p className="editorial-drop-cap font-display text-2xl font-normal leading-[1.45] italic text-neutral-100 sm:text-[28px]">
         Most recommenders flatten you into a cohort. Resonance reads what
-        actually resonates: the themes, archetypes, and narrative shapes
-        you keep returning to. Then finds them across every format you
-        consume.
+        actually resonates: the themes, archetypes, and narrative shapes you
+        keep returning to. Then finds them across every format you consume.
       </p>
     </section>
   );
@@ -182,8 +192,8 @@ function ChatPreview() {
   return (
     <div className="space-y-2.5 text-[13px] leading-relaxed">
       <p className="text-neutral-500">
-        <span className="editorial-eyebrow mr-3">AI</span>What&apos;s a story that&apos;s
-        been living rent-free in your head?
+        <span className="editorial-eyebrow mr-3">AI</span>What&apos;s a story
+        that&apos;s been living rent-free in your head?
       </p>
       <p className="text-emerald-200/90">
         <span className="editorial-eyebrow mr-3 text-emerald-300/70">You</span>
@@ -247,11 +257,15 @@ function RecPreview() {
       </p>
       <p className="text-[13px] leading-relaxed text-neutral-300">
         Same fractured-interior architecture you found in{" "}
-        <em className="font-display not-italic text-neutral-100">No Longer Human</em>{" "}
+        <em className="font-display not-italic text-neutral-100">
+          No Longer Human
+        </em>{" "}
         and{" "}
-        <em className="font-display not-italic text-neutral-100">Goodnight Punpun</em>.
-        Multiple voices carrying the weight of a place that&apos;s already broken
-        them.
+        <em className="font-display not-italic text-neutral-100">
+          Goodnight Punpun
+        </em>
+        . Multiple voices carrying the weight of a place that&apos;s already
+        broken them.
       </p>
       <ul className="flex flex-wrap gap-x-3 gap-y-1 pt-1.5 text-[11px] text-neutral-500">
         <li className="editorial-eyebrow">Burden-carrying</li>
@@ -285,8 +299,8 @@ function Differentiator() {
           reads <em className="text-neutral-100">you</em>, not the cluster.
         </NotThis>
         <NotThis title="Not vibes-only">
-          Every recommendation is verified against a real metadata source.
-          TMDB, IGDB, Jikan, Open Library. No hallucinated titles.
+          Every recommendation is verified against a real metadata source. TMDB,
+          IGDB, Jikan, Open Library. No hallucinated titles.
         </NotThis>
       </div>
     </section>
@@ -305,9 +319,7 @@ function NotThis({
       <p className="font-display text-base font-medium text-neutral-100">
         {title}
       </p>
-      <p className="text-[14px] leading-relaxed text-neutral-400">
-        {children}
-      </p>
+      <p className="text-[14px] leading-relaxed text-neutral-400">{children}</p>
     </div>
   );
 }
@@ -359,9 +371,9 @@ function ClosingCta() {
         love.
       </h2>
       <p className="mt-6 max-w-xl text-[15px] leading-relaxed text-neutral-300">
-        Free to try. The first conversation takes about five minutes. You&apos;ll
-        have your taste profile and your first recommendation batch in under
-        ten.
+        Free to try. The first conversation takes about five minutes.
+        You&apos;ll have your taste profile and your first recommendation batch
+        in under ten.
       </p>
       <div className="mt-10 flex flex-wrap items-baseline gap-x-10 gap-y-4">
         <Link

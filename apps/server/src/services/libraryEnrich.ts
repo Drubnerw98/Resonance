@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { libraryItems, type LibraryItemRow } from "../db/schema.js";
 import { searchAndCacheByTitle } from "./mediaCache.js";
@@ -42,7 +42,10 @@ export async function enrichLibraryItem(
 
   try {
     const candidates = await searchAndCacheByTitle(row.mediaType, row.title);
-    if (candidates.length === 0) return row;
+    if (candidates.length === 0) {
+      await stampFailedAttempt(itemId);
+      return row;
+    }
 
     // Year-disambiguated pick when both the library row and a candidate
     // carry a year; otherwise first match (adapters return most-relevant
@@ -71,7 +74,30 @@ export async function enrichLibraryItem(
       },
       "libraryEnrich: failed, leaving item un-enriched",
     );
+    await stampFailedAttempt(itemId);
     return row;
+  }
+}
+
+/** How long a failed enrichment lookup suppresses retries. A week catches
+ * new TMDB/Jikan entries shortly after release without re-burning adapter
+ * budget on the same un-matchable title every page visit. */
+export const ENRICH_RETRY_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Record that an enrichment lookup ran and found nothing (or threw), so
+ * the drain skips this row until the retry interval elapses. Best-effort:
+ * a failure to stamp just means one extra retry later. */
+async function stampFailedAttempt(itemId: string): Promise<void> {
+  try {
+    await db
+      .update(libraryItems)
+      .set({ mediaCacheEnrichTriedAt: new Date() })
+      .where(eq(libraryItems.id, itemId));
+  } catch (err) {
+    logger.warn(
+      { itemId, err: err instanceof Error ? err.message : String(err) },
+      "libraryEnrich: failed to stamp attempt timestamp",
+    );
   }
 }
 
@@ -100,6 +126,16 @@ export async function enrichLibraryItemsForUser(
   const whereClauses = [
     eq(libraryItems.userId, userId),
     isNull(libraryItems.mediaCacheId),
+    // Skip rows whose last lookup failed within the retry interval —
+    // un-enrichable titles (rare indies, year-ambiguous imports) otherwise
+    // re-fire the same doomed adapter call on every /watchlist visit.
+    or(
+      isNull(libraryItems.mediaCacheEnrichTriedAt),
+      lt(
+        libraryItems.mediaCacheEnrichTriedAt,
+        new Date(Date.now() - ENRICH_RETRY_INTERVAL_MS),
+      ),
+    ),
   ];
   if (statusFilter !== "all") {
     whereClauses.push(eq(libraryItems.status, statusFilter));

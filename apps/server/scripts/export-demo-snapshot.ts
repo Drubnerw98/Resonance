@@ -90,8 +90,23 @@ if (!showcase) {
   console.error("No batch with >= 4 artwork-bearing recommendations found.");
   process.exit(1);
 }
-const picks = [...showcase.recommendations]
+// The demo wants a tasting flight, not the full batch: the strongest
+// pick in each format, capped at five formats. Strict top-N-by-score
+// collapses into one format (books, for this profile) and hides the
+// cross-format reach the page exists to demonstrate. totalPicks is
+// exported so the page can be honest about the cut.
+const DEMO_PICK_CAP = 5;
+const bestPerFormat = new Map<string, (typeof showcase.recommendations)[number]>();
+for (const r of showcase.recommendations) {
+  if (!r.media.normalizedData.imageUrl) continue;
+  const prev = bestPerFormat.get(r.media.mediaType);
+  if (!prev || r.matchScore > prev.matchScore) {
+    bestPerFormat.set(r.media.mediaType, r);
+  }
+}
+const picks = [...bestPerFormat.values()]
   .sort((a, b) => b.matchScore - a.matchScore)
+  .slice(0, DEMO_PICK_CAP)
   .map((r) => ({
     title: r.media.normalizedData.title,
     mediaType: r.media.mediaType,
@@ -110,6 +125,7 @@ const snapshot = {
     prompt: showcase.prompt,
     name: showcase.name,
     createdAt: showcase.createdAt,
+    totalPicks: showcase.recommendations.length,
     picks,
   },
 };

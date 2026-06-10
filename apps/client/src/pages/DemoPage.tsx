@@ -191,8 +191,8 @@ export function DemoPage() {
             </>
           )}
           <p className="text-xs text-neutral-500">
-            {formatBatchDate(batch.createdAt)} · {batch.picks.length}{" "}
-            {batch.picks.length === 1 ? "pick" : "picks"} · every title
+            {formatBatchDate(batch.createdAt)} · the strongest pick in each
+            format, from a {batch.totalPicks}-pick batch · every title
             verified against real metadata
           </p>
         </div>

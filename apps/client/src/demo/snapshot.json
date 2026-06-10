@@ -196,41 +196,50 @@
     }
   ],
   "batch": {
-    "prompt": "Just read Piranesi and adored it need more book's that well written with as much intrigue",
+    "prompt": "Just finished Red Dead Redemption 2 and I'm wrecked - that slow, earned tragedy. Give me that feeling again, any format.",
     "name": null,
-    "createdAt": "2026-05-11T01:21:44.785Z",
+    "createdAt": "2026-06-10T22:48:45.080Z",
+    "totalPicks": 18,
     "picks": [
       {
-        "title": "Jonathan Strange and Mr. Norrell",
+        "title": "The assassination of Jesse James by the coward, Robert Ford",
         "mediaType": "book",
-        "year": 2001,
-        "artworkUrl": "https://covers.openlibrary.org/b/id/525391-L.jpg",
-        "matchScore": 0.97,
-        "explanation": "Jonathan Strange & Mr Norrell is the single most obvious next book after Piranesi — both are Susanna Clarke novels built on the same obsessive prose architecture, the same sense of a world with deep rules you're only partly allowed to see, and the same quality of intrigue that feels genuinely earned rather than withheld. If Piranesi's labyrinthine logic and gorgeous strangeness landed, this is where you go next."
+        "year": 1984,
+        "artworkUrl": "https://covers.openlibrary.org/b/id/8003996-L.jpg",
+        "matchScore": 0.96,
+        "explanation": "This is the source text for the film you already have in your library — Ron Hansen's novel is the slower, more interior version of the same tragedy, and if the film's treatment of witnessing-as-destruction resonated, the book deepens every layer of Robert Ford's corrosive proximity to greatness. The RDR2 connection is direct: Rockstar drew heavily on Hansen's portrait of a dying mythology."
       },
       {
-        "title": "The Remains of the Day",
-        "mediaType": "book",
-        "year": 1989,
-        "artworkUrl": "https://covers.openlibrary.org/b/id/95742-L.jpg",
+        "title": "Red Dead Redemption",
+        "mediaType": "game",
+        "year": 2010,
+        "artworkUrl": "https://images.igdb.com/igdb/image/upload/t_cover_big/co2lcv.jpg",
         "matchScore": 0.95,
-        "explanation": "The Remains of the Day is among the finest novels written in English on the theme of quiet everyday devotion as accumulated moral weight — Stevens's lifelong service, rendered in Ishiguro's achingly precise prose, lands as one of the most devastating things the form can do. The intrigue here is interior and slow, exactly like Piranesi's, and the ending arrives as peaceful devastation in the same register as Ikiru."
+        "explanation": "The original Red Dead Redemption is the direct antecedent — John Marston's arc is the same earned tragedy engine that RDR2 built on, and experiencing the sequel's prologue as a full game is one of the most devastating examples of long-form weight paying off in the medium. If you haven't played it since finishing RDR2, the ending hits completely differently now."
       },
       {
-        "title": "The Secret History",
-        "mediaType": "book",
+        "title": "Unforgiven",
+        "mediaType": "movie",
         "year": 1992,
-        "artworkUrl": "https://covers.openlibrary.org/b/id/744854-L.jpg",
+        "artworkUrl": "https://image.tmdb.org/t/p/w500/54roTwbX9fltg85zjsmrooXAs12.jpg",
         "matchScore": 0.92,
-        "explanation": "The Secret History is exactly the kind of intrigue Piranesi gestured at — a closed, beautiful world with a terrible secret at its centre, and a narrator whose gradual understanding of what he's complicit in is the engine of the whole novel. Donna Tartt writes with the same precision and atmosphere Clarke does, and the book refuses to let anyone off the hook for what happens."
+        "explanation": "Unforgiven is the film that RDR2 most directly rhymes with tonally — Munny's arc is the same slow reckoning with a violent past that can never be outrun, and Eastwood shoots the West the way the game renders it: beautiful, indifferent, unforgiving. The final act denies catharsis while still feeling completely, devastatingly closed."
       },
       {
-        "title": "Monster",
+        "title": "In This Corner of the World",
         "mediaType": "anime",
-        "year": 2004,
-        "artworkUrl": "https://cdn.myanimelist.net/images/anime/10/18793l.jpg",
+        "year": 2016,
+        "artworkUrl": "https://cdn.myanimelist.net/images/anime/2/87704l.jpg",
         "matchScore": 0.88,
-        "explanation": "Monster is the anime equivalent of the kind of literary thriller Piranesi belongs to — obsessive, architecturally precise, with a mystery whose stakes gradually reveal themselves as something genuinely philosophical. The accountability-without-shortcuts theme is as strong here as anywhere in Berserk or Bojack, and Urasawa's control over long-form accumulated weight is arguably unmatched in the medium."
+        "explanation": "In This Corner of the World is doing RDR2's most devastating trick — ordinary life accumulating quiet weight as the world ends around it. Suzu's endurance through wartime Hiroshima is the 'ordinary endurance as heroism' archetype at its most distilled: she doesn't transform or transcend, she simply continues, and the film makes that continuation feel like the most morally serious thing a person can do."
+      },
+      {
+        "title": "Blade of the Immortal",
+        "mediaType": "manga",
+        "year": 1993,
+        "artworkUrl": "https://cdn.myanimelist.net/images/manga/1/279869l.jpg",
+        "matchScore": 0.87,
+        "explanation": "Blade of the Immortal is Berserk's formal companion for this mood — a swordsman carrying a debt he can never fully repay, accumulating damage across a long brutal arc in feudal Japan. Manji's immortality is a curse framed exactly like RDR2's late-game mortality: not a gift but a weight, and the question is what it costs to keep going. Hiroaki Samura's art holds beauty and carnage in the same frame the way the game does."
       }
     ]
   }
